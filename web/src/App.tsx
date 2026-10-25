@@ -1,50 +1,64 @@
+import { useState } from "react";
 import styles from "./App.module.css";
+import { ActionBar } from "./components/ActionBar";
+import { Activity } from "./components/Activity";
+import { Agents } from "./components/Agents";
 import { Board } from "./components/Board";
-import { EventLog } from "./components/EventLog";
+import { DetailPanel } from "./components/DetailPanel";
 import { Icon } from "./components/Icon";
-import { Models } from "./components/Models";
-import { StatusBadge } from "./components/StatusBadge";
-import { useEventStream } from "./useEventStream";
+import { Onboarding } from "./components/Onboarding";
+import { PolicyPanel } from "./components/PolicyPanel";
+import { TopBar } from "./components/TopBar";
+import { useNow } from "./useNow";
+import { useSession } from "./useSession";
 
-interface Props {
-  session: string;
-}
-
-export function App({ session }: Props) {
-  const stream = useEventStream(session);
+export function App() {
+  const session = useSession();
+  const { board } = session;
+  const [open, setOpen] = useState<number | null>(null);
+  const [rules, setRules] = useState(false);
+  const now = useNow(board.run === "running");
 
   return (
     <>
       <a className={styles.skip} href="#main">
         Skip to the board
       </a>
-      <header className={styles.bar}>
-        <div className={styles.brand}>
-          <Icon name="mark" className={styles.mark} />
-          <span className={styles.name}>Upkeep</span>
-        </div>
-        <p className={styles.tagline}>Keeps your pull requests mergeable.</p>
-        <StatusBadge status={stream.status} version={stream.version} />
-      </header>
+      <TopBar connection={board.connection} version={board.version} info={session.info} />
       <main id="main" className={styles.main} tabIndex={-1}>
-        <section className={styles.toolbar} aria-label="Queue">
-          <button type="button" className={styles.work} disabled>
-            <Icon name="play" className={styles.play} />
-            Work the queue
-          </button>
-          <p className={styles.hint}>
-            The queue runner arrives in a later build. This page already listens to the live event
-            stream.
+        {board.closed ? (
+          <p className={styles.notice} role="note">
+            <Icon name="alert" className={styles.noticeIcon} />
+            This session ended. Press the button to start a new one.
           </p>
-        </section>
+        ) : null}
+        {board.notices.map((n) => (
+          <p key={n} className={styles.notice} role="note">
+            <Icon name="alert" className={styles.noticeIcon} />
+            {n}
+          </p>
+        ))}
+        <ActionBar
+          board={board}
+          busy={session.busy}
+          error={session.error}
+          now={now}
+          onStart={() => void session.start()}
+          onRules={() => setRules(true)}
+        />
+        {board.run === "idle" ? <Onboarding /> : null}
         <div className={styles.layout}>
-          <Board />
+          <Board board={board} now={now} onOpen={setOpen} />
           <div className={styles.rail}>
-            <Models />
-            <EventLog events={stream.events} session={stream.session} />
+            <Agents board={board} />
+            <Activity log={board.log} session={board.session} />
           </div>
         </div>
       </main>
+      {open !== null ? (
+        <DetailPanel number={open} load={session.detail} onClose={() => setOpen(null)} />
+      ) : null}
+      {rules ? <PolicyPanel info={session.info} onClose={() => setRules(false)} /> : null}
     </>
   );
 }

@@ -3,7 +3,14 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-sunken);
-  --delay: 250ms;
+  animation: rise var(--base) var(--ease) 250ms both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 
 .head {
@@ -39,41 +46,50 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font: 12px/1.9 var(--mono);
-  color: var(--fg);
+  font: 12px/1.7 var(--mono);
 }
 
 .events li {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
 }
 
 .events li::before {
   content: "";
   flex: none;
+  align-self: center;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--dot);
 }
 
-.events li[data-kind="pr.blocker"] {
+.events li[data-tone="danger"] {
   --dot: var(--danger);
 }
 
-.events li[data-kind="pr.step"],
-.events li[data-kind="model.call"],
-.events li[data-kind="tool.call"] {
+.events li[data-tone="warn"] {
   --dot: var(--warn);
 }
 
-.events li[data-kind="verify.result"],
-.events li[data-kind="receipt"] {
+.events li[data-tone="info"] {
   --dot: var(--info);
 }
 
-.events li[data-kind="action"],
-.events li[data-kind="run.finished"] {
+.events li[data-tone="accent"] {
   --dot: var(--accent);
+}
+
+.who {
+  flex: none;
+  min-width: 28px;
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.text {
+  min-width: 0;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
 }

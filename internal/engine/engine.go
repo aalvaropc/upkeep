@@ -229,7 +229,7 @@ func (p Processor) forecast(ctx context.Context, res *Result, job *strategy.Job)
 		job.Receipt.AddCall(role, cost.Model, cost.Usage, cost.Charge, cost.Latency)
 		p.emit(res, events.ModelCall, map[string]any{
 			"model": cost.Model, "role": string(role), "latency_ms": cost.Latency.Milliseconds(), "prompt": cost.Usage.PromptTokens,
-			"completion": cost.Usage.CompletionTokens, "reasoning": cost.Usage.ReasoningTokens, "micros": cost.Charge.Micros,
+			"completion": cost.Usage.CompletionTokens, "reasoning": cost.Usage.ReasoningTokens, "micros": cost.Charge.Micros, "baseline_micros": cost.Charge.BaselineMicros,
 		})
 	}
 	if err != nil {
@@ -427,11 +427,17 @@ func (p Processor) summarize(ctx context.Context, res *Result, job *strategy.Job
 		paths[i] = c.Path
 	}
 	edited := "Edited " + strings.Join(paths, ", ") + "."
+	if len(paths) == 0 {
+		edited = "Merged " + strings.TrimPrefix(job.Base, "origin/") + " into the branch."
+	}
 	switch res.Blocker {
 	case pull.Behind:
 		return "Merged " + strings.TrimPrefix(job.Base, "origin/") + " into the branch; nothing conflicted."
 	case pull.Format:
 		return "Formatted " + strings.Join(paths, ", ") + " with gofmt."
+	}
+	if res.Blocker == pull.ConflictSmall && len(paths) == 0 {
+		return "Resolved the conflict with " + strings.TrimPrefix(job.Base, "origin/") + " and merged it into the branch."
 	}
 	if !env.CanExplain() {
 		return edited

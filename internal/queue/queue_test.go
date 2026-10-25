@@ -136,6 +136,25 @@ func TestEveryOpenRequestIsWorkedAndAnnounced(t *testing.T) {
 	}
 }
 
+func TestTheFinishedEventCarriesHowLongTheRequestTook(t *testing.T) {
+	p := &scripted{t: t, results: map[int]engine.Result{}, gate: func(int) { time.Sleep(40 * time.Millisecond) }}
+	r, _, log := newRunner(t, p)
+	if _, err := r.Run(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range log.kinds(events.PRDone) {
+		var data struct {
+			DurationMS int64 `json:"duration_ms"`
+		}
+		if err := json.Unmarshal(e.Data, &data); err != nil {
+			t.Fatal(err)
+		}
+		if data.DurationMS < 30 {
+			t.Fatalf("#%d reported %d ms for a request that took at least 40", e.PR, data.DurationMS)
+		}
+	}
+}
+
 func TestRequestsStartInNumberOrder(t *testing.T) {
 	p := &scripted{t: t, results: map[int]engine.Result{}}
 	r, _, _ := newRunner(t, p)
