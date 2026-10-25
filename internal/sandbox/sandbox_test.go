@@ -71,8 +71,8 @@ func TestCleanEnviron(t *testing.T) {
 
 func TestBoundedBufferKeepsSmallOutput(t *testing.T) {
 	b := newBoundedBuffer()
-	b.Write([]byte("hello "))
-	b.Write([]byte("world"))
+	_, _ = b.Write([]byte("hello "))
+	_, _ = b.Write([]byte("world"))
 	if b.String() != "hello world" || b.truncated() {
 		t.Fatalf("buffer = %q truncated %v", b.String(), b.truncated())
 	}
@@ -80,8 +80,8 @@ func TestBoundedBufferKeepsSmallOutput(t *testing.T) {
 
 func TestBoundedBufferAtTheBoundary(t *testing.T) {
 	b := newBoundedBuffer()
-	b.Write([]byte(strings.Repeat("a", headLimit)))
-	b.Write([]byte(strings.Repeat("b", tailLimit)))
+	_, _ = b.Write([]byte(strings.Repeat("a", headLimit)))
+	_, _ = b.Write([]byte(strings.Repeat("b", tailLimit)))
 	got := b.String()
 	if b.truncated() || len(got) != headLimit+tailLimit || strings.Contains(got, "truncated") {
 		t.Fatalf("exactly at the limit nothing is dropped: len %d truncated %v", len(got), b.truncated())
@@ -93,11 +93,11 @@ func TestBoundedBufferAtTheBoundary(t *testing.T) {
 
 func TestBoundedBufferTruncatesTheMiddle(t *testing.T) {
 	b := newBoundedBuffer()
-	b.Write([]byte("HEAD-"))
+	_, _ = b.Write([]byte("HEAD-"))
 	for i := 0; i < 300; i++ {
-		b.Write([]byte(strings.Repeat("x", 1000)))
+		_, _ = b.Write([]byte(strings.Repeat("x", 1000)))
 	}
-	b.Write([]byte("-TAIL"))
+	_, _ = b.Write([]byte("-TAIL"))
 	got := b.String()
 	if !b.truncated() || !strings.HasPrefix(got, "HEAD-") || !strings.HasSuffix(got, "-TAIL") || !strings.Contains(got, "output truncated") {
 		t.Fatalf("truncated %v, prefix %q, suffix %q", b.truncated(), got[:8], got[len(got)-8:])
@@ -109,14 +109,14 @@ func TestBoundedBufferTruncatesTheMiddle(t *testing.T) {
 
 func TestBoundedBufferTailIsTheLastBytes(t *testing.T) {
 	b := newBoundedBuffer()
-	b.Write([]byte(strings.Repeat("h", headLimit)))
+	_, _ = b.Write([]byte(strings.Repeat("h", headLimit)))
 	var all strings.Builder
 	for i := 0; i < 5000; i++ {
 		line := strings.Repeat("0123456789", 3) + "\n"
 		all.WriteString(line)
-		b.Write([]byte(line))
+		_, _ = b.Write([]byte(line))
 	}
-	b.Write([]byte("LAST-LINE\n"))
+	_, _ = b.Write([]byte("LAST-LINE\n"))
 	all.WriteString("LAST-LINE\n")
 	tail := b.tailBytes()
 	if len(tail) != tailLimit || string(tail) != all.String()[all.Len()-tailLimit:] {

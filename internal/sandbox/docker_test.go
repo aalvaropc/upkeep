@@ -183,7 +183,7 @@ func TestDockerTimeoutKillsTheContainer(t *testing.T) {
 		t.Fatalf("result = %+v, want a timeout", res)
 	}
 	time.Sleep(500 * time.Millisecond)
-	out, err := exec.Command("docker", "ps", "-q", "--filter", "name=upkeep-").Output()
+	out, err := exec.CommandContext(t.Context(), "docker", "ps", "-q", "--filter", "name=upkeep-").Output()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -128,7 +128,7 @@ func (r GoRunner) check(ctx context.Context, dir string) (Report, error) {
 
 func TreeKey(dir, variant string) (string, error) {
 	h := sha256.New()
-	io.WriteString(h, variant)
+	fmt.Fprint(h, variant)
 	h.Write([]byte{0})
 	root, err := filepath.Abs(dir)
 	if err != nil {
