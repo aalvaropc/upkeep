@@ -47,9 +47,19 @@ type Request struct {
 }
 
 type Usage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	ReasoningTokens  int `json:"reasoning_tokens"`
+	PromptTokens       int `json:"prompt_tokens"`
+	CompletionTokens   int `json:"completion_tokens"`
+	ReasoningTokens    int `json:"reasoning_tokens"`
+	CachedPromptTokens int `json:"cached_prompt_tokens"`
+}
+
+func (u Usage) Add(o Usage) Usage {
+	return Usage{
+		PromptTokens:       u.PromptTokens + o.PromptTokens,
+		CompletionTokens:   u.CompletionTokens + o.CompletionTokens,
+		ReasoningTokens:    u.ReasoningTokens + o.ReasoningTokens,
+		CachedPromptTokens: u.CachedPromptTokens + o.CachedPromptTokens,
+	}
 }
 
 func (u Usage) Total() int { return u.PromptTokens + u.CompletionTokens }

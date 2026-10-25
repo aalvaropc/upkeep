@@ -57,7 +57,7 @@ func TestUsageTotal(t *testing.T) {
 }
 
 func TestStubsSayNotImplemented(t *testing.T) {
-	for _, m := range []Model{&TokenFactory{}, &Recorder{}, &Replayer{}} {
+	for _, m := range []Model{&Recorder{}, &Replayer{}} {
 		if _, err := m.Complete(t.Context(), Request{}); !errors.Is(err, errors.ErrUnsupported) {
 			t.Errorf("%T.Complete error = %v, want ErrUnsupported", m, err)
 		}

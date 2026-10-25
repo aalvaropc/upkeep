@@ -69,6 +69,8 @@ One Go binary is both the command line and the server. The standard library does
 
 `make check` runs the same checks as CI: formatting, `go mod tidy`, the dependency allowlist, the no-comments rule, `go vet`, golangci-lint, the tests with the race detector, the dashboard's formatting, types and tests, and the build.
 
+Tests that call Token Factory are skipped unless you opt in: `UPKEEP_LIVE_TESTS=1 go test ./internal/model -run Live -v` with `NEBIUS_API_KEY` set. They cost a fraction of a cent.
+
 The code has no comments. Names and tests carry the meaning; the only exception is the `//go:embed` directive. `go run ./internal/tools/nocomments .` enforces it for Go, and `npm run nocomments` in `web` for TypeScript, CSS and HTML.
 
 Every pull request targets `main` and is merged with a merge commit once the `pr-targets-main`, `gitleaks`, `test`, `web` and `build` checks pass.
