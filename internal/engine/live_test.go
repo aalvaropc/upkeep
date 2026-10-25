@@ -10,17 +10,20 @@ import (
 
 	"github.com/aalvaropc/upkeep/internal/config"
 	"github.com/aalvaropc/upkeep/internal/events"
+	"github.com/aalvaropc/upkeep/internal/forecast"
+	"github.com/aalvaropc/upkeep/internal/github"
 	"github.com/aalvaropc/upkeep/internal/gitx"
 	"github.com/aalvaropc/upkeep/internal/model"
 	"github.com/aalvaropc/upkeep/internal/policy"
 	"github.com/aalvaropc/upkeep/internal/pull"
 	"github.com/aalvaropc/upkeep/internal/sandbox"
 	"github.com/aalvaropc/upkeep/internal/strategy"
+	"github.com/aalvaropc/upkeep/internal/tavily"
 )
 
 const sampleRepository = "https://github.com/aalvaropc/upkeep-sample.git"
 
-func liveRun(t *testing.T, notes string) Result {
+func liveRun(t *testing.T, withForecast bool) Result {
 	t.Helper()
 	if os.Getenv("UPKEEP_LIVE_TESTS") != "1" {
 		t.Skip("set UPKEEP_LIVE_TESTS=1 and NEBIUS_API_KEY to call Token Factory")
@@ -80,6 +83,15 @@ func liveRun(t *testing.T, notes string) Result {
 			}
 		},
 	}
+	if withForecast && cfg.TavilyAPIKey.IsSet() {
+		env.Forecaster = forecast.Forecaster{
+			Releases:  forecast.GitHubReleases{Client: &github.Client{Token: cfg.GitHubToken}},
+			Search:    tavily.New(cfg.TavilyAPIKey, forecast.Domains("github.com/golang-jwt/jwt/v5")...),
+			Model:     tf,
+			ModelName: cfg.Models.Nano,
+			Meter:     env.Meter,
+		}
+	}
 	pr := pull.Request{
 		Number: 5,
 		Title:  "Bump github.com/golang-jwt/jwt/v4 to v5.3.1",
@@ -89,15 +101,18 @@ func liveRun(t *testing.T, notes string) Result {
 		Bump:   &pull.Bump{Module: "github.com/golang-jwt/jwt/v5", From: "v4.5.2", To: "v5.3.1", Level: pull.Major},
 	}
 	began := time.Now()
-	res := Processor{Env: env}.Process(t.Context(), Input{PR: pr, Dir: dir, Base: "origin/main", Notes: notes})
+	res := Processor{Env: env}.Process(t.Context(), Input{PR: pr, Dir: dir, Base: "origin/main"})
 	totals := res.Receipt.Totals()
 	t.Logf("outcome %s after %s: blocker %s, %d attempts, %d model calls, %d prompt and %d completion tokens, %d micro-USD (%d at the baseline)",
 		res.Outcome, time.Since(began).Round(time.Second), res.Blocker, res.Attempts, totals.Calls, totals.Usage.PromptTokens, totals.Usage.CompletionTokens, totals.Charge.Micros, totals.Charge.BaselineMicros)
+	if res.Forecast != nil {
+		t.Logf("forecast: %d breaking changes (%d dropped as not grounded), confirmed by the build: %v, not seen: %v", len(res.Forecast.Breaking), res.Forecast.Dropped, res.Confirmed, res.Missed)
+	}
 	return res
 }
 
 func TestLiveMajorDependencyBump(t *testing.T) {
-	res := liveRun(t, "")
+	res := liveRun(t, true)
 	if res.Err != nil {
 		t.Fatal(res.Err)
 	}

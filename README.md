@@ -57,10 +57,10 @@ One Go binary is both the command line and the server. The standard library does
 | `internal/verify` | the checklist every fix must pass, computed outside the model: build, vet, tests, size limits, tests untouched |
 | `internal/policy` | what Upkeep may do on its own |
 | `internal/model` | Nemotron on Token Factory, routed by role (Ultra, Super, Nano), with record and replay |
-| `internal/forecast` | release notes and search results that predict what a dependency bump breaks |
+| `internal/forecast` | for a dependency upgrade, reads the release notes (GitHub) and the migration guide (Tavily), and has Nano list what will break; only symbols that appear in the sources are kept, and the build later confirms or refutes each one |
 | `internal/sandbox` | runs builds and tests in a container without network access |
 | `internal/gitx` | git operations; there is no way to force-push |
-| `internal/github`, `internal/tavily` | API clients |
+| `internal/github`, `internal/tavily` | GitHub releases and Tavily search clients |
 | `internal/fixture` | stores recorded exchanges for replay |
 | `internal/store`, `internal/events`, `internal/web` | SQLite audit trail, live events, the HTTP server and the event stream |
 | `web` | the dashboard: React and TypeScript, built with Vite and embedded in the binary |
