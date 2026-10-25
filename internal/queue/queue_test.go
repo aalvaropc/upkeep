@@ -191,14 +191,14 @@ func TestAFixIsPushedToTheBranchWhenThePolicyAllowsIt(t *testing.T) {
 }
 
 func TestAFixIsAttachedAsAPatchWhenPushingIsNotAllowed(t *testing.T) {
-	p := &scripted{t: t, results: map[int]engine.Result{1: {Outcome: pull.Mergeable, Changed: true, WantsPatch: true, Patch: "diff --git a/x b/x\n+line\n", Flaky: []string{"TestOrder"}}}}
+	p := &scripted{t: t, results: map[int]engine.Result{1: {Outcome: pull.Mergeable, Changed: true, WantsPatch: true, Patch: "diff --git a/x b/x\n+line\n", Flaky: []string{"TestOrder"}, Summary: "Adds the missing guard."}}}
 	r, f, _ := newRunner(t, p)
 	s, err := r.Run(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
 	c := comments(f, 1, "patch")
-	if len(c) != 1 || !strings.Contains(c[0].Body, "```diff\ndiff --git a/x b/x\n+line\n```") || !strings.Contains(c[0].Body, "TestOrder") {
+	if len(c) != 1 || !strings.Contains(c[0].Body, "```diff\ndiff --git a/x b/x\n+line\n```") || !strings.Contains(c[0].Body, "TestOrder") || !strings.Contains(c[0].Body, "Adds the missing guard.") {
 		t.Fatalf("patch comment = %+v", c)
 	}
 	if got := item(t, s, 1); got.Actions[0].Kind != "patch" || got.Outcome != pull.Mergeable {
@@ -269,14 +269,14 @@ func TestAReceiptIsPostedWithEveryModelUsed(t *testing.T) {
 	rec := receipt.New()
 	rec.AddCall(model.Super, "nvidia/super", model.Usage{PromptTokens: 1000, CompletionTokens: 200}, model.Charge{Micros: 7100, BaselineMicros: 26000, Known: true}, time.Second)
 	rec.AddAttempt()
-	p := &scripted{t: t, results: map[int]engine.Result{1: {Outcome: pull.Mergeable, Receipt: rec}}}
+	p := &scripted{t: t, results: map[int]engine.Result{1: {Outcome: pull.Mergeable, Receipt: rec, Summary: "Renames the call."}}}
 	r, f, _ := newRunner(t, p)
 	s, err := r.Run(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
 	c := comments(f, 1, "receipt")
-	if len(c) != 1 || !strings.Contains(c[0].Body, "nvidia/super") || !strings.Contains(c[0].Body, "$0.0071") || !strings.Contains(c[0].Body, "$0.0260") || !strings.Contains(c[0].Body, "not a claim") {
+	if len(c) != 1 || !strings.Contains(c[0].Body, "nvidia/super") || !strings.Contains(c[0].Body, "$0.0071") || !strings.Contains(c[0].Body, "$0.0260") || !strings.Contains(c[0].Body, "not a claim") || !strings.HasPrefix(c[0].Body, "Upkeep receipt\n\nRenames the call.") {
 		t.Fatalf("receipt comment = %+v", c)
 	}
 	if s.Totals.Charge.Micros != 7100 || s.Totals.Calls != 1 {

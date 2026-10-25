@@ -153,7 +153,8 @@ func (r *Runtime) networked(ctx context.Context, mode config.Mode, cache fixture
 	f := forecast.Forecaster{
 		Releases:  forecast.GitHubReleases{Client: &github.Client{Token: cfg.GitHubToken}},
 		Model:     base,
-		ModelName: cfg.Models.Nano,
+		ModelName: cfg.Models.Super,
+		Role:      model.Super,
 		Meter:     meter,
 		Cache:     cache,
 	}

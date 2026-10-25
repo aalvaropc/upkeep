@@ -83,6 +83,7 @@ type world struct {
 	dir    string
 	super  *scripted
 	ultra  *scripted
+	nano   *scripted
 	events []events.Kind
 	steps  []string
 	mu     sync.Mutex
@@ -175,7 +176,10 @@ func (w *world) process(pr pull.Request) Result {
 	router := model.NewRouter()
 	router.Set(model.Ultra, "ultra", w.ultra)
 	router.Set(model.Super, "super", w.super)
-	book := model.PriceBook{"super": {InputPerMillion: 0.3, OutputPerMillion: 0.9}, "ultra": {InputPerMillion: 1, OutputPerMillion: 3}}
+	if w.nano != nil {
+		router.Set(model.Nano, "nano", w.nano)
+	}
+	book := model.PriceBook{"super": {InputPerMillion: 0.3, OutputPerMillion: 0.9}, "ultra": {InputPerMillion: 1, OutputPerMillion: 3}, "nano": {InputPerMillion: 0.06, OutputPerMillion: 0.24}}
 	env := strategy.Env{
 		Forecaster: w.fc,
 		Git:        w.git,
@@ -654,7 +658,7 @@ func newForecast() *fakeForecaster {
 			Breaking:  []forecast.Change{{Symbol: "m.Add", Description: "renamed to Sum"}, {Symbol: "m.Gone", Description: "removed"}},
 			FetchedAt: time.Date(2026, 10, 28, 0, 0, 0, 0, time.UTC),
 		},
-		cost: forecast.Cost{Model: "nano", Usage: model.Usage{PromptTokens: 5000, CompletionTokens: 300}, Charge: model.Charge{Micros: 372, BaselineMicros: 6000, Known: true}, Latency: time.Second},
+		cost: forecast.Cost{Role: model.Super, Model: "super", Usage: model.Usage{PromptTokens: 5000, CompletionTokens: 300}, Charge: model.Charge{Micros: 372, BaselineMicros: 6000, Known: true}, Latency: time.Second},
 	}
 }
 
@@ -679,13 +683,9 @@ func TestDependencyForecastFeedsTheRepair(t *testing.T) {
 	if len(res.Confirmed) != 1 || res.Confirmed[0] != "m.Add" || len(res.Missed) != 1 || res.Missed[0] != "m.Gone" {
 		t.Fatalf("confirmed %v missed %v", res.Confirmed, res.Missed)
 	}
-	var nano, super bool
-	for _, l := range res.Receipt.Lines() {
-		nano = nano || (l.Role == model.Nano && l.Calls == 1 && l.Usage.PromptTokens == 5000 && l.Charge.Micros == 372)
-		super = super || l.Role == model.Super
-	}
-	if !nano || !super {
-		t.Fatalf("the receipt should show Nano reading and Super fixing: %+v", res.Receipt.Lines())
+	lines := res.Receipt.Lines()
+	if len(lines) != 1 || lines[0].Role != model.Super || lines[0].Calls != 1+w.super.count() || lines[0].Usage.PromptTokens < 5000 {
+		t.Fatalf("the receipt should show Super reading the notes and then fixing: %+v", lines)
 	}
 	found := false
 	for _, s := range w.steps {
@@ -703,7 +703,7 @@ func TestACachedForecastCostsNothing(t *testing.T) {
 	w.fc = fc
 	res := w.process(dependencyPR())
 	for _, l := range res.Receipt.Lines() {
-		if l.Role == model.Nano {
+		if l.Calls != w.super.count() {
 			t.Fatalf("a cached forecast was charged: %+v", l)
 		}
 	}
@@ -733,9 +733,72 @@ func TestAFailedForecastDoesNotStopTheRepair(t *testing.T) {
 		t.Fatalf("steps = %v", w.steps)
 	}
 	for _, l := range res.Receipt.Lines() {
-		if l.Role == model.Nano && l.Calls != 1 {
+		if l.Calls != 1+w.super.count() {
 			t.Fatalf("the tokens spent on a failed forecast still count: %+v", l)
 		}
+	}
+}
+
+func TestAVerifiedChangeIsExplainedByNano(t *testing.T) {
+	w := renameWorld(t, renameFix(), nil)
+	w.nano = &scripted{steps: []step{{content: "  Renames the call to Add so the package builds again.  ", usage: model.Usage{PromptTokens: 700, CompletionTokens: 20}}}}
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.Mergeable || !res.Changed {
+		t.Fatalf("result = %+v", res)
+	}
+	if res.Summary != "Renames the call to Add so the package builds again." {
+		t.Fatalf("summary = %q", res.Summary)
+	}
+	if w.nano.count() != 1 {
+		t.Fatalf("%d Nano calls, want 1", w.nano.count())
+	}
+	req := w.nano.requests[0].Messages[1].Content
+	if !strings.Contains(req, "What was failing:") || !strings.Contains(req, "```diff") || !strings.Contains(req, "Pull request:") {
+		t.Fatalf("the explanation prompt lacks the failure or the diff:\n%s", req)
+	}
+	if res.Failure == "" || !strings.Contains(res.Failure, "failed") {
+		t.Fatalf("the repaired failure was not kept: %q", res.Failure)
+	}
+	roles := map[model.Role]int{}
+	for _, l := range res.Receipt.Lines() {
+		roles[l.Role] += l.Calls
+	}
+	if roles[model.Nano] != 1 || roles[model.Super] == 0 {
+		t.Fatalf("the receipt should show Super fixing and Nano explaining: %+v", res.Receipt.Lines())
+	}
+}
+
+func TestNothingIsExplainedWhenNothingChanged(t *testing.T) {
+	w := newWorld(t, nil, nil)
+	w.nano = &scripted{}
+	res := w.process(person())
+	if res.Summary != "" || w.nano.count() != 0 {
+		t.Fatalf("summary %q after %d Nano calls for a pull request that needed no change", res.Summary, w.nano.count())
+	}
+}
+
+func TestAFailedExplanationDoesNotStopTheFix(t *testing.T) {
+	w := renameWorld(t, renameFix(), nil)
+	w.nano = &scripted{steps: []step{{err: errors.New("the model is busy")}}}
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.Mergeable || res.Err != nil || res.Summary != "Edited caller.go." {
+		t.Fatalf("result = %+v", res)
+	}
+	failed := false
+	for _, s := range w.steps {
+		failed = failed || s == "explain:failed"
+	}
+	if !failed {
+		t.Fatalf("steps = %v", w.steps)
+	}
+}
+
+func TestAnExplanationThatInventsThingsIsDropped(t *testing.T) {
+	w := renameWorld(t, renameFix(), nil)
+	w.nano = &scripted{steps: []step{{content: "Switches the Registry to use Bounded Caches for the Sum call."}}}
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.Mergeable || res.Summary != "Edited caller.go." {
+		t.Fatalf("summary = %q for an explanation that names things the change does not contain", res.Summary)
 	}
 }
 
