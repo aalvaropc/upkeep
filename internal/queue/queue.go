@@ -48,6 +48,7 @@ type Runner struct {
 	Work      string
 	Base      string
 	Parallel  int
+	Done      func(Item)
 }
 
 func (r Runner) emit(kind events.Kind, pr int, data any) {
@@ -142,6 +143,9 @@ func (r Runner) finish(ctx context.Context, it *Item) {
 		"outcome": string(it.Outcome), "blocker": string(res.Blocker), "reason": res.Reason, "attempts": res.Attempts,
 		"changed": res.Changed, "flaky": res.Flaky, "actions": it.Actions,
 	})
+	if r.Done != nil {
+		r.Done(*it)
+	}
 }
 
 func (r Runner) record(it *Item, a Action) bool {
