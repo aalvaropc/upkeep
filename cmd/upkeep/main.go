@@ -20,7 +20,7 @@ commands:
   run       work the open pull requests of a repository
   demo      serve the hosted demo with isolated sessions
   record    run the demo scenario live and record every external call
-  eval      run the demo scenario and write outcome metrics
+  eval      run the demo scenario and write the outcomes and costs
   version   print the version
 `
 
@@ -50,7 +50,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, environ [
 		err = scenarioCommand(ctx, args[1:], stdout, stderr)
 	case "demo":
 		err = demoCommand(ctx, args[1:], stdout, stderr, environ)
-	case "run", "record", "eval":
+	case "record":
+		err = recordCommand(ctx, args[1:], stdout, stderr, environ)
+	case "eval":
+		err = evalCommand(ctx, args[1:], stdout, stderr, environ)
+	case "run":
 		err = stub.Err(args[0])
 	default:
 		fmt.Fprintf(stderr, "upkeep: unknown command %q\n\n%s", args[0], usage)

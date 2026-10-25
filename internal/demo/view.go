@@ -19,9 +19,10 @@ var ErrNoPull = errors.New("unknown pull request")
 
 type PRView struct {
 	forge.View
-	Outcome pull.Outcome   `json:"outcome,omitempty"`
-	Blocker pull.Blocker   `json:"blocker,omitempty"`
-	Actions []queue.Action `json:"actions,omitempty"`
+	Outcome    pull.Outcome   `json:"outcome,omitempty"`
+	Blocker    pull.Blocker   `json:"blocker,omitempty"`
+	Actions    []queue.Action `json:"actions,omitempty"`
+	DurationMS int64          `json:"duration_ms,omitempty"`
 }
 
 type Snapshot struct {
@@ -99,7 +100,7 @@ func (s *Session) Snapshot(ctx context.Context) Snapshot {
 }
 
 func prView(v forge.View, it queue.Item) PRView {
-	return PRView{View: v, Outcome: it.Outcome, Blocker: it.Result.Blocker, Actions: it.Actions}
+	return PRView{View: v, Outcome: it.Outcome, Blocker: it.Result.Blocker, Actions: it.Actions, DurationMS: it.Duration.Milliseconds()}
 }
 
 func (s *Session) Detail(ctx context.Context, number int) (Detail, error) {

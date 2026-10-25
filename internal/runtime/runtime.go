@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 
 	"github.com/aalvaropc/upkeep/internal/config"
@@ -29,13 +28,14 @@ const (
 )
 
 type Options struct {
-	Config      config.Config
-	Policy      policy.Policy
-	Git         gitx.Git
-	FixturesDir string
-	CacheDir    string
-	Pace        float64
-	Logger      *slog.Logger
+	Config   config.Config
+	Policy   policy.Policy
+	Git      gitx.Git
+	Fixtures fixture.Store
+	Record   fixture.Store
+	CacheDir string
+	Pace     float64
+	Logger   *slog.Logger
 }
 
 type set struct {
@@ -84,8 +84,11 @@ func New(ctx context.Context, o Options) (*Runtime, error) {
 	}
 	r.runner = sandbox.GoRunner{Executor: r.executor, Cache: fixture.Dir{Path: filepath.Join(o.CacheDir, "reports")}}
 
-	fixtures := fixture.Dir{Path: o.FixturesDir}
 	r.Budget = &Budget{Path: filepath.Join(o.CacheDir, "usage.json"), Limit: o.Config.DailyTokens}
+	fixtures := o.Fixtures
+	if fixtures == nil {
+		fixtures = fixture.None{}
+	}
 
 	var err error
 	switch o.Config.Mode {
@@ -93,13 +96,16 @@ func New(ctx context.Context, o Options) (*Runtime, error) {
 		if r.primary, err = r.networked(ctx, config.Live, fixture.Dir{Path: filepath.Join(o.CacheDir, "forecasts")}, nil); err != nil {
 			return nil, err
 		}
-		if info, statErr := os.Stat(o.FixturesDir); statErr == nil && info.IsDir() {
+		if o.Fixtures != nil {
 			if r.replay, err = r.replayed(fixtures); err != nil {
 				o.Logger.Warn("recorded runs are not usable as a fallback", "error", err)
 			}
 		}
 	case config.Record:
-		if r.primary, err = r.networked(ctx, config.Record, fixtures, fixtures); err != nil {
+		if o.Record == nil {
+			return nil, errors.New("record mode needs somewhere to save the exchanges")
+		}
+		if r.primary, err = r.networked(ctx, config.Record, o.Record, o.Record); err != nil {
 			return nil, err
 		}
 	case config.Replay:
@@ -158,7 +164,7 @@ func (r *Runtime) networked(ctx context.Context, mode config.Mode, cache fixture
 	return &set{mode: mode, router: router, meter: meter, forecaster: f}, nil
 }
 
-func (r *Runtime) replayed(fixtures fixture.Dir) (*set, error) {
+func (r *Runtime) replayed(fixtures fixture.Store) (*set, error) {
 	cfg := r.opts.Config
 	var book model.PriceBook
 	if err := fixtures.Load(metaKind, pricesID, &book); err != nil && !errors.Is(err, fixture.ErrMiss) {

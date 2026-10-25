@@ -5,9 +5,13 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/aalvaropc/upkeep/internal/eval"
 )
 
 func TestRun(t *testing.T) {
@@ -26,8 +30,10 @@ func TestRun(t *testing.T) {
 		{name: "run", args: []string{"run"}, code: 1, stderr: "run: not implemented"},
 		{name: "demo with arguments", args: []string{"demo", "extra"}, code: 1, stderr: "demo takes no arguments"},
 		{name: "demo with a bad flag", args: []string{"demo", "-pace", "-1"}, code: 1, stderr: "-pace cannot be negative"},
-		{name: "record", args: []string{"record"}, code: 1, stderr: "record: not implemented"},
-		{name: "eval", args: []string{"eval"}, code: 1, stderr: "eval: not implemented"},
+		{name: "record without a directory", args: []string{"record"}, code: 1, stderr: "record: -fixtures DIR is required"},
+		{name: "record with arguments", args: []string{"record", "-fixtures", "x", "extra"}, code: 1, stderr: "record takes no arguments"},
+		{name: "eval with a bad run count", args: []string{"eval", "-runs", "0"}, code: 1, stderr: "-runs must be at least 1"},
+		{name: "eval with arguments", args: []string{"eval", "extra"}, code: 1, stderr: "eval takes no arguments"},
 		{name: "scenario without a subcommand", args: []string{"scenario"}, code: 1, stderr: "usage: upkeep scenario build"},
 		{name: "scenario build without a directory", args: []string{"scenario", "build"}, code: 1, stderr: "-out is required"},
 		{name: "scenario build from a missing repository", args: []string{"scenario", "build", "-out", t.TempDir() + "/forge.git", "-source", t.TempDir() + "/missing"}, code: 1, stderr: "upkeep:"},
@@ -107,5 +113,21 @@ func TestServe(t *testing.T) {
 		}
 	case <-time.After(15 * time.Second):
 		t.Fatal("serve did not stop after cancel")
+	}
+}
+
+func TestWriteReportKeepsEachRunAndTheLatestSummary(t *testing.T) {
+	dir := t.TempDir()
+	report := eval.Report{Scenario: "tiny", Mode: "replay", Version: "dev", Runs: 1, At: time.Date(2026, 10, 25, 14, 5, 9, 0, time.UTC), Cases: []eval.Case{{Run: 1, Number: 1, Title: "Change a", OK: true}}}
+	if err := writeReport(dir, report); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "results", "20261025T140509Z-replay.json"))
+	if err != nil || !strings.Contains(string(data), `"scenario": "tiny"`) {
+		t.Fatalf("results file: %v %s", err, data)
+	}
+	md, err := os.ReadFile(filepath.Join(dir, "latest.md"))
+	if err != nil || !strings.Contains(string(md), "1 of 1 cases ended as expected") {
+		t.Fatalf("latest.md: %v %s", err, md)
 	}
 }
