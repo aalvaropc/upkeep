@@ -126,6 +126,14 @@ func (g Git) Clone(ctx context.Context, src, dst string) error {
 	return err
 }
 
+func (g Git) CloneBare(ctx context.Context, src, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
+		return err
+	}
+	_, err := g.run(ctx, "", "", "clone", "--quiet", "--bare", "--", src, dst)
+	return err
+}
+
 func (g Git) Fetch(ctx context.Context, dir, remote string, refspecs ...string) error {
 	args := append([]string{"fetch", "--quiet", remote}, refspecs...)
 	_, err := g.run(ctx, dir, "", args...)

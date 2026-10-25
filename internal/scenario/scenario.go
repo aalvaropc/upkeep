@@ -44,6 +44,23 @@ type Scenario struct {
 	PRs        []PR     `json:"prs"`
 }
 
+func (p PR) Request(base string) pull.Request {
+	req := pull.Request{
+		Number: p.Number,
+		Title:  p.Title,
+		Author: p.Author,
+		Labels: slices.Clone(p.Labels),
+		Base:   base,
+		Branch: p.Branch,
+		Kind:   pull.Change,
+		Bump:   p.Bump,
+	}
+	if p.Bump != nil {
+		req.Kind = pull.Dependency
+	}
+	return req
+}
+
 func (p PR) Start() string {
 	if p.Onto == "" {
 		return OntoFork
