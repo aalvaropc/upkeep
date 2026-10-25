@@ -1,35 +1,85 @@
 :root {
-  --bg: #f6f5f2;
-  --surface: #ffffff;
-  --ink: #1d1d1b;
-  --muted: #6b6a66;
-  --line: #e2e0da;
-  --accent: #1f6f4a;
-  --warn: #9a5b00;
-  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color-scheme: light dark;
+  color-scheme: dark;
+
+  --bg: #0f172a;
+  --bg-sunken: #0b1222;
+  --card: #1b2336;
+  --card-hover: #212b42;
+  --muted: #272f42;
+  --fg: #f8fafc;
+  --fg-muted: #94a3b8;
+  --border: #334155;
+  --border-strong: #475569;
+  --ring: #ffffff;
+
+  --accent: #22c55e;
+  --accent-ink: #04210f;
+  --danger: #f87171;
+  --warn: #fbbf24;
+  --info: #38bdf8;
+
+  --tint-accent: rgb(34 197 94 / 0.12);
+  --tint-danger: rgb(248 113 113 / 0.12);
+  --tint-warn: rgb(251 191 36 / 0.12);
+  --tint-info: rgb(56 189 248 / 0.12);
+
+  --mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: "IBM Plex Sans Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --gutter: 24px;
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --fast: 150ms;
+  --base: 240ms;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #141413;
-    --surface: #1c1c1a;
-    --ink: #ecebe6;
-    --muted: #9c9b95;
-    --line: #2e2d2a;
-    --accent: #5fbf8f;
-    --warn: #e0a64a;
-  }
-}
-
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
 }
 
 body {
   margin: 0;
+  min-height: 100vh;
   background: var(--bg);
-  color: var(--ink);
-  font: 15px/1.5 var(--sans);
+  color: var(--fg);
+  font: 15px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+code {
+  font-family: var(--mono);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 800px) {
+  :root {
+    --gutter: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

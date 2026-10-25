@@ -78,6 +78,39 @@ describe("App", () => {
     expect(screen.getByRole("status").textContent).toBe("reconnecting");
   });
 
+  it("lists the three model tiers with their roles", () => {
+    render(<App session="s1" />);
+    for (const tier of ["Nano", "Super", "Ultra"]) {
+      expect(screen.getByText(`Nemotron ${tier}`)).toBeTruthy();
+    }
+    expect(screen.getAllByText("no calls yet")).toHaveLength(3);
+  });
+
+  it("waits for the first event and then lists them", () => {
+    render(<App session="s1" />);
+    expect(screen.getByText("Waiting for the first event.")).toBeTruthy();
+    act(() => source().emit("message", { seq: 1, kind: "run.started", time: "" }));
+    expect(screen.queryByText("Waiting for the first event.")).toBeNull();
+    expect(screen.getByText("#1 run.started")).toBeTruthy();
+  });
+
+  it("keeps a single live region and a skip link to the main landmark", () => {
+    render(<App session="s1" />);
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    const skip = screen.getByRole("link", { name: "Skip to the board" });
+    expect(skip.getAttribute("href")).toBe("#main");
+    expect(screen.getByRole("main").id).toBe("main");
+  });
+
+  it("hides the decorative icons from assistive technology", () => {
+    const { container } = render(<App session="s1" />);
+    const icons = container.querySelectorAll("svg");
+    expect(icons.length).toBeGreaterThan(0);
+    for (const icon of icons) {
+      expect(icon.getAttribute("aria-hidden")).toBe("true");
+    }
+  });
+
   it("closes the stream when it unmounts", () => {
     const { unmount } = render(<App session="s1" />);
     const opened = source();

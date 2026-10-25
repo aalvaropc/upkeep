@@ -1,10 +1,17 @@
 import type { StreamStatus } from "../events";
+import { Icon, type IconName } from "./Icon";
 import styles from "./StatusBadge.module.css";
 
 interface Props {
   status: StreamStatus;
   version: string | null;
 }
+
+const ICONS: Record<StreamStatus, IconName> = {
+  connecting: "connecting",
+  live: "live",
+  lost: "lost",
+};
 
 function label(status: StreamStatus, version: string | null): string {
   switch (status) {
@@ -20,7 +27,8 @@ function label(status: StreamStatus, version: string | null): string {
 export function StatusBadge({ status, version }: Props) {
   return (
     <span className={styles.badge} data-state={status} role="status" aria-live="polite">
-      {label(status, version)}
+      <Icon name={ICONS[status]} className={styles.icon} />
+      <span className={styles.text}>{label(status, version)}</span>
     </span>
   );
 }

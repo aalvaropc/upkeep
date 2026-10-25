@@ -1,4 +1,5 @@
 import type { UpkeepEvent } from "../events";
+import motion from "../motion.module.css";
 import styles from "./EventLog.module.css";
 
 interface Props {
@@ -8,17 +9,23 @@ interface Props {
 
 export function EventLog({ events, session }: Props) {
   return (
-    <section className={styles.feed} aria-label="Event stream">
-      <h2 className={styles.title}>Events</h2>
-      <ol className={styles.events}>
-        {events.map((e) => (
-          <li key={e.seq}>
-            #{e.seq} {e.kind}
-            {e.pr ? ` · PR ${e.pr}` : ""}
-          </li>
-        ))}
-        {session ? <li>connected to session {session}</li> : null}
-      </ol>
+    <section className={`${styles.feed} ${motion.enter}`} aria-label="Event stream">
+      <header className={styles.head}>
+        <h2 className={styles.title}>Events</h2>
+        {session ? <code className={styles.session}>session {session}</code> : null}
+      </header>
+      {events.length === 0 ? (
+        <p className={styles.empty}>Waiting for the first event.</p>
+      ) : (
+        <ol className={styles.events}>
+          {events.map((e) => (
+            <li key={e.seq} data-kind={e.kind}>
+              #{e.seq} {e.kind}
+              {e.pr ? ` · PR ${e.pr}` : ""}
+            </li>
+          ))}
+        </ol>
+      )}
     </section>
   );
 }
