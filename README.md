@@ -71,6 +71,8 @@ One Go binary is both the command line and the server. The standard library does
 
 Tests that call Token Factory are skipped unless you opt in: `UPKEEP_LIVE_TESTS=1 go test ./internal/model -run Live -v` with `NEBIUS_API_KEY` set. They cost a fraction of a cent.
 
+Tests that run containers are skipped unless you opt in: `UPKEEP_DOCKER_TESTS=1 go test ./internal/sandbox -v` needs Docker, the `golang` image from `internal/sandbox` and, for one test, network access.
+
 The code has no comments. Names and tests carry the meaning; the only exception is the `//go:embed` directive. `go run ./internal/tools/nocomments .` enforces it for Go, and `npm run nocomments` in `web` for TypeScript, CSS and HTML.
 
 Every pull request targets `main` and is merged with a merge commit once the `pr-targets-main`, `gitleaks`, `test`, `web` and `build` checks pass.
