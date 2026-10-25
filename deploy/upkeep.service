@@ -1,0 +1,24 @@
+[Unit]
+Description=Upkeep demo
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+User=upkeep
+Group=upkeep
+SupplementaryGroups=docker
+EnvironmentFile=/etc/upkeep/upkeep.env
+ExecStart=/opt/upkeep/current/upkeep demo -trust-proxy
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/upkeep
+StateDirectory=upkeep
+
+[Install]
+WantedBy=multi-user.target
