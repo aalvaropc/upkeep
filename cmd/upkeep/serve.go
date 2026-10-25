@@ -51,8 +51,12 @@ func serve(ctx context.Context, args []string, stdout, stderr io.Writer, environ
 	done := make(chan struct{})
 	handler := web.New(web.Options{Hub: hub, Version: buildinfo.Version(), Logger: logger, Done: done})
 
+	return serveHTTP(ctx, cfg.Addr, handler, done, logger, stdout, cfg)
+}
+
+func serveHTTP(ctx context.Context, addr string, handler http.Handler, done chan struct{}, logger *slog.Logger, stdout io.Writer, cfg config.Config) error {
 	var lc net.ListenConfig
-	ln, err := lc.Listen(ctx, "tcp", cfg.Addr)
+	ln, err := lc.Listen(ctx, "tcp", addr)
 	if err != nil {
 		return err
 	}
