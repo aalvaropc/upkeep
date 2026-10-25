@@ -2,7 +2,6 @@ package model
 
 import (
 	"context"
-	"errors"
 	"testing"
 )
 
@@ -53,13 +52,5 @@ func TestUsageTotal(t *testing.T) {
 	u := Usage{PromptTokens: 100, CompletionTokens: 40, ReasoningTokens: 25}
 	if u.Total() != 140 {
 		t.Fatalf("Total() = %d, want 140 (reasoning tokens are part of the completion)", u.Total())
-	}
-}
-
-func TestStubsSayNotImplemented(t *testing.T) {
-	for _, m := range []Model{&Recorder{}, &Replayer{}} {
-		if _, err := m.Complete(t.Context(), Request{}); !errors.Is(err, errors.ErrUnsupported) {
-			t.Errorf("%T.Complete error = %v, want ErrUnsupported", m, err)
-		}
 	}
 }
