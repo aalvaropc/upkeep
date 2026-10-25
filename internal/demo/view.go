@@ -64,6 +64,8 @@ type ReceiptView struct {
 type Detail struct {
 	PRView
 	Reason    string             `json:"reason,omitempty"`
+	Summary   string             `json:"summary,omitempty"`
+	Failure   string             `json:"failure,omitempty"`
 	Diagnosis string             `json:"diagnosis,omitempty"`
 	Attempts  int                `json:"attempts"`
 	Patch     string             `json:"patch,omitempty"`
@@ -119,6 +121,8 @@ func (s *Session) Detail(ctx context.Context, number int) (Detail, error) {
 	d := Detail{
 		PRView:    prView(view, it),
 		Reason:    res.Reason,
+		Summary:   res.Summary,
+		Failure:   res.Failure,
 		Diagnosis: res.Diagnosis,
 		Attempts:  res.Attempts,
 		Patch:     res.Patch,

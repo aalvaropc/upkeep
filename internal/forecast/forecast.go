@@ -81,6 +81,7 @@ type Forecast struct {
 }
 
 type Cost struct {
+	Role    model.Role    `json:"role,omitempty"`
 	Model   string        `json:"model"`
 	Usage   model.Usage   `json:"usage"`
 	Charge  model.Charge  `json:"charge"`
@@ -100,6 +101,7 @@ type Forecaster struct {
 	Search    Search
 	Model     model.Model
 	ModelName string
+	Role      model.Role
 	Meter     model.Meter
 	Cache     fixture.Store
 	Now       func() time.Time
@@ -216,6 +218,13 @@ func (g GitHubReleases) Between(ctx context.Context, module, from, to string) ([
 	return out, nil
 }
 
+func (f Forecaster) role() model.Role {
+	if f.Role != "" {
+		return f.Role
+	}
+	return model.Super
+}
+
 func (f Forecaster) now() time.Time {
 	if f.Now != nil {
 		return f.Now()
@@ -273,7 +282,7 @@ func (f Forecaster) Forecast(ctx context.Context, in Input) (Forecast, Cost, err
 	if err != nil {
 		return Forecast{}, Cost{}, fmt.Errorf("writing the forecast: %w", err)
 	}
-	cost := Cost{Model: f.ModelName, Usage: resp.Usage, Charge: f.Meter.Charge(f.ModelName, resp.Usage), Latency: resp.Latency}
+	cost := Cost{Role: f.role(), Model: f.ModelName, Usage: resp.Usage, Charge: f.Meter.Charge(f.ModelName, resp.Usage), Latency: resp.Latency}
 
 	out, err := parse(resp.Message.Content)
 	if err != nil {
