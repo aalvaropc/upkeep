@@ -124,7 +124,7 @@ func TestForecast(t *testing.T) {
 	}
 	req := m.requests[0]
 	prompt := req.Messages[1].Content
-	for _, want := range []string{"Upgrading from v4.5.2 to v5.3.1", "token.go", "StandardClaims is gone", "long guide text", "MIGRATION_GUIDE.md"} {
+	for _, want := range []string{"Upgrading from v4.5.2 to v5.3.1", "token.go", "uses these identifiers from it, written as the project writes them: jwt.New.", "StandardClaims is gone", "long guide text", "MIGRATION_GUIDE.md"} {
 		if !strings.Contains(prompt, want) {
 			t.Errorf("the prompt does not contain %q:\n%s", want, prompt)
 		}

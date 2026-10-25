@@ -32,7 +32,7 @@ const (
 	forecastMaxTokens  = 1800
 	systemInstructions = `You read release notes and migration guides for a Go module upgrade and tell a developer what will break. Answer with a single JSON object and nothing else:
 {"summary":"<two sentences>","breaking":[{"symbol":"<a Go identifier exactly as it is written in the text, such as jwt.StandardClaims>","change":"<what replaced it or how it changed>"}]}
-If a migration guide is present, base the answer on it and use the release notes only to complete it. Quote identifiers exactly as they appear in the text. Never invent identifiers, packages or signatures. If the text does not say, leave the list empty.`
+If a migration guide is present, base the answer on it and use the release notes only to complete it. Quote identifiers exactly as they appear in the text. Never invent identifiers, packages or signatures. If the project's identifiers are listed, report the changes that affect them first, and add others only when the text states them explicitly. If the text does not say, leave the list empty.`
 	maxExcerptChars = 7000
 )
 
@@ -256,6 +256,9 @@ func (f Forecaster) Forecast(ctx context.Context, in Input) (Forecast, Cost, err
 	user := fmt.Sprintf("Module: %s\nUpgrading from %s to %s.\n", in.Module, in.From, in.To)
 	if len(files) > 0 {
 		user += "The project imports it in: " + strings.Join(files, ", ") + ".\n"
+	}
+	if symbols := uses(in.Dir, in.Module); len(symbols) > 0 {
+		user += "The project uses these identifiers from it, written as the project writes them: " + strings.Join(symbols, ", ") + ".\n"
 	}
 	user += "\n" + sources
 
