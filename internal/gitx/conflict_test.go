@@ -118,3 +118,52 @@ func TestHasMarkers(t *testing.T) {
 		t.Error("a string that contains equals signs is not a marker")
 	}
 }
+
+const echoed = "package notes\n\nconst (\n\tDefaultPageSize = 20\n\tMaxPageSize     = 100\n<<<<<<< HEAD\n\tMaxTitleLength  = 140\n=======\n\tMaxTitleLength  = 100\n>>>>>>> origin/main\n\tMaxBodyLength   = 10_000\n\tMaxTags         = 10\n)\n"
+
+func TestResolveDropsLinesTheModelRepeatedFromAroundTheBlock(t *testing.T) {
+	answer := "const (\n\tDefaultPageSize = 20\n\tMaxPageSize     = 100\n\tMaxTitleLength  = 100\n\tMaxBodyLength   = 10_000\n\tMaxTags         = 10\n)"
+	got, err := Resolve(echoed, []string{answer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "package notes\n\nconst (\n\tDefaultPageSize = 20\n\tMaxPageSize     = 100\n\tMaxTitleLength  = 100\n\tMaxBodyLength   = 10_000\n\tMaxTags         = 10\n)\n"
+	if got != want {
+		t.Fatalf("Resolve() =\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestResolveKeepsLegitimateRepetition(t *testing.T) {
+	text := "func a() {\n\tx := 1\n<<<<<<< HEAD\n\tx++\n=======\n\tx--\n>>>>>>> origin/main\n\treturn x\n}\n"
+	tests := map[string]struct {
+		answer string
+		want   string
+	}{
+		"one repeated line before": {"\tx := 1\n\tx += 2", "func a() {\n\tx := 1\n\tx := 1\n\tx += 2\n\treturn x\n}\n"},
+		"one repeated line after":  {"\tx += 2\n\treturn x", "func a() {\n\tx := 1\n\tx += 2\n\treturn x\n\treturn x\n}\n"},
+		"only punctuation":         {"\tx += 2\n}", "func a() {\n\tx := 1\n\tx += 2\n}\n\treturn x\n}\n"},
+		"unrelated":                {"\ty := 5\n\tx += y", "func a() {\n\tx := 1\n\ty := 5\n\tx += y\n\treturn x\n}\n"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := Resolve(text, []string{tt.answer})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("Resolve() =\n%q\nwant\n%q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveDoesNotEmptyAResolutionThatIsAllContext(t *testing.T) {
+	text := "a1\nb1\n<<<<<<< HEAD\nc\n=======\nd\n>>>>>>> origin/main\ne1\nf1\n"
+	got, err := Resolve(text, []string{"a1\nb1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "a1\nb1\na1\nb1\ne1\nf1\n" {
+		t.Fatalf("Resolve() = %q", got)
+	}
+}

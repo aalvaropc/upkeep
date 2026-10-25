@@ -200,7 +200,7 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 func (p Processor) forecast(ctx context.Context, res *Result, job *strategy.Job) {
 	env := p.Env
 	bump := job.PR.Bump
-	if bump == nil || env.Forecaster == nil || strings.TrimSpace(job.Notes) != "" {
+	if bump == nil || bump.Level == pull.Patch || env.Forecaster == nil || strings.TrimSpace(job.Notes) != "" {
 		return
 	}
 	began := time.Now()

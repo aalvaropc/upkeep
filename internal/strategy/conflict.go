@@ -18,7 +18,7 @@ const (
 
 Answer with a single JSON object and nothing else:
 {"files":[{"path":"<file>","resolutions":["<text that replaces the first conflict block>","<text for the second>"]}]}
-Each resolution is the final text for that block, without conflict markers, in the order the blocks appear in the file.`
+Each resolution replaces only the lines between the markers, in the order the blocks appear in the file. Write those lines alone, without conflict markers and without repeating any line that appears above or below the markers.`
 
 	diagnoseSystem = `You are a senior engineer. A pull request cannot be merged with its base branch because of merge conflicts that are too large to resolve automatically. In at most 120 words, in plain prose, say what each side was trying to do, why resolving it automatically would be unsafe, and how a person could split the work. Do not use headings or lists.`
 )
