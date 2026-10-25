@@ -1,7 +1,7 @@
 {
   "name": "notes-api",
   "repository": "https://github.com/aalvaropc/upkeep-sample.git",
-  "fork": "339d119f7322f7ab16a4eb2dc9c78c858605dd51",
+  "fork": "40631ada5f6ee0aedff81b10d65efe15168658b9",
   "base": "main",
   "main": ["main-title-limit", "main-sorted-tags", "main-list-by-owner", "main-bearer-checks"],
   "prs": [
