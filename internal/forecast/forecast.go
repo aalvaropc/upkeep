@@ -170,6 +170,16 @@ func Query(module, from, to string) string {
 	return module + " " + to + " release notes changelog"
 }
 
+func About(rawURL, module string) bool {
+	owner, repo, ok := github.ModuleRepo(module)
+	if !ok {
+		return true
+	}
+	path := strings.ToLower(owner + "/" + repo)
+	pattern := regexp.MustCompile(`(?:^|[/.])(?:github\.com|pkg\.go\.dev/github\.com)/` + regexp.QuoteMeta(path) + `(?:[/@?#]|$)`)
+	return pattern.MatchString(strings.ToLower(rawURL))
+}
+
 func Domains(module string) []string {
 	if _, _, ok := github.ModuleRepo(module); ok {
 		return []string{"github.com", "pkg.go.dev"}
@@ -339,6 +349,7 @@ func (f Forecaster) gather(ctx context.Context, in Input) (text string, urls []s
 	var b strings.Builder
 	if f.Search != nil {
 		if results, err := f.Search.Search(ctx, Query(in.Module, in.From, in.To), maxSearchResults); err == nil {
+			results = slices.DeleteFunc(slices.Clone(results), func(r Result) bool { return !About(r.URL, in.Module) })
 			for i, r := range results {
 				text, limit := CleanPage(r.RawContent), maxSourceChars
 				if text == "" || i > 0 {

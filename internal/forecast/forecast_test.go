@@ -218,6 +218,42 @@ func TestAReplayedForecastStopsWhenCancelled(t *testing.T) {
 	}
 }
 
+func TestAboutMatchesOnlyTheModulesOwnPages(t *testing.T) {
+	const module = "github.com/jonboulle/clockwork"
+	for url, want := range map[string]bool{
+		"https://github.com/jonboulle/clockwork/releases":              true,
+		"https://github.com/JonBoulle/Clockwork/blob/master/README.md": true,
+		"https://pkg.go.dev/github.com/jonboulle/clockwork":            true,
+		"https://pkg.go.dev/github.com/jonboulle/clockwork@v0.5.0":     true,
+		"https://github.com/knative/eventing/releases":                 false,
+		"https://github.com/jonboulle/clockwork-extras":                false,
+		"https://github.com/jonboulle/other":                           false,
+		"https://example.com/jonboulle/clockwork":                      false,
+	} {
+		if got := About(url, module); got != want {
+			t.Errorf("About(%q) = %v, want %v", url, got, want)
+		}
+	}
+	if !About("https://example.com/anything", "golang.org/x/text") {
+		t.Error("a module that does not live on GitHub cannot be matched by address, so every page is kept")
+	}
+}
+
+func TestPagesAboutOtherProjectsNeverReachTheModel(t *testing.T) {
+	f, _, srch, m := newForecaster(t)
+	srch.results = append([]Result{{Title: "Releases - knative/eventing", URL: "https://github.com/knative/eventing/releases", Content: "Update widget-sdk-v2 monorepo", RawContent: "# knative eventing\nUpdate widget-sdk-v2 monorepo"}}, srch.results...)
+	if _, _, err := f.Forecast(t.Context(), jwtInput("")); err != nil {
+		t.Fatal(err)
+	}
+	prompt := m.requests[0].Messages[1].Content
+	if strings.Contains(prompt, "knative") || strings.Contains(prompt, "widget-sdk") {
+		t.Fatalf("a page about another project reached the prompt:\n%s", prompt)
+	}
+	if !strings.Contains(prompt, "MIGRATION_GUIDE.md") {
+		t.Fatalf("the module's own page is missing:\n%s", prompt)
+	}
+}
+
 func TestForecastToleratesOneSourceFailing(t *testing.T) {
 	f, rel, srch, _ := newForecaster(t)
 	rel.err = errors.New("github is rate limited")
