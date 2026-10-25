@@ -171,7 +171,7 @@ func (r *Runtime) replayed(fixtures fixture.Dir) (*set, error) {
 	router.Set(model.Super, cfg.Models.Super, player)
 	router.Set(model.Nano, cfg.Models.Nano, player)
 	meter := model.Meter{Prices: book, Baseline: cfg.Models.Ultra}
-	return &set{mode: config.Replay, router: router, meter: meter, forecaster: forecast.Forecaster{Cache: fixtures, Meter: meter}}, nil
+	return &set{mode: config.Replay, router: router, meter: meter, forecaster: forecast.Forecaster{Cache: fixtures, Meter: meter, Replay: true, Pace: r.opts.Pace}}, nil
 }
 
 func (r *Runtime) Mode() config.Mode { return r.opts.Config.Mode }

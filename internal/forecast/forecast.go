@@ -104,7 +104,14 @@ type Forecaster struct {
 	Role      model.Role
 	Meter     model.Meter
 	Cache     fixture.Store
+	Replay    bool
+	Pace      float64
 	Now       func() time.Time
+}
+
+type recorded struct {
+	Forecast Forecast `json:"forecast"`
+	Cost     Cost     `json:"cost"`
 }
 
 func (f Forecast) Expects(symbol string) bool {
@@ -218,6 +225,21 @@ func (g GitHubReleases) Between(ctx context.Context, module, from, to string) ([
 	return out, nil
 }
 
+func (f Forecaster) pause(ctx context.Context, d time.Duration) error {
+	d = time.Duration(float64(d) * f.Pace)
+	if d <= 0 {
+		return ctx.Err()
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
 func (f Forecaster) role() model.Role {
 	if f.Role != "" {
 		return f.Role
@@ -245,11 +267,20 @@ func (f Forecaster) Forecast(ctx context.Context, in Input) (Forecast, Cost, err
 		return Forecast{}, Cost{}, err
 	}
 	if f.Cache != nil {
-		var cached Forecast
+		var cached recorded
 		switch err := f.Cache.Load(CacheKind, key, &cached); {
 		case err == nil:
-			cached.Files = importers(in.Dir, in.Module)
-			return cached, Cost{Cached: true}, nil
+			out := cached.Forecast
+			out.Files = importers(in.Dir, in.Module)
+			if !f.Replay {
+				return out, Cost{Cached: true}, nil
+			}
+			cost := cached.Cost
+			cost.Cached = false
+			if err := f.pause(ctx, cost.Latency); err != nil {
+				return Forecast{}, Cost{}, err
+			}
+			return out, cost, nil
 		case !errors.Is(err, fixture.ErrMiss):
 			return Forecast{}, Cost{}, err
 		}
@@ -295,8 +326,8 @@ func (f Forecaster) Forecast(ctx context.Context, in Input) (Forecast, Cost, err
 	out.Sources = urls
 	out.FetchedAt = f.now().UTC()
 	if f.Cache != nil {
-		stored := out
-		stored.Files = nil
+		stored := recorded{Forecast: out, Cost: cost}
+		stored.Forecast.Files = nil
 		if err := f.Cache.Save(CacheKind, key, stored); err != nil {
 			return out, cost, fmt.Errorf("saving the forecast: %w", err)
 		}
