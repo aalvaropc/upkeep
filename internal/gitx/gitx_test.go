@@ -398,3 +398,52 @@ func TestRepositoryHooksNeverRun(t *testing.T) {
 		t.Fatal("the repository's hook ran")
 	}
 }
+
+func TestSubjects(t *testing.T) {
+	g, dir := newRepo(t)
+	ctx := t.Context()
+	for _, msg := range []string{"feat: one", "feat: two", "fix: three"} {
+		write(t, dir, "notes/"+strings.ReplaceAll(msg, " ", "_")+".go", "package notes\n")
+		if _, err := g.Commit(ctx, dir, msg+"\n\nWith a body that must not appear."); err != nil {
+			t.Fatal(err)
+		}
+	}
+	all, err := g.Subjects(ctx, dir, "HEAD", 10)
+	if err != nil || !slices.Equal(all, []string{"fix: three", "feat: two", "feat: one", "chore: initial commit"}) {
+		t.Fatalf("subjects = %v %v", all, err)
+	}
+	if two, _ := g.Subjects(ctx, dir, "HEAD", 2); !slices.Equal(two, []string{"fix: three", "feat: two"}) {
+		t.Fatalf("limited subjects = %v", two)
+	}
+	if one, _ := g.Subjects(ctx, dir, "HEAD", 0); len(one) != 1 {
+		t.Fatalf("a limit of zero should still return one subject: %v", one)
+	}
+	if ranged, _ := g.Subjects(ctx, dir, "HEAD~2..HEAD", 10); !slices.Equal(ranged, []string{"fix: three", "feat: two"}) {
+		t.Fatalf("range = %v", ranged)
+	}
+	if _, err := g.Subjects(ctx, dir, "--all", 5); err == nil {
+		t.Fatal("an option passed as a revision was accepted")
+	}
+	if _, err := g.Subjects(ctx, dir, "no-such-ref", 5); err == nil {
+		t.Fatal("an unknown revision returned no error")
+	}
+}
+
+func TestMergeInProgress(t *testing.T) {
+	g, dir := conflictingBranches(t)
+	if g.MergeInProgress(dir) {
+		t.Fatal("no merge has started")
+	}
+	if _, err := g.Merge(t.Context(), dir, "main"); err != nil {
+		t.Fatal(err)
+	}
+	if !g.MergeInProgress(dir) {
+		t.Fatal("a merge with conflicts is in progress")
+	}
+	if err := g.MergeAbort(t.Context(), dir); err != nil {
+		t.Fatal(err)
+	}
+	if g.MergeInProgress(dir) {
+		t.Fatal("the merge was aborted")
+	}
+}

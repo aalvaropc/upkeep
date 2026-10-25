@@ -16,7 +16,7 @@ func TestDefault(t *testing.T) {
 		t.Fatalf("Default() is not valid: %v", err)
 	}
 	if p.MaxFilesChanged != 5 || p.MaxLinesChanged != 80 || p.MaxConflictHunks != 3 || p.MaxHunkLines != 20 ||
-		p.MaxAttempts != 3 || p.MaxSeconds != 180 || p.MaxTokens != 80000 {
+		p.MaxAttempts != 3 || p.MaxSeconds != 180 || p.MaxTokens != 200000 {
 		t.Errorf("limits = %+v", p)
 	}
 	if p.AutoMerge != AutoMergeBots || !reflect.DeepEqual(p.AutoMergeBumps, []pull.Level{pull.Patch, pull.Minor}) || p.MergeMethod != "merge" {
