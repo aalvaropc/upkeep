@@ -4,6 +4,8 @@ Upkeep keeps GitHub pull requests mergeable. It finds what blocks each open pull
 
 It runs on NVIDIA Nemotron models (Ultra, Super and Nano) served by Nebius Token Factory. It is written in Go and ships as one binary with its dashboard built in.
 
+![The dashboard after a run: nine pull requests, each with its outcome, what Upkeep did and what it cost; the models rail on the right](docs/images/dashboard-done.png)
+
 ## What it does
 
 A repository collects pull requests that need a small change before anyone can merge them: the branch is behind, a conflict touches one line, a rename on `main` broke the build, a Dependabot bump no longer compiles, `gofmt` complains, a flaky test fails. Upkeep works through them:
@@ -33,6 +35,10 @@ Upkeep never force-pushes, never merges a pull request opened by a person, and n
 | 9 | Auth rewrite | four overlapping conflict hunks | handed back with Ultra's diagnosis |
 
 The whole run costs about two cents: $0.0191 against $0.0502 for the same tokens at the largest model's price. That is a price comparison, not a claim that the largest model would have fixed them. CI replays the recording and fails if any pull request ends differently.
+
+Press a card and the side sheet shows what happened to that pull request. This one is the clockwork bump: the release note said `FakeClock` became a struct, Super predicted it before touching anything, the compiler confirmed it, and the fix was one line.
+
+![The detail of a dependency bump: the forecast with each prediction marked confirmed or not seen by the build, the change, the verifier and the receipt](docs/images/dashboard-detail.png)
 
 ## Run it
 
