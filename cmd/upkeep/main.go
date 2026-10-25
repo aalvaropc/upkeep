@@ -15,12 +15,13 @@ import (
 const usage = `usage: upkeep <command>
 
 commands:
-  serve    start the dashboard and API
-  run      work the open pull requests of a repository
-  demo     serve the hosted demo with isolated sessions
-  record   run the demo scenario live and record every external call
-  eval     run the demo scenario and write outcome metrics
-  version  print the version
+  serve     start the dashboard and API
+  scenario  build the demo repository with its nine pull requests
+  run       work the open pull requests of a repository
+  demo      serve the hosted demo with isolated sessions
+  record    run the demo scenario live and record every external call
+  eval      run the demo scenario and write outcome metrics
+  version   print the version
 `
 
 func main() {
@@ -45,6 +46,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, environ [
 		return 0
 	case "serve":
 		err = serve(ctx, args[1:], stdout, stderr, environ)
+	case "scenario":
+		err = scenarioCommand(ctx, args[1:], stdout, stderr)
 	case "run", "demo", "record", "eval":
 		err = stub.Err(args[0])
 	default:

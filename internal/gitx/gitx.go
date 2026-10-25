@@ -303,6 +303,25 @@ func (g Git) Commit(ctx context.Context, dir, message string) (string, error) {
 	return g.Head(ctx, dir)
 }
 
+func (g Git) Am(ctx context.Context, dir, mbox string) error {
+	if strings.TrimSpace(mbox) == "" {
+		return errors.New("a patch needs content")
+	}
+	_, err := g.run(ctx, dir, mbox, "am", "--quiet", "--committer-date-is-author-date")
+	if err != nil {
+		_, _ = g.run(ctx, dir, "", "am", "--abort")
+	}
+	return err
+}
+
+func (g Git) InitBare(ctx context.Context, dir string) error {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return err
+	}
+	_, err := g.run(ctx, dir, "", "init", "--quiet", "--bare", "--initial-branch=main")
+	return err
+}
+
 func (g Git) ResetTo(ctx context.Context, dir, ref string) error {
 	if _, err := g.run(ctx, dir, "", "reset", "--hard", "--quiet", ref); err != nil {
 		return err

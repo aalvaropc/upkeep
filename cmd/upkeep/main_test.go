@@ -27,6 +27,9 @@ func TestRun(t *testing.T) {
 		{name: "demo", args: []string{"demo"}, code: 1, stderr: "demo: not implemented"},
 		{name: "record", args: []string{"record"}, code: 1, stderr: "record: not implemented"},
 		{name: "eval", args: []string{"eval"}, code: 1, stderr: "eval: not implemented"},
+		{name: "scenario without a subcommand", args: []string{"scenario"}, code: 1, stderr: "usage: upkeep scenario build"},
+		{name: "scenario build without a directory", args: []string{"scenario", "build"}, code: 1, stderr: "-out is required"},
+		{name: "scenario build from a missing repository", args: []string{"scenario", "build", "-out", t.TempDir() + "/forge.git", "-source", t.TempDir() + "/missing"}, code: 1, stderr: "upkeep:"},
 		{name: "serve with arguments", args: []string{"serve", "extra"}, code: 1, stderr: "serve takes no arguments"},
 	}
 	for _, tt := range tests {

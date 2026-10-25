@@ -1,0 +1,46 @@
+From e7d102b695ad1abe354fc9796e00e3228f465893 Mon Sep 17 00:00:00 2001
+From: Priya Nair <priya.nair@example.com>
+Date: Wed, 21 Oct 2026 14:03:00 +0000
+Subject: [PATCH] feat: store tags in alphabetical order
+
+Clients compare tag lists, so give them a stable order.
+---
+ notes/service.go      | 2 ++
+ notes/service_test.go | 4 ++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/notes/service.go b/notes/service.go
+index 51a5eb8..8fbc4ba 100644
+--- a/notes/service.go
++++ b/notes/service.go
+@@ -5,6 +5,7 @@ import (
+ 	"crypto/rand"
+ 	"encoding/hex"
+ 	"fmt"
++	"sort"
+ 	"strings"
+ 	"unicode/utf8"
+ 
+@@ -126,6 +127,7 @@ func validate(in Input) (Input, error) {
+ 			tags = append(tags, tag)
+ 		}
+ 	}
++	sort.Strings(tags)
+ 	in.Tags = tags
+ 	return in, nil
+ }
+diff --git a/notes/service_test.go b/notes/service_test.go
+index 96fd3a1..e080ac1 100644
+--- a/notes/service_test.go
++++ b/notes/service_test.go
+@@ -27,8 +27,8 @@ func TestCreateAndGet(t *testing.T) {
+ 	if n.ID == "" || n.Owner != "alice" || n.Title != "Groceries" {
+ 		t.Fatalf("created = %+v", n)
+ 	}
+-	if strings.Join(n.Tags, ",") != "home,errands" {
+-		t.Fatalf("tags = %v, want lowercase and deduplicated", n.Tags)
++	if strings.Join(n.Tags, ",") != "errands,home" {
++		t.Fatalf("tags = %v, want lowercase, deduplicated and sorted", n.Tags)
+ 	}
+ 	got, err := svc.Get(ctx, "alice", n.ID)
+ 	if err != nil {

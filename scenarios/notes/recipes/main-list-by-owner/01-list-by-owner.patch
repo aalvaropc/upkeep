@@ -1,0 +1,85 @@
+From 93216dc1ac692378e3c1a6456e8d84247d13f26e Mon Sep 17 00:00:00 2001
+From: Jonas Weber <jonas.weber@example.com>
+Date: Thu, 22 Oct 2026 10:40:00 +0000
+Subject: [PATCH] refactor: name the list method after what it does
+
+Service.List returns the notes of one owner, so call it ListByOwner before more listing methods arrive.
+---
+ api/notes.go          |  2 +-
+ notes/service.go      |  2 +-
+ notes/service_test.go | 10 +++++-----
+ 3 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/api/notes.go b/api/notes.go
+index 32127c0..1df3ad2 100644
+--- a/api/notes.go
++++ b/api/notes.go
+@@ -24,7 +24,7 @@ func (s *Server) listNotes(w http.ResponseWriter, r *http.Request) {
+ 		writeError(w, err)
+ 		return
+ 	}
+-	list, err := s.notes.List(r.Context(), owner, page)
++	list, err := s.notes.ListByOwner(r.Context(), owner, page)
+ 	if err != nil {
+ 		writeError(w, err)
+ 		return
+diff --git a/notes/service.go b/notes/service.go
+index 8fbc4ba..db366fd 100644
+--- a/notes/service.go
++++ b/notes/service.go
+@@ -55,7 +55,7 @@ func (s *Service) Get(ctx context.Context, owner, id string) (Note, error) {
+ 	return s.store.Get(ctx, owner, id)
+ }
+ 
+-func (s *Service) List(ctx context.Context, owner string, page Page) (List, error) {
++func (s *Service) ListByOwner(ctx context.Context, owner string, page Page) (List, error) {
+ 	page = clampPage(page)
+ 	notes, total, err := s.store.List(ctx, owner, page.Offset, page.Limit)
+ 	if err != nil {
+diff --git a/notes/service_test.go b/notes/service_test.go
+index e080ac1..afca036 100644
+--- a/notes/service_test.go
++++ b/notes/service_test.go
+@@ -52,7 +52,7 @@ func TestOwnersAreIsolated(t *testing.T) {
+ 	if err := svc.Delete(ctx, "bob", n.ID); !errors.Is(err, notes.ErrNotFound) {
+ 		t.Fatalf("bob deleting alice's note: error = %v, want ErrNotFound", err)
+ 	}
+-	list, err := svc.List(ctx, "bob", notes.Page{})
++	list, err := svc.ListByOwner(ctx, "bob", notes.Page{})
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+@@ -114,7 +114,7 @@ func TestListPagination(t *testing.T) {
+ 		}
+ 		c.Advance(time.Second)
+ 	}
+-	first, err := svc.List(ctx, "alice", notes.Page{})
++	first, err := svc.ListByOwner(ctx, "alice", notes.Page{})
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+@@ -124,21 +124,21 @@ func TestListPagination(t *testing.T) {
+ 	if first.Notes[0].Title != "note a" {
+ 		t.Fatalf("first note = %q, want the oldest", first.Notes[0].Title)
+ 	}
+-	rest, err := svc.List(ctx, "alice", notes.Page{Offset: 20, Limit: 10})
++	rest, err := svc.ListByOwner(ctx, "alice", notes.Page{Offset: 20, Limit: 10})
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+ 	if len(rest.Notes) != 5 || rest.Notes[0].Title != "note u" {
+ 		t.Fatalf("second page = %d notes starting at %q", len(rest.Notes), rest.Notes[0].Title)
+ 	}
+-	clamped, err := svc.List(ctx, "alice", notes.Page{Offset: -3, Limit: 1000})
++	clamped, err := svc.ListByOwner(ctx, "alice", notes.Page{Offset: -3, Limit: 1000})
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+ 	if clamped.Offset != 0 || clamped.Limit != notes.MaxPageSize {
+ 		t.Fatalf("clamped page = offset %d limit %d", clamped.Offset, clamped.Limit)
+ 	}
+-	past, err := svc.List(ctx, "alice", notes.Page{Offset: 100})
++	past, err := svc.ListByOwner(ctx, "alice", notes.Page{Offset: 100})
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}

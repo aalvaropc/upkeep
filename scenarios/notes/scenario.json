@@ -1,0 +1,90 @@
+{
+  "name": "notes-api",
+  "repository": "https://github.com/aalvaropc/upkeep-sample.git",
+  "fork": "339d119f7322f7ab16a4eb2dc9c78c858605dd51",
+  "base": "main",
+  "main": ["main-title-limit", "main-sorted-tags", "main-list-by-owner", "main-bearer-checks"],
+  "prs": [
+    {
+      "number": 1,
+      "title": "Search notes by title or body",
+      "branch": "feat/note-search",
+      "author": { "login": "maya-okafor", "kind": "person" },
+      "recipe": "note-search",
+      "expect": { "blocker": "behind", "outcome": "mergeable", "patch": true }
+    },
+    {
+      "number": 2,
+      "title": "Allow titles of up to 140 characters",
+      "branch": "feat/longer-titles",
+      "author": { "login": "tomas-rivera", "kind": "person" },
+      "labels": ["upkeep"],
+      "recipe": "longer-titles",
+      "expect": { "blocker": "conflict", "outcome": "mergeable", "pushed": true }
+    },
+    {
+      "number": 3,
+      "title": "Count how often each tag is used",
+      "branch": "feat/tag-counts",
+      "author": { "login": "aisha-khan", "kind": "person" },
+      "recipe": "tag-counts",
+      "expect": { "blocker": "conflict", "outcome": "mergeable", "patch": true }
+    },
+    {
+      "number": 4,
+      "title": "Export all of a caller's notes as a download",
+      "branch": "feat/notes-export",
+      "author": { "login": "lukas-novak", "kind": "person" },
+      "labels": ["upkeep"],
+      "recipe": "notes-export",
+      "expect": { "blocker": "build", "outcome": "mergeable", "pushed": true }
+    },
+    {
+      "number": 5,
+      "title": "Update github.com/golang-jwt/jwt/v4 to v5.3.1",
+      "branch": "renovate/github.com-golang-jwt-jwt-v5",
+      "onto": "main",
+      "author": { "login": "renovate[bot]", "kind": "bot" },
+      "bump": { "module": "github.com/golang-jwt/jwt/v5", "from": "v4.5.2", "to": "v5.3.1", "level": "major" },
+      "recipe": "jwt-v5",
+      "expect": { "blocker": "build", "outcome": "mergeable", "pushed": true }
+    },
+    {
+      "number": 6,
+      "title": "Bump github.com/rs/cors from 1.11.0 to 1.11.1",
+      "branch": "dependabot/go_modules/github.com/rs/cors-1.11.1",
+      "onto": "main",
+      "author": { "login": "dependabot[bot]", "kind": "bot" },
+      "bump": { "module": "github.com/rs/cors", "from": "v1.11.0", "to": "v1.11.1", "level": "patch" },
+      "recipe": "cors-patch",
+      "expect": { "blocker": "clean", "outcome": "merged" }
+    },
+    {
+      "number": 7,
+      "title": "Bump github.com/jonboulle/clockwork from 0.4.0 to 0.5.0",
+      "branch": "dependabot/go_modules/github.com/jonboulle/clockwork-0.5.0",
+      "onto": "main",
+      "author": { "login": "dependabot[bot]", "kind": "bot" },
+      "bump": { "module": "github.com/jonboulle/clockwork", "from": "v0.4.0", "to": "v0.5.0", "level": "minor" },
+      "recipe": "clockwork-minor",
+      "expect": { "blocker": "build", "outcome": "merged", "pushed": true }
+    },
+    {
+      "number": 8,
+      "title": "Summarize how many notes and tags an owner has",
+      "branch": "feat/note-summary",
+      "onto": "main",
+      "author": { "login": "elena-petrova", "kind": "person" },
+      "recipe": "summary-cache",
+      "expect": { "blocker": "format", "outcome": "mergeable", "patch": true }
+    },
+    {
+      "number": 9,
+      "title": "Accept the token from a cookie and report its state",
+      "branch": "feat/auth-sources",
+      "author": { "login": "hana-sato", "kind": "person" },
+      "recipe": "auth-sources",
+      "expect": { "blocker": "conflict_large", "outcome": "needs_human" }
+    }
+  ]
+}

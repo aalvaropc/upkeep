@@ -1,0 +1,23 @@
+From a1e7fedfae89ab41a5a90b45d48401be7914f6cf Mon Sep 17 00:00:00 2001
+From: Diego Ruiz <diego.ruiz@example.com>
+Date: Tue, 20 Oct 2026 09:12:00 +0000
+Subject: [PATCH] feat: keep titles short enough for the list view
+
+The list view truncates anything longer than 100 characters, so stop accepting more.
+---
+ notes/limits.go | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/notes/limits.go b/notes/limits.go
+index 97b1b3b..5f528d8 100644
+--- a/notes/limits.go
++++ b/notes/limits.go
+@@ -3,7 +3,7 @@ package notes
+ const (
+ 	DefaultPageSize = 20
+ 	MaxPageSize     = 100
+-	MaxTitleLength  = 120
++	MaxTitleLength  = 100
+ 	MaxBodyLength   = 10_000
+ 	MaxTags         = 10
+ 	MaxTagLength    = 32

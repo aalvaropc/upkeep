@@ -18,10 +18,16 @@ type Expect struct {
 	Patch   bool         `json:"patch,omitempty"`
 }
 
+const (
+	OntoFork = "fork"
+	OntoMain = "main"
+)
+
 type PR struct {
 	Number int         `json:"number"`
 	Title  string      `json:"title"`
 	Branch string      `json:"branch"`
+	Onto   string      `json:"onto,omitempty"`
 	Author pull.Author `json:"author"`
 	Labels []string    `json:"labels,omitempty"`
 	Bump   *pull.Bump  `json:"bump,omitempty"`
@@ -30,10 +36,19 @@ type PR struct {
 }
 
 type Scenario struct {
-	Name       string `json:"name"`
-	Repository string `json:"repository"`
-	Base       string `json:"base"`
-	PRs        []PR   `json:"prs"`
+	Name       string   `json:"name"`
+	Repository string   `json:"repository"`
+	Fork       string   `json:"fork"`
+	Base       string   `json:"base"`
+	Main       []string `json:"main,omitempty"`
+	PRs        []PR     `json:"prs"`
+}
+
+func (p PR) Start() string {
+	if p.Onto == "" {
+		return OntoFork
+	}
+	return p.Onto
 }
 
 func Load(r io.Reader) (Scenario, error) {
@@ -61,6 +76,9 @@ func (s Scenario) Validate() error {
 	}
 	if s.Base == "" {
 		errs = append(errs, errors.New("scenario: base branch is required"))
+	}
+	if !isCommit(s.Fork) {
+		errs = append(errs, errors.New("scenario: fork must be a full commit hash"))
 	}
 	if len(s.PRs) == 0 {
 		errs = append(errs, errors.New("scenario: at least one pull request is required"))
@@ -92,6 +110,9 @@ func (s Scenario) Validate() error {
 		if pr.Recipe == "" {
 			errs = append(errs, fmt.Errorf("%s: recipe is required", where))
 		}
+		if start := pr.Start(); start != OntoFork && start != OntoMain {
+			errs = append(errs, fmt.Errorf("%s: onto must be %q or %q", where, OntoFork, OntoMain))
+		}
 		if !slices.Contains(blockers, pr.Expect.Blocker) {
 			errs = append(errs, fmt.Errorf("%s: unknown expected blocker %q", where, pr.Expect.Blocker))
 		}
@@ -106,4 +127,16 @@ func (s Scenario) Validate() error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+func isCommit(s string) bool {
+	if len(s) != 40 {
+		return false
+	}
+	for _, r := range s {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+			return false
+		}
+	}
+	return true
 }
