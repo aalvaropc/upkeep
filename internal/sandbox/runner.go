@@ -38,6 +38,7 @@ func (r Report) FirstFailure() (Result, bool) {
 type Runner interface {
 	Download(ctx context.Context, dir string) (Result, error)
 	Format(ctx context.Context, dir string) (Result, error)
+	Unformatted(ctx context.Context, dir string) ([]string, error)
 	Check(ctx context.Context, dir string) (Report, error)
 	Tests(ctx context.Context, dir, pattern string) (Result, error)
 }
@@ -73,6 +74,17 @@ func (r GoRunner) Format(ctx context.Context, dir string) (Result, error) {
 	}
 	written.Output = listed.Output
 	return written, nil
+}
+
+func (r GoRunner) Unformatted(ctx context.Context, dir string) ([]string, error) {
+	res, err := r.run(ctx, dir, false, "gofmt", "-l", ".")
+	if err != nil {
+		return nil, err
+	}
+	if !res.OK() {
+		return nil, fmt.Errorf("gofmt could not read the tree: %s", firstLine(res.Output))
+	}
+	return strings.Fields(res.Output), nil
 }
 
 func (r GoRunner) Tests(ctx context.Context, dir, pattern string) (Result, error) {
