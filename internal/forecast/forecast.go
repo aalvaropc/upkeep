@@ -17,6 +17,7 @@ import (
 
 	"github.com/aalvaropc/upkeep/internal/fixture"
 	"github.com/aalvaropc/upkeep/internal/github"
+	"github.com/aalvaropc/upkeep/internal/jsonfix"
 	"github.com/aalvaropc/upkeep/internal/model"
 	"github.com/aalvaropc/upkeep/internal/pull"
 )
@@ -409,7 +410,7 @@ func parse(answer string) (Forecast, error) {
 			Change string `json:"change"`
 		} `json:"breaking"`
 	}
-	if err := json.Unmarshal([]byte(answer[start:end+1]), &doc); err != nil {
+	if err := json.Unmarshal([]byte(jsonfix.Repair(answer[start:end+1])), &doc); err != nil {
 		return Forecast{}, fmt.Errorf("the forecast is not valid JSON: %w", err)
 	}
 	out := Forecast{Summary: strings.TrimSpace(doc.Summary)}

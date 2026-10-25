@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	DefaultMaxTurns  = 12
+	DefaultMaxTurns  = 16
 	maxPromptFiles   = 6
 	maxPromptFileLen = 12000
 	maxContextChars  = 40000

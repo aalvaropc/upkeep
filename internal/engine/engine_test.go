@@ -353,6 +353,37 @@ func TestSmallConflictIsResolvedByUltra(t *testing.T) {
 	}
 }
 
+func TestAMalformedResolutionIsAskedForAgainOnce(t *testing.T) {
+	good := `{"files":[{"path":"limits.go","resolutions":["\tMaxNotesPerOwner = 1000\n\tMaxAttachments = 5"]}]}`
+	bad := "{\"files\":[{\"path\":\"limits.go\",\"resolutions\":[\"a\",\"b\"]}]}"
+	w := newWorld(t, nil, []step{{content: bad}, {content: good}})
+	conflictingLimits(w)
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.Mergeable || res.Err != nil || !res.Changed {
+		t.Fatalf("result = %+v", res)
+	}
+	if w.ultra.count() != 2 {
+		t.Fatalf("%d Ultra calls, want the rejected answer and the corrected one", w.ultra.count())
+	}
+	second := w.ultra.requests[1].Messages[1].Content
+	if !strings.Contains(second, "Your previous answer was rejected") || !strings.Contains(second, "2 resolutions for the 1 conflicts") {
+		t.Fatalf("the second request does not say what was wrong:\n%s", second)
+	}
+	if lines := res.Receipt.Lines(); len(lines) != 1 || lines[0].Calls != 2 {
+		t.Fatalf("both calls should be on the receipt: %+v", lines)
+	}
+}
+
+func TestAResolutionWithRawTabsInsideStringsIsAccepted(t *testing.T) {
+	answer := "{\"files\":[{\"path\":\"limits.go\",\"resolutions\":[\"\tMaxNotesPerOwner = 1000\n\tMaxAttachments = 5\"]}]}"
+	w := newWorld(t, nil, []step{{content: answer}})
+	conflictingLimits(w)
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.Mergeable || res.Err != nil || w.ultra.count() != 1 {
+		t.Fatalf("result = %+v after %d Ultra calls", res, w.ultra.count())
+	}
+}
+
 func TestUnsafeResolutionsAreEscalatedAndTheMergeIsUndone(t *testing.T) {
 	for name, answer := range map[string]string{
 		"not json":        "I would keep both constants.",
@@ -363,14 +394,14 @@ func TestUnsafeResolutionsAreEscalatedAndTheMergeIsUndone(t *testing.T) {
 		"duplicate files": `{"files":[{"path":"limits.go","resolutions":["a"]},{"path":"limits.go","resolutions":["b"]}]}`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			w := newWorld(t, nil, []step{{content: answer}, {content: "Both sides add a limit at the same place; a person should decide the names."}})
+			w := newWorld(t, nil, []step{{content: answer}, {content: answer}, {content: "Both sides add a limit at the same place; a person should decide the names."}})
 			conflictingLimits(w)
 			before := w.head()
 			res := w.process(person())
 			if res.Outcome != pull.NeedsHuman || res.Blocker != pull.ConflictSmall || !strings.Contains(res.Reason, "could not be resolved safely") {
 				t.Fatalf("result = %+v", res)
 			}
-			if !strings.Contains(res.Diagnosis, "a person should decide") || w.ultra.count() != 2 {
+			if !strings.Contains(res.Diagnosis, "a person should decide") || w.ultra.count() != 3 {
 				t.Fatalf("diagnosis %q after %d Ultra calls", res.Diagnosis, w.ultra.count())
 			}
 			if w.head() != before || !w.clean() || gitx.HasMarkers(read(t, w.dir, "limits.go")) {
