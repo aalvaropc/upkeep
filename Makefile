@@ -32,3 +32,12 @@ build:
 
 smoke: build
 	./$(BIN) version
+	@set -e; data="$$(mktemp -d)"; export UPKEEP_ADDR=127.0.0.1:18080 UPKEEP_DATA_DIR="$$data"; \
+	./$(BIN) serve 2>"$$data/serve.log" & pid=$$!; trap 'kill -TERM $$pid 2>/dev/null || true; rm -rf "$$data"' EXIT; \
+	base=http://$$UPKEEP_ADDR; \
+	curl -fsS --retry 20 --retry-delay 1 --retry-all-errors $$base/healthz; echo; \
+	curl -fsS $$base/ | grep -q 'id="board"'; \
+	timeout 3 curl -sN $$base/api/sessions/local/events > "$$data/sse.txt" || true; \
+	grep -q '^event: hello' "$$data/sse.txt"; \
+	kill -TERM $$pid; wait $$pid; trap 'rm -rf "$$data"' EXIT; \
+	echo "smoke: health check, board page, event stream and clean shutdown ok"
