@@ -2,7 +2,7 @@ GO ?= go
 BIN ?= bin/upkeep
 NPM ?= npm
 
-.PHONY: check fmt-check tidy-check deps-check nocomments vet lint test web-deps web-check web build go-build smoke dev
+.PHONY: check fmt-check tidy-check deps-check nocomments vet lint test web-deps web-check web build go-build smoke dev eval
 
 check: fmt-check tidy-check deps-check nocomments vet lint test web-check build
 
@@ -41,6 +41,11 @@ go-build:
 	CGO_ENABLED=0 $(GO) build -trimpath -o $(BIN) ./cmd/upkeep
 
 build: web go-build
+
+EVAL_OUT ?= docs/evals
+
+eval: go-build
+	UPKEEP_MODE=replay ./$(BIN) eval -runs 1 -out $(EVAL_OUT)
 
 dev:
 	cd web && $(NPM) run dev

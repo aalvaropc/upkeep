@@ -1,0 +1,33 @@
+{
+  "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+  "request": {
+    "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You write one short note for the reviewer of a pull request about a change an automated agent made to it. In at most 45 words, in plain prose, say what was changed and why it was needed, using only the pull request title, the failure and the diff you are given. Do not use headings, lists or code blocks, and do not mention the agent."
+      },
+      {
+        "role": "user",
+        "content": "Pull request: Update github.com/golang-jwt/jwt/v4 to v5.3.1\n\nWhat was failing:\ngo build ./... failed:\n# github.com/aalvaropc/upkeep-sample/auth\nauth/token.go:24:6: undefined: jwt.StandardClaims\nauth/token.go:29:57: c.ExpiresAt undefined (type Claims has no field or method ExpiresAt)\nauth/token.go:57:23: undefined: jwt.StandardClaims\nauth/token.go:80:13: claims.VerifyExpiresAt undefined (type Claims has no field or method VerifyExpiresAt)\nauth/token.go:83:13: claims.VerifyIssuer undefined (type Claims has no field or method VerifyIssuer)\nauth/token.go:83:50: claims.Subject undefined (type Claims has no field or method Subject)\n\nThe change:\n```diff\ndiff --git a/auth/token.go b/auth/token.go\nindex efb974a..579de60 100644\n--- a/auth/token.go\n+++ b/auth/token.go\n@@ -21,12 +21,17 @@ var (\n \n type Claims struct {\n \tScope string `json:\"scope,omitempty\"`\n-\tjwt.StandardClaims\n+\tjwt.RegisteredClaims\n }\n \n func (c Claims) Scopes() []string { return strings.Fields(c.Scope) }\n \n-func (c Claims) Expiry() time.Time { return time.Unix(c.ExpiresAt, 0).UTC() }\n+func (c Claims) Expiry() time.Time {\n+\tif c.ExpiresAt == nil {\n+\t\treturn time.Time{}\n+\t}\n+\treturn time.Unix(c.ExpiresAt.Unix(), 0).UTC()\n+}\n \n func (c Claims) HasScope(scope string) bool { return slices.Contains(c.Scopes(), scope) }\n \n@@ -54,11 +59,11 @@ func (i *Issuer) Issue(subject string, scopes ...string) (string, error) {\n \tnow := i.clock.Now()\n \tclaims := Claims{\n \t\tScope: strings.Join(scopes, \" \"),\n-\t\tStandardClaims: jwt.StandardClaims{\n+\t\tRegisteredClaims: jwt.RegisteredClaims{\n \t\t\tSubject:   subject,\n \t\t\tIssuer:    i.name,\n-\t\t\tIssuedAt:  now.Unix(),\n-\t\t\tExpiresAt: now.Add(i.ttl).Unix(),\n+\t\t\tIssuedAt:  jwt.NewNumericDate(now),\n+\t\t\tExpiresAt: jwt.NewNumericDate(now.Add(i.ttl)),\n \t\t},\n \t}\n \treturn jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(i.key)\n@@ -77,10 +82,10 @@ func (i *Issuer) Parse(token string) (Claims, error) {\n \t\treturn Claims{}, ErrInvalidToken\n \t}\n \tnow := i.clock.Now().Unix()\n-\tif !claims.VerifyExpiresAt(now, true) {\n+\tif claims.ExpiresAt == nil || claims.ExpiresAt.Unix() \u003c now {\n \t\treturn Claims{}, ErrExpired\n \t}\n-\tif !claims.VerifyIssuer(i.name, true) || claims.Subject == \"\" {\n+\tif claims.Issuer != i.name || claims.Subject == \"\" {\n \t\treturn Claims{}, ErrInvalidToken\n \t}\n \treturn claims, nil\n```"
+      }
+    ],
+    "max_tokens": 300,
+    "reasoning": false
+  },
+  "response": {
+    "message": {
+      "role": "assistant",
+      "content": "The repo updated the JWT library, which moved token claims from `jwt.StandardClaims` to `jwt.RegisteredClaims`. The code updated struct fields and Expiry logic to avoid panics, fixed expiration/issuer checks to use direct comparisons instead of the removed verification methods, and aligned parsing logic to the new field names and behaviors to keep the build clean."
+    },
+    "usage": {
+      "prompt_tokens": 863,
+      "completion_tokens": 73,
+      "reasoning_tokens": 0,
+      "cached_prompt_tokens": 0
+    },
+    "latency": 744121837,
+    "finish_reason": "stop"
+  },
+  "recorded_at": "2026-10-25T14:17:21.42962409Z"
+}

@@ -48,3 +48,31 @@ func TestNoRecipeIsUnused(t *testing.T) {
 		}
 	}
 }
+
+func TestTheRecordedRunIsEmbeddedAndComplete(t *testing.T) {
+	store, ok := Fixtures()
+	if !ok {
+		t.Fatal("the binary carries no recorded run")
+	}
+	var prices map[string]struct {
+		Input float64 `json:"input_per_million"`
+	}
+	if err := store.Load("meta", "prices", &prices); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"nvidia/Nemotron-3-Ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"} {
+		if prices[name].Input <= 0 {
+			t.Errorf("no recorded price for %s", name)
+		}
+	}
+	sub, err := fs.Sub(files, "notes/fixtures")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for kind, atLeast := range map[string]int{"model": 20, "forecast": 2} {
+		entries, err := fs.ReadDir(sub, kind)
+		if err != nil || len(entries) < atLeast {
+			t.Errorf("%s: %d recordings (%v), want at least %d", kind, len(entries), err, atLeast)
+		}
+	}
+}

@@ -1,0 +1,33 @@
+{
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "request": {
+    "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You resolve merge conflicts in Go source files. Keep the intent of both sides whenever they can coexist: if both sides add different code at the same place, keep both. Choose one side only when the two cannot both be true, and then choose the side that matches its commit messages. Never add comments.\n\nAnswer with a single JSON object and nothing else:\n{\"files\":[{\"path\":\"\u003cfile\u003e\",\"resolutions\":[\"\u003ctext that replaces the first conflict block\u003e\",\"\u003ctext for the second\u003e\"]}]}\nEach resolution replaces only the lines between the markers, in the order the blocks appear in the file. Write those lines alone, without conflict markers and without repeating any line that appears above or below the markers."
+      },
+      {
+        "role": "user",
+        "content": "Commits on the pull request branch (marked ours):\n- feat: allow titles of up to 140 characters\n\nCommits on origin/main (marked theirs):\n- feat: reject bearer tokens that are oversized or contain odd characters\n- refactor: name the list method after what it does\n- feat: store tags in alphabetical order\n- feat: keep titles short enough for the list view\n\nFile notes/limits.go with its conflict markers:\n```go\npackage notes\n\nconst (\n\tDefaultPageSize = 20\n\tMaxPageSize     = 100\n\u003c\u003c\u003c\u003c\u003c\u003c\u003c HEAD\n\tMaxTitleLength  = 140\n=======\n\tMaxTitleLength  = 100\n\u003e\u003e\u003e\u003e\u003e\u003e\u003e origin/main\n\tMaxBodyLength   = 10_000\n\tMaxTags         = 10\n\tMaxTagLength    = 32\n)\n```"
+      }
+    ],
+    "max_tokens": 4000,
+    "reasoning": false
+  },
+  "response": {
+    "message": {
+      "role": "assistant",
+      "content": "{\n  \"files\": [\n    {\n      \"path\": \"notes/limits.go\",\n      \"resolutions\": [\n        \"\tMaxTitleLength  = 140\"\n      ]\n    }\n  ]\n}"
+    },
+    "usage": {
+      "prompt_tokens": 357,
+      "completion_tokens": 46,
+      "reasoning_tokens": 0,
+      "cached_prompt_tokens": 0
+    },
+    "latency": 939432225,
+    "finish_reason": "stop"
+  },
+  "recorded_at": "2026-10-25T14:16:18.378088529Z"
+}
