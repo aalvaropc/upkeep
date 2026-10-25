@@ -5,3 +5,6 @@
 *.db-wal
 *.db-shm
 coverage.out
+/web/node_modules/
+/internal/web/dist/*
+!/internal/web/dist/.keep

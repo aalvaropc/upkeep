@@ -34,6 +34,9 @@ func serve(ctx context.Context, args []string, stdout, stderr io.Writer, environ
 		return err
 	}
 	logger := slog.New(slog.NewTextHandler(stderr, nil))
+	if !web.Built(web.EmbeddedUI()) {
+		logger.Warn("the dashboard is not built into this binary; run make web and build again")
+	}
 	if err := os.MkdirAll(cfg.DataDir, 0o750); err != nil {
 		return err
 	}

@@ -10,17 +10,30 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/aalvaropc/upkeep/internal/events"
 )
 
+var builtUI = fstest.MapFS{
+	"index.html":              {Data: []byte(`<!doctype html><html><body data-session="local"><div id="root"></div><script type="module" src="/assets/index-abc123.js"></script></body></html>`)},
+	"assets/index-abc123.js":  {Data: []byte(`console.log("upkeep")`)},
+	"assets/index-abc123.css": {Data: []byte(`body{margin:0}`)},
+	".keep":                   {Data: []byte{}},
+}
+
 func newServer(t *testing.T, keepalive time.Duration) (*httptest.Server, *events.Ring, chan struct{}) {
+	t.Helper()
+	return newServerWith(t, keepalive, builtUI)
+}
+
+func newServerWith(t *testing.T, keepalive time.Duration, ui fstest.MapFS) (*httptest.Server, *events.Ring, chan struct{}) {
 	t.Helper()
 	hub := events.NewHub(100)
 	ring := hub.Open("s1")
 	done := make(chan struct{})
-	srv := httptest.NewServer(New(Options{Hub: hub, Version: "v0.0.1-test", Keepalive: keepalive, Done: done}))
+	srv := httptest.NewServer(New(Options{Hub: hub, Version: "v0.0.1-test", Keepalive: keepalive, Done: done, UI: ui}))
 	t.Cleanup(srv.Close)
 	return srv, ring, done
 }
@@ -65,16 +78,14 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
-func TestBoardAndAssets(t *testing.T) {
+func TestDashboardAndAssets(t *testing.T) {
 	srv, _, _ := newServer(t, time.Minute)
 	page := get(t, srv.URL+"/")
 	if page.status != http.StatusOK || !strings.HasPrefix(page.header.Get("Content-Type"), "text/html") {
 		t.Fatalf("GET /: %d %s", page.status, page.header.Get("Content-Type"))
 	}
-	for _, want := range []string{`id="board"`, "Work the queue", `src="app.js"`} {
-		if !strings.Contains(page.body, want) {
-			t.Errorf("board page does not contain %q", want)
-		}
+	if !strings.Contains(page.body, `id="root"`) || page.header.Get("Cache-Control") != "no-cache" {
+		t.Errorf("dashboard page: cache %q, body %s", page.header.Get("Cache-Control"), page.body)
 	}
 	if csp := page.header.Get("Content-Security-Policy"); !strings.Contains(csp, "default-src 'self'") {
 		t.Errorf("CSP = %q", csp)
@@ -82,14 +93,45 @@ func TestBoardAndAssets(t *testing.T) {
 	if page.header.Get("X-Content-Type-Options") != "nosniff" || page.header.Get("Referrer-Policy") != "no-referrer" {
 		t.Errorf("security headers = %v", page.header)
 	}
-	for path, ctype := range map[string]string{"/app.js": "text/javascript", "/app.css": "text/css"} {
+	for path, ctype := range map[string]string{"/assets/index-abc123.js": "text/javascript", "/assets/index-abc123.css": "text/css"} {
 		asset := get(t, srv.URL+path)
 		if asset.status != http.StatusOK || !strings.HasPrefix(asset.header.Get("Content-Type"), ctype) {
 			t.Errorf("GET %s: %d %s", path, asset.status, asset.header.Get("Content-Type"))
 		}
+		if cc := asset.header.Get("Cache-Control"); !strings.Contains(cc, "immutable") {
+			t.Errorf("GET %s: Cache-Control = %q, want hashed assets cached for good", path, cc)
+		}
 	}
-	if missing := get(t, srv.URL+"/missing.js"); missing.status != http.StatusNotFound {
-		t.Errorf("GET /missing.js: %d", missing.status)
+	for _, path := range []string{"/missing.js", "/.keep"} {
+		if r := get(t, srv.URL+path); r.status != http.StatusNotFound {
+			t.Errorf("GET %s: %d, want 404", path, r.status)
+		}
+	}
+}
+
+func TestDashboardNotBuilt(t *testing.T) {
+	srv, _, _ := newServerWith(t, time.Minute, fstest.MapFS{".keep": {Data: []byte{}}})
+	page := get(t, srv.URL+"/")
+	if page.status != http.StatusOK || !strings.Contains(page.body, "make web") {
+		t.Fatalf("GET / without a build: %d %s", page.status, page.body)
+	}
+	if r := get(t, srv.URL+"/assets/index.js"); r.status != http.StatusNotFound {
+		t.Fatalf("GET an asset without a build: %d", r.status)
+	}
+	if r := get(t, srv.URL+"/healthz"); r.status != http.StatusOK {
+		t.Fatalf("healthz without a build: %d", r.status)
+	}
+}
+
+func TestEmbeddedUIIsServable(t *testing.T) {
+	ui := EmbeddedUI()
+	if Built(ui) {
+		if _, err := ui.Open("index.html"); err != nil {
+			t.Fatalf("embedded build has no index.html: %v", err)
+		}
+	}
+	if _, err := ui.Open(".keep"); err != nil {
+		t.Fatalf("the embed folder lost its .keep file: %v", err)
 	}
 }
 

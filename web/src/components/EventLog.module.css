@@ -1,0 +1,19 @@
+.feed {
+  margin-top: 20px;
+}
+
+.title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.events {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 12px/1.7 var(--mono);
+  color: var(--muted);
+}
