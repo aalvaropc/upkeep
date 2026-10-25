@@ -13,7 +13,11 @@ func usd(micros int64) string {
 
 func patchComment(res engine.Result) string {
 	var b strings.Builder
-	b.WriteString("Upkeep prepared a fix for this pull request. It does not push to a person's branch without the `upkeep` label, so here is the change as a patch:\n\n```diff\n")
+	b.WriteString("Upkeep prepared a fix for this pull request.")
+	if s := strings.TrimSpace(res.Summary); s != "" {
+		b.WriteString(" " + s)
+	}
+	b.WriteString(" It does not push to a person's branch without the `upkeep` label, so here is the change as a patch:\n\n```diff\n")
 	b.WriteString(strings.TrimRight(res.Patch, "\n"))
 	b.WriteString("\n```\n")
 	if len(res.Flaky) > 0 {
@@ -41,6 +45,9 @@ func receiptComment(res engine.Result) string {
 	totals := res.Receipt.Totals()
 	var b strings.Builder
 	b.WriteString("Upkeep receipt\n\n")
+	if s := strings.TrimSpace(res.Summary); s != "" {
+		b.WriteString(s + "\n\n")
+	}
 	if len(lines) == 0 {
 		b.WriteString("No model was called; the checks were enough.\n")
 		return b.String()

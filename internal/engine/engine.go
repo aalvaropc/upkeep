@@ -23,7 +23,17 @@ import (
 	"github.com/aalvaropc/upkeep/internal/verify"
 )
 
-const maxRounds = 6
+const (
+	maxRounds       = 6
+	maxFailureChars = 4000
+)
+
+func clip(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "\n... (cut)"
+}
 
 type Limits struct {
 	PRsPerRun     int
@@ -57,6 +67,8 @@ type Result struct {
 	Confirmed  []string
 	Missed     []string
 	Receipt    *receipt.Receipt
+	Summary    string
+	Failure    string
 	Attempts   int
 	WantsPush  bool
 	WantsPatch bool
@@ -173,6 +185,9 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 				return p.failed(&res, err)
 			}
 			failure, _ := diag.Failure()
+			if res.Failure == "" {
+				res.Failure = clip(strategy.FailureText(failure), maxFailureChars)
+			}
 			p.confirmForecast(&res, strategy.FailureText(failure))
 			rep := env.Repair(ctx, job, strategy.FailureText(failure), res.FixBase)
 			res.Attempts = rep.Attempts
@@ -207,9 +222,13 @@ func (p Processor) forecast(ctx context.Context, res *Result, job *strategy.Job)
 	p.step(res, "forecast", "running", fmt.Sprintf("%s %s to %s", bump.Module, bump.From, bump.To))
 	fc, cost, err := env.Forecaster.Forecast(ctx, forecast.Input{Module: bump.Module, From: bump.From, To: bump.To, Dir: job.Dir})
 	if cost.Model != "" && !cost.Cached {
-		job.Receipt.AddCall(model.Nano, cost.Model, cost.Usage, cost.Charge, cost.Latency)
+		role := cost.Role
+		if role == "" {
+			role = model.Super
+		}
+		job.Receipt.AddCall(role, cost.Model, cost.Usage, cost.Charge, cost.Latency)
 		p.emit(res, events.ModelCall, map[string]any{
-			"model": cost.Model, "role": string(model.Nano), "latency_ms": cost.Latency.Milliseconds(), "prompt": cost.Usage.PromptTokens,
+			"model": cost.Model, "role": string(role), "latency_ms": cost.Latency.Milliseconds(), "prompt": cost.Usage.PromptTokens,
 			"completion": cost.Usage.CompletionTokens, "reasoning": cost.Usage.ReasoningTokens, "micros": cost.Charge.Micros,
 		})
 	}
@@ -359,6 +378,9 @@ func (p Processor) finish(ctx context.Context, res *Result, job *strategy.Job, d
 			return p.failed(res, err)
 		}
 	}
+	if res.Changed {
+		res.Summary = p.summarize(ctx, res, job)
+	}
 	res.Outcome = pull.Mergeable
 	res.WantsPush = res.Changed && env.Policy.MayPush(job.PR)
 	res.WantsPatch = res.Changed && !res.WantsPush
@@ -396,4 +418,36 @@ func receiptData(r *receipt.Receipt) map[string]any {
 		"calls": t.Calls, "prompt": t.Usage.PromptTokens, "completion": t.Usage.CompletionTokens,
 		"micros": t.Charge.Micros, "baseline_micros": t.Charge.BaselineMicros, "attempts": r.Attempts(),
 	}
+}
+
+func (p Processor) summarize(ctx context.Context, res *Result, job *strategy.Job) string {
+	env := p.Env
+	paths := make([]string, len(res.Changes))
+	for i, c := range res.Changes {
+		paths[i] = c.Path
+	}
+	edited := "Edited " + strings.Join(paths, ", ") + "."
+	switch res.Blocker {
+	case pull.Behind:
+		return "Merged " + strings.TrimPrefix(job.Base, "origin/") + " into the branch; nothing conflicted."
+	case pull.Format:
+		return "Formatted " + strings.Join(paths, ", ") + " with gofmt."
+	}
+	if !env.CanExplain() {
+		return edited
+	}
+	p.step(res, "explain", "running", "")
+	summary, err := env.Explain(ctx, job, res.Failure, res.Patch)
+	switch {
+	case errors.Is(err, strategy.ErrUngrounded):
+		p.step(res, "explain", "failed", "the note named things that are not in the change, so it was dropped")
+		return edited
+	case err != nil:
+		p.step(res, "explain", "failed", err.Error())
+		return edited
+	case summary == "":
+		return edited
+	}
+	p.step(res, "explain", "done", summary)
+	return summary
 }
