@@ -405,6 +405,23 @@ func (s *Session) Wait(ctx context.Context) error {
 	}
 }
 
+func (s *Session) Notices() []string {
+	evs, _, _ := s.ring.Read(0)
+	var out []string
+	for _, e := range evs {
+		if e.Kind != events.Notice {
+			continue
+		}
+		var data struct {
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal(e.Data, &data); err == nil && data.Message != "" && !slices.Contains(out, data.Message) {
+			out = append(out, data.Message)
+		}
+	}
+	return out
+}
+
 func (s *Session) Items() []queue.Item {
 	s.mu.Lock()
 	defer s.mu.Unlock()

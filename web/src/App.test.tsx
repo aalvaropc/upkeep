@@ -187,6 +187,7 @@ function newServer(overrides: Partial<Server> = {}): Server {
 
 async function ready() {
   await screen.findByRole("button", { name: /Pull request 1/ });
+  await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
   await act(async () => {
     source().emit("hello", { session: "abcdef123456", version: "v1.2.3", last: 0 });
   });
@@ -403,6 +404,26 @@ describe("App", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /Pull request 1/ }));
     expect((await screen.findByRole("alert")).textContent).toBe("unknown pull request");
+  });
+
+  it("says what replay means and links to the documentation", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    expect(
+      await screen.findByText(/The model answers come from a recorded run of Nemotron/),
+    ).toBeTruthy();
+    const nav = screen.getByRole("navigation", { name: "Project links" });
+    const links = within(nav).getAllByRole("link");
+    expect(links.map((l) => l.textContent)).toEqual([
+      "Source",
+      "How it works",
+      "Which model does what",
+      "Limitations",
+    ]);
+    for (const link of links) {
+      expect(link.getAttribute("rel")).toBe("noreferrer noopener");
+    }
   });
 
   it("shows the rules the server runs with", async () => {

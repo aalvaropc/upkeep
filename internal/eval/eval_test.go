@@ -167,6 +167,43 @@ func TestTheReportRoundTripsThroughJSON(t *testing.T) {
 	}
 }
 
+func TestAServerFallbackInALiveRunDoesNotCountAsAPass(t *testing.T) {
+	template := forgetest.New(t)
+	m, err := demo.NewManager(t.Context(), demo.Options{
+		Scenario: expecting(),
+		Template: template.Repo,
+		Root:     filepath.Join(t.TempDir(), "sessions"),
+		Git:      gitx.Git{},
+		Hub:      events.NewHub(100),
+		Processor: func(emit queue.Emitter) (queue.Processor, error) {
+			emit(events.Notice, 0, map[string]string{"message": "The live token budget for today is used up, so this run replays a recorded one."})
+			return fixed{results: agreeing()}, nil
+		},
+		Limits: engine.Limits{PRsPerRun: 2, RunsPerServer: 1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(m.Shutdown)
+	live, err := eval.Run(t.Context(), m, expecting(), 1, "live", "dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if live.AllPassed() || !live.Degraded || len(live.Notices) != 1 {
+		t.Fatalf("a live evaluation that fell back to a recording passed: %+v", live)
+	}
+	if md := live.Markdown(); !strings.Contains(md, "Notice from the server: The live token budget") || !strings.Contains(md, "does not count as a pass") {
+		t.Fatalf("report:\n%s", md)
+	}
+	replay, err := eval.Run(t.Context(), m, expecting(), 1, "replay", "dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay.Degraded || !replay.AllPassed() {
+		t.Fatalf("a notice during a replay is not a failure: %+v", replay)
+	}
+}
+
 func TestAnEmptyReportDoesNotPass(t *testing.T) {
 	if (eval.Report{}).AllPassed() {
 		t.Fatal("a report with no cases should not count as a pass")
