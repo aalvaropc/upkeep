@@ -9,17 +9,19 @@ import (
 type Kind string
 
 const (
-	RunStarted   Kind = "run.started"
-	PRBlocker    Kind = "pr.blocker"
-	PRStep       Kind = "pr.step"
-	ModelCall    Kind = "model.call"
-	ToolCall     Kind = "tool.call"
-	VerifyResult Kind = "verify.result"
-	Action       Kind = "action"
-	Receipt      Kind = "receipt"
-	PRDone       Kind = "pr.done"
-	Notice       Kind = "notice"
-	RunFinished  Kind = "run.finished"
+	RunQueued     Kind = "run.queued"
+	SessionClosed Kind = "session.closed"
+	RunStarted    Kind = "run.started"
+	PRBlocker     Kind = "pr.blocker"
+	PRStep        Kind = "pr.step"
+	ModelCall     Kind = "model.call"
+	ToolCall      Kind = "tool.call"
+	VerifyResult  Kind = "verify.result"
+	Action        Kind = "action"
+	Receipt       Kind = "receipt"
+	PRDone        Kind = "pr.done"
+	Notice        Kind = "notice"
+	RunFinished   Kind = "run.finished"
 )
 
 type Event struct {
