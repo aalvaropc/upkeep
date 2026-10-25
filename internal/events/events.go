@@ -17,6 +17,7 @@ const (
 	VerifyResult Kind = "verify.result"
 	Action       Kind = "action"
 	Receipt      Kind = "receipt"
+	PRDone       Kind = "pr.done"
 	RunFinished  Kind = "run.finished"
 )
 
