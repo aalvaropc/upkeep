@@ -2,7 +2,9 @@ package gitx
 
 import (
 	"fmt"
+	"slices"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -75,7 +77,7 @@ func Resolve(text string, resolutions []string) (string, error) {
 			return "", fmt.Errorf("the file has more conflicts than the %d resolutions given", len(resolutions))
 		}
 		if r := strings.TrimSuffix(resolutions[used], "\n"); r != "" {
-			out = append(out, r)
+			out = append(out, trimEcho(out, untilNextConflict(lines[end+1:]), r))
 		}
 		used++
 		i = end
@@ -90,6 +92,45 @@ func HasMarkers(text string) bool {
 	for _, line := range strings.Split(text, "\n") {
 		if strings.HasPrefix(line, markerOurs) || strings.HasPrefix(line, markerTheirs) || line == markerSplit {
 			return true
+		}
+	}
+	return false
+}
+
+const minEcho = 2
+
+func untilNextConflict(lines []string) []string {
+	for i, l := range lines {
+		if strings.HasPrefix(l, markerOurs) {
+			return lines[:i]
+		}
+	}
+	return lines
+}
+
+func trimEcho(before, after []string, resolution string) string {
+	res := strings.Split(resolution, "\n")
+	for k := min(len(before), len(res)-1); k >= minEcho; k-- {
+		if slices.Equal(before[len(before)-k:], res[:k]) && meaningful(res[:k]) {
+			res = res[k:]
+			break
+		}
+	}
+	for k := min(len(after), len(res)-1); k >= minEcho; k-- {
+		if slices.Equal(after[:k], res[len(res)-k:]) && meaningful(res[len(res)-k:]) {
+			res = res[:len(res)-k]
+			break
+		}
+	}
+	return strings.Join(res, "\n")
+}
+
+func meaningful(lines []string) bool {
+	for _, l := range lines {
+		for _, r := range l {
+			if unicode.IsLetter(r) || unicode.IsDigit(r) {
+				return true
+			}
 		}
 	}
 	return false

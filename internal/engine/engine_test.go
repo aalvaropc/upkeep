@@ -708,6 +708,20 @@ func TestAFailedForecastDoesNotStopTheRepair(t *testing.T) {
 	}
 }
 
+func TestAPatchBumpIsNotForecast(t *testing.T) {
+	fc := newForecast()
+	w := newWorld(t, nil, nil)
+	w.fc = fc
+	w.branch("dependabot/patch")
+	write(t, w.dir, "extra.go", "package m\n\nfunc Extra() int { return 1 }\n")
+	w.commit("build(deps): bump example.com/lib from 1.0.0 to 1.0.1")
+	pr := dependencyPR()
+	pr.Bump.To, pr.Bump.Level = "v1.0.1", pull.Patch
+	if res := w.process(pr); res.Outcome != pull.Mergeable || fc.calls != 0 || res.Forecast != nil {
+		t.Fatalf("a patch bump must not be forecast: %d calls, result %+v", fc.calls, res)
+	}
+}
+
 func TestForecastIsSkippedWhenNotNeeded(t *testing.T) {
 	fc := newForecast()
 	w := newWorld(t, nil, nil)
