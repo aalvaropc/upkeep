@@ -388,6 +388,40 @@ describe("App", () => {
     expect(document.activeElement).toBe(card);
   });
 
+  it("links only web addresses from the sources of a forecast", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    const original = globalThis.fetch;
+    const odd = {
+      ...detail,
+      forecast: {
+        ...detail.forecast!,
+        sources: [
+          "javascript:alert(1)",
+          "data:text/html,x",
+          "https://example.com/notes",
+          "HTTP://example.org/old",
+        ],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string, init?: RequestInit) =>
+        path.includes("/prs/")
+          ? new Response(JSON.stringify(odd), { status: 200 })
+          : original(path, init),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Pull request 2/ }));
+    const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
+    await within(dialog).findByText("confirmed by the build");
+    const hrefs = within(dialog)
+      .getAllByRole("link")
+      .map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(["https://example.com/notes", "HTTP://example.org/old"]);
+  });
+
   it("explains a detail that cannot be loaded", async () => {
     const server = newServer();
     installFetch(server);

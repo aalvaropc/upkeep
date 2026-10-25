@@ -15,6 +15,10 @@ interface Props {
 
 const MAX_FAILURE = 3000;
 
+export function isWebAddress(address: string): boolean {
+  return /^https?:\/\//i.test(address);
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className={styles.section}>
@@ -71,15 +75,18 @@ function ForecastView({
           dropped because the name does not appear in the sources.
         </p>
       ) : null}
-      {forecast.sources.length > 0 ? (
+      {forecast.sources.some(isWebAddress) ? (
         <ul className={styles.sources}>
-          {forecast.sources.slice(0, 4).map((s) => (
-            <li key={s}>
-              <a href={s} target="_blank" rel="noreferrer noopener">
-                {s.replace(/^https?:\/\//, "")}
-              </a>
-            </li>
-          ))}
+          {forecast.sources
+            .filter(isWebAddress)
+            .slice(0, 4)
+            .map((s) => (
+              <li key={s}>
+                <a href={s} target="_blank" rel="noreferrer noopener">
+                  {s.replace(/^https?:\/\//, "")}
+                </a>
+              </li>
+            ))}
         </ul>
       ) : null}
     </>
