@@ -1,19 +1,79 @@
 .feed {
-  margin-top: 20px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  --delay: 250ms;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .title {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 12px;
+  font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--fg-muted);
+}
+
+.session {
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.empty {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 13px;
 }
 
 .events {
+  --dot: var(--fg-muted);
   margin: 0;
   padding: 0;
   list-style: none;
-  font: 12px/1.7 var(--mono);
-  color: var(--muted);
+  font: 12px/1.9 var(--mono);
+  color: var(--fg);
+}
+
+.events li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.events li::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dot);
+}
+
+.events li[data-kind="pr.blocker"] {
+  --dot: var(--danger);
+}
+
+.events li[data-kind="pr.step"],
+.events li[data-kind="model.call"],
+.events li[data-kind="tool.call"] {
+  --dot: var(--warn);
+}
+
+.events li[data-kind="verify.result"],
+.events li[data-kind="receipt"] {
+  --dot: var(--info);
+}
+
+.events li[data-kind="action"],
+.events li[data-kind="run.finished"] {
+  --dot: var(--accent);
 }

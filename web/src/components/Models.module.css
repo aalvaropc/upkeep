@@ -1,0 +1,68 @@
+.panel {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  --delay: 200ms;
+}
+
+.title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+}
+
+.icon {
+  flex: none;
+  margin-top: 2px;
+  font-size: 20px;
+  color: var(--accent);
+}
+
+.body {
+  min-width: 0;
+}
+
+.name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font: 600 13px/1.4 var(--mono);
+}
+
+.size {
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.role {
+  margin: 2px 0 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.meta {
+  margin: 6px 0 0;
+  font: 12px/1.4 var(--mono);
+  color: var(--fg-muted);
+}

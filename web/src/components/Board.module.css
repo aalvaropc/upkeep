@@ -2,32 +2,116 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+  align-items: start;
 }
 
 .column {
-  min-height: 220px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
+  --tone: var(--fg-muted);
+  --tint: transparent;
+  min-height: 240px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--tone);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.column[data-column="blocked"] {
+  --tone: var(--danger);
+  --tint: var(--tint-danger);
+}
+
+.column[data-column="working"] {
+  --tone: var(--warn);
+  --tint: var(--tint-warn);
+}
+
+.column[data-column="verified"] {
+  --tone: var(--info);
+  --tint: var(--tint-info);
+}
+
+.column[data-column="done"] {
+  --tone: var(--accent);
+  --tint: var(--tint-accent);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  flex: none;
+  font-size: 18px;
+  color: var(--tone);
 }
 
 .title {
-  margin: 0 0 10px;
-  font-size: 12px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
 }
 
-.empty {
-  margin: 0;
-  color: var(--muted);
+.count {
+  margin-left: auto;
+  min-width: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--tint);
+  color: var(--tone);
+  font: 600 12px/20px var(--mono);
+  text-align: center;
+}
+
+.meaning {
+  margin: 6px 0 0;
+  min-height: 3.1em;
+  color: var(--fg-muted);
   font-size: 13px;
 }
 
-@media (max-width: 800px) {
+.empty {
+  margin: 20px 0 0;
+  padding: 14px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.column:nth-child(2) {
+  --delay: 50ms;
+}
+
+.column:nth-child(3) {
+  --delay: 100ms;
+}
+
+.column:nth-child(4) {
+  --delay: 150ms;
+}
+
+@media (max-width: 1100px) {
+  .board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
   .board {
     grid-template-columns: 1fr;
+  }
+
+  .column {
+    min-height: 0;
+  }
+
+  .meaning {
+    min-height: 0;
   }
 }

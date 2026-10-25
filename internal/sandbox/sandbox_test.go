@@ -61,7 +61,7 @@ func TestExecEnvironment(t *testing.T) {
 }
 
 func TestCleanEnviron(t *testing.T) {
-	in := []string{"PATH=/bin", "NEBIUS_API_KEY=x", "my_password=y", "DB_Secret=z", "AWS_CREDENTIALS=q", "HOME=/h", "KEYBOARD=us", "malformed"}
+	in := []string{"PATH=/bin", "NEBIUS_API_KEY=x", "my_password=y", "DB_Secret=z", "CLOUD_CREDENTIALS=q", "HOME=/h", "KEYBOARD=us", "malformed"}
 	got := CleanEnviron(in)
 	want := []string{"PATH=/bin", "HOME=/h", "malformed"}
 	if !slices.Equal(got, want) {
