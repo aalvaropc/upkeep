@@ -1,4 +1,4 @@
-From b111479ff3b3a4036f71059571addbce8c35888e Mon Sep 17 00:00:00 2001
+From 71ffd134229efc81badd6e48d8a891576fd13e23 Mon Sep 17 00:00:00 2001
 From: "renovate[bot]" <29139614+renovate[bot]@users.noreply.github.com>
 Date: Sat, 24 Oct 2026 03:00:00 +0000
 Subject: [PATCH] build(deps): update github.com/golang-jwt/jwt/v4 to v5.3.1
@@ -24,21 +24,22 @@ index 6350986..efb974a 100644
  	"github.com/aalvaropc/upkeep-sample/clock"
  )
 diff --git a/go.mod b/go.mod
-index 651d7bd..089623b 100644
+index 622e0d0..d287dc6 100644
 --- a/go.mod
 +++ b/go.mod
-@@ -3,7 +3,8 @@ module github.com/aalvaropc/upkeep-sample
+@@ -3,8 +3,9 @@ module github.com/aalvaropc/upkeep-sample
  go 1.25.0
  
  require (
 -	github.com/golang-jwt/jwt/v4 v4.5.2
  	github.com/jonboulle/clockwork v0.4.0
+ 	github.com/oklog/ulid/v2 v2.1.0
  	github.com/rs/cors v1.11.0
  )
 +
 +require github.com/golang-jwt/jwt/v5 v5.3.1
 diff --git a/go.sum b/go.sum
-index f31bb59..b5c1248 100644
+index 827ecf8..0a9d5be 100644
 --- a/go.sum
 +++ b/go.sum
 @@ -1,5 +1,5 @@
@@ -48,4 +49,4 @@ index f31bb59..b5c1248 100644
 +github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
  github.com/jonboulle/clockwork v0.4.0 h1:p4Cf1aMWXnXAUh8lVfewRBx1zaTSYKrKMF2g3ST4RZ4=
  github.com/jonboulle/clockwork v0.4.0/go.mod h1:xgRqUGwRcjKCO1vbZUEtSLrqKoPSsUpK7fnezOII0kc=
- github.com/rs/cors v1.11.0 h1:0B9GE/r9Bc2UxRMMtymBkHTenPkHDv0CW4Y98GBY+po=
+ github.com/oklog/ulid/v2 v2.1.0 h1:+9lhoxAP56we25tyYETBBY1YLA2SaoLvUFgrP2miPJU=
