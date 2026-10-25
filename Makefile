@@ -1,9 +1,10 @@
 GO ?= go
 BIN ?= bin/upkeep
+NPM ?= npm
 
-.PHONY: check fmt-check tidy-check deps-check nocomments vet lint test build smoke
+.PHONY: check fmt-check tidy-check deps-check nocomments vet lint test web-deps web-check web build go-build smoke dev
 
-check: fmt-check tidy-check deps-check nocomments vet lint test build
+check: fmt-check tidy-check deps-check nocomments vet lint test web-check build
 
 fmt-check:
 	@out="$$(gofmt -l .)"; if [ -n "$$out" ]; then echo "$$out"; exit 1; fi
@@ -27,8 +28,22 @@ lint:
 test:
 	$(GO) test -race -count=1 -shuffle=on ./...
 
-build:
+web-deps:
+	cd web && $(NPM) ci --no-audit --no-fund
+
+web-check: web-deps
+	cd web && $(NPM) run check
+
+web: web-deps
+	cd web && $(NPM) run build
+
+go-build:
 	CGO_ENABLED=0 $(GO) build -trimpath -o $(BIN) ./cmd/upkeep
+
+build: web go-build
+
+dev:
+	cd web && $(NPM) run dev
 
 smoke: build
 	./$(BIN) version
@@ -36,8 +51,9 @@ smoke: build
 	./$(BIN) serve 2>"$$data/serve.log" & pid=$$!; trap 'kill -TERM $$pid 2>/dev/null || true; rm -rf "$$data"' EXIT; \
 	base=http://$$UPKEEP_ADDR; \
 	curl -fsS --retry 20 --retry-delay 1 --retry-all-errors $$base/healthz; echo; \
-	curl -fsS $$base/ | grep -q 'id="board"'; \
+	page="$$(curl -fsS $$base/)"; echo "$$page" | grep -q 'id="root"'; \
+	asset="$$(echo "$$page" | grep -o '/assets/[^"]*\.js' | head -1)"; curl -fsS -o /dev/null "$$base$$asset"; \
 	timeout 3 curl -sN $$base/api/sessions/local/events > "$$data/sse.txt" || true; \
 	grep -q '^event: hello' "$$data/sse.txt"; \
 	kill -TERM $$pid; wait $$pid; trap 'rm -rf "$$data"' EXIT; \
-	echo "smoke: health check, board page, event stream and clean shutdown ok"
+	echo "smoke: health check, dashboard and its assets, event stream and clean shutdown ok"

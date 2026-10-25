@@ -8,13 +8,16 @@ Work in progress.
 
 ## Build and run
 
-Upkeep is a single Go binary. You need Go 1.26 or newer.
+Upkeep is a single Go binary with the dashboard built in. You need Go 1.26 or newer and Node.js 22.12 or newer (the version is pinned in `web/.tool-versions`).
 
 ```sh
-go build -o bin/upkeep ./cmd/upkeep
-./bin/upkeep version
-./bin/upkeep help
+make build
+./bin/upkeep serve
 ```
+
+Then open http://127.0.0.1:8080. `make build` compiles the React dashboard into `internal/web/dist` and embeds it in the binary; a plain `go build` still works and serves a short notice instead of the dashboard.
+
+To work on the dashboard with hot reload, run `./bin/upkeep serve` in one terminal and `make dev` in another, then open the address Vite prints; it forwards `/api` and `/healthz` to the server.
 
 ## Configuration
 
@@ -59,15 +62,16 @@ One Go binary is both the command line and the server. The standard library does
 | `internal/gitx` | git operations; there is no way to force-push |
 | `internal/github`, `internal/tavily` | API clients |
 | `internal/fixture` | stores recorded exchanges for replay |
-| `internal/store`, `internal/events`, `internal/web` | SQLite audit trail, live events, dashboard and event stream |
+| `internal/store`, `internal/events`, `internal/web` | SQLite audit trail, live events, the HTTP server and the event stream |
+| `web` | the dashboard: React and TypeScript, built with Vite and embedded in the binary |
 
 ## Development
 
-`make check` runs the same checks as CI: formatting, `go mod tidy`, the dependency allowlist, the no-comments rule, `go vet`, golangci-lint, the tests with the race detector, and the build.
+`make check` runs the same checks as CI: formatting, `go mod tidy`, the dependency allowlist, the no-comments rule, `go vet`, golangci-lint, the tests with the race detector, the dashboard's formatting, types and tests, and the build.
 
-The code has no comments. Names and tests carry the meaning; the only exception is the `//go:embed` directive. `go run ./internal/tools/nocomments .` enforces it.
+The code has no comments. Names and tests carry the meaning; the only exception is the `//go:embed` directive. `go run ./internal/tools/nocomments .` enforces it for Go, and `npm run nocomments` in `web` for TypeScript, CSS and HTML.
 
-Every pull request targets `main` and is merged with a merge commit once the `pr-targets-main`, `gitleaks`, `test` and `build` checks pass.
+Every pull request targets `main` and is merged with a merge commit once the `pr-targets-main`, `gitleaks`, `test`, `web` and `build` checks pass.
 
 ## License
 
