@@ -4,6 +4,7 @@ import (
 	"embed"
 	"io/fs"
 
+	"github.com/aalvaropc/upkeep/internal/fixture"
 	"github.com/aalvaropc/upkeep/internal/scenario"
 )
 
@@ -25,4 +26,16 @@ func Notes() (scenario.Scenario, error) {
 	}
 	defer f.Close()
 	return scenario.Load(f)
+}
+
+func Fixtures() (fixture.Store, bool) {
+	sub, err := fs.Sub(files, "notes/fixtures")
+	if err != nil {
+		return nil, false
+	}
+	entries, err := fs.ReadDir(sub, ".")
+	if err != nil || len(entries) == 0 {
+		return nil, false
+	}
+	return fixture.FS{FS: sub}, true
 }

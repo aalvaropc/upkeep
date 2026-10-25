@@ -108,3 +108,13 @@ func TestFSMissesAndRefusesToWrite(t *testing.T) {
 		t.Fatalf("Load of invalid JSON: %v", err)
 	}
 }
+
+func TestNoneHasNothingAndKeepsNothing(t *testing.T) {
+	var got request
+	if err := (None{}).Load("model", "abc", &got); !errors.Is(err, ErrMiss) {
+		t.Fatalf("Load: %v", err)
+	}
+	if err := (None{}).Save("model", "abc", got); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("Save: %v", err)
+	}
+}

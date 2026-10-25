@@ -43,7 +43,8 @@ func options(t *testing.T, mode config.Mode) Options {
 		t.Fatal(err)
 	}
 	root := t.TempDir()
-	return Options{Config: cfg, Policy: policy.Default(), Git: gitx.Git{}, FixturesDir: filepath.Join(root, "fixtures"), CacheDir: filepath.Join(root, "cache")}
+	dir := fixture.Dir{Path: filepath.Join(root, "fixtures")}
+	return Options{Config: cfg, Policy: policy.Default(), Git: gitx.Git{}, Fixtures: dir, Record: dir, CacheDir: filepath.Join(root, "cache")}
 }
 
 type collector struct {
@@ -65,7 +66,7 @@ func TestRecordingSavesThePricesThatReplayLaterReads(t *testing.T) {
 		t.Fatal(err)
 	}
 	var saved model.PriceBook
-	if err := (fixture.Dir{Path: rec.FixturesDir}).Load("meta", "prices", &saved); err != nil {
+	if err := rec.Fixtures.Load("meta", "prices", &saved); err != nil {
 		t.Fatal(err)
 	}
 	if len(saved) != 3 {
@@ -73,7 +74,7 @@ func TestRecordingSavesThePricesThatReplayLaterReads(t *testing.T) {
 	}
 
 	rep := options(t, config.Replay)
-	rep.FixturesDir = rec.FixturesDir
+	rep.Fixtures = rec.Fixtures
 	rt, err := New(t.Context(), rep)
 	if err != nil {
 		t.Fatal(err)
@@ -87,8 +88,28 @@ func TestRecordingSavesThePricesThatReplayLaterReads(t *testing.T) {
 	}
 }
 
+func TestRecordModeNeedsAPlaceToSave(t *testing.T) {
+	o := options(t, config.Record)
+	o.Record = nil
+	if _, err := New(t.Context(), o); err == nil || !strings.Contains(err.Error(), "somewhere to save") {
+		t.Fatalf("New() = %v", err)
+	}
+}
+
 func TestReplayWithoutRecordedPricesStillRuns(t *testing.T) {
 	o := options(t, config.Replay)
+	rt, err := New(t.Context(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rt.Processor(nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReplayWithoutAnyFixturesStillStarts(t *testing.T) {
+	o := options(t, config.Replay)
+	o.Fixtures = nil
 	rt, err := New(t.Context(), o)
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +137,7 @@ func TestAnExhaustedLiveBudgetFallsBackToRecordedRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 	live := options(t, config.Live)
-	live.FixturesDir = rec.FixturesDir
+	live.Fixtures = rec.Fixtures
 	live.Config.DailyTokens = 100
 	rt, err := New(t.Context(), live)
 	if err != nil {
@@ -140,6 +161,7 @@ func TestAnExhaustedLiveBudgetFallsBackToRecordedRuns(t *testing.T) {
 
 func TestAnExhaustedLiveBudgetWithNothingToReplayRefuses(t *testing.T) {
 	live := options(t, config.Live)
+	live.Fixtures = nil
 	live.Config.DailyTokens = 10
 	rt, err := New(t.Context(), live)
 	if err != nil {

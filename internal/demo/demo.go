@@ -390,6 +390,32 @@ func (s *Session) wait() {
 	}
 }
 
+func (s *Session) Wait(ctx context.Context) error {
+	s.mu.Lock()
+	done := s.done
+	s.mu.Unlock()
+	if done == nil {
+		return errors.New("this session has not started a run")
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (s *Session) Items() []queue.Item {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	items := make([]queue.Item, 0, len(s.items))
+	for _, it := range s.items {
+		items = append(items, it)
+	}
+	slices.SortFunc(items, func(a, b queue.Item) int { return a.PR.Number - b.PR.Number })
+	return items
+}
+
 func (s *Session) record(it queue.Item) {
 	s.mu.Lock()
 	s.items[it.PR.Number] = it

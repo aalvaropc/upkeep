@@ -116,3 +116,13 @@ func (f FS) Load(kind, key string, v any) error {
 func (FS) Save(kind, key string, _ any) error {
 	return fmt.Errorf("%w: %s/%s", ErrReadOnly, kind, key)
 }
+
+type None struct{}
+
+func (None) Load(kind, key string, _ any) error {
+	return fmt.Errorf("%w: %s/%s", ErrMiss, kind, key)
+}
+
+func (None) Save(kind, key string, _ any) error {
+	return fmt.Errorf("%w: %s/%s", ErrReadOnly, kind, key)
+}

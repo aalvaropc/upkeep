@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/aalvaropc/upkeep/internal/engine"
 	"github.com/aalvaropc/upkeep/internal/events"
@@ -28,11 +29,12 @@ type Action struct {
 }
 
 type Item struct {
-	PR      pull.Request  `json:"pr"`
-	Dir     string        `json:"-"`
-	Result  engine.Result `json:"-"`
-	Outcome pull.Outcome  `json:"outcome"`
-	Actions []Action      `json:"actions"`
+	PR       pull.Request  `json:"pr"`
+	Dir      string        `json:"-"`
+	Result   engine.Result `json:"-"`
+	Outcome  pull.Outcome  `json:"outcome"`
+	Actions  []Action      `json:"actions"`
+	Duration time.Duration `json:"-"`
 }
 
 type Summary struct {
@@ -84,10 +86,12 @@ func (r Runner) Run(ctx context.Context) (Summary, error) {
 	for range parallel {
 		wg.Go(func() {
 			for i := range jobs {
+				began := time.Now()
 				if prepared[i] {
 					items[i].Result = r.Processor.Process(ctx, engine.Input{PR: items[i].PR, Dir: items[i].Dir, Base: r.Base})
 					r.act(ctx, &items[i])
 				}
+				items[i].Duration = time.Since(began)
 				r.finish(ctx, &items[i])
 			}
 		})
