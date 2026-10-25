@@ -302,3 +302,27 @@ func TestInfrastructureFailuresAreErrors(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestUnformatted(t *testing.T) {
+	requireGo(t)
+	dir := module(t, map[string]string{"bad.go": "package m\nfunc   X()int{return 1}\n", "good.go": "package m\n\nfunc Y() int { return 2 }\n"})
+	runner := GoRunner{Executor: Exec{}}
+	files, err := runner.Unformatted(t.Context(), dir)
+	if err != nil || len(files) != 1 || files[0] != "bad.go" {
+		t.Fatalf("unformatted = %v %v", files, err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "bad.go"))
+	if string(data) != "package m\nfunc   X()int{return 1}\n" {
+		t.Fatal("listing the unformatted files changed them")
+	}
+	if _, err := runner.Format(t.Context(), dir); err != nil {
+		t.Fatal(err)
+	}
+	if files, err := runner.Unformatted(t.Context(), dir); err != nil || len(files) != 0 {
+		t.Fatalf("after formatting: %v %v", files, err)
+	}
+	broken := module(t, map[string]string{"x.go": "package m\n\nfunc {\n"})
+	if _, err := runner.Unformatted(t.Context(), broken); err == nil {
+		t.Fatal("a file that does not parse returned no error")
+	}
+}
