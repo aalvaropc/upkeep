@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/aalvaropc/upkeep/internal/gitx"
+	"github.com/aalvaropc/upkeep/internal/jsonfix"
 	"github.com/aalvaropc/upkeep/internal/model"
 )
 
@@ -63,26 +64,56 @@ func (e Env) conflictContext(ctx context.Context, job *Job, hunks []gitx.Hunk) (
 	return b.String(), nil
 }
 
+type badAnswer struct{ err error }
+
+func (b *badAnswer) Error() string { return b.err.Error() }
+
+func (b *badAnswer) Unwrap() error { return b.err }
+
+func bad(format string, args ...any) error {
+	return &badAnswer{err: fmt.Errorf(format, args...)}
+}
+
+const resolveAttempts = 2
+
 func (e Env) ResolveConflict(ctx context.Context, job *Job, hunks []gitx.Hunk) (Resolution, error) {
-	var out Resolution
 	user, err := e.conflictContext(ctx, job, hunks)
 	if err != nil {
-		return out, err
+		return Resolution{}, err
 	}
+	var out Resolution
+	var rejected error
+	for attempt := 1; attempt <= resolveAttempts; attempt++ {
+		prompt := user
+		if rejected != nil {
+			prompt += fmt.Sprintf("\n\nYour previous answer was rejected: %v. Answer again with exactly one resolution per conflict block, in the JSON format given.", rejected)
+		}
+		out, err = e.tryResolve(ctx, job, hunks, prompt)
+		if _, isBad := errors.AsType[*badAnswer](err); err == nil || !isBad {
+			return out, err
+		}
+		rejected = err
+		e.step(job, "conflict", "running", fmt.Sprintf("the answer was rejected (%v); asking again", err))
+	}
+	return out, rejected
+}
+
+func (e Env) tryResolve(ctx context.Context, job *Job, hunks []gitx.Hunk, user string) (Resolution, error) {
+	var out Resolution
 	answer, err := e.complete(ctx, job, model.Ultra, resolveSystem, user, false, 4000)
 	if err != nil {
 		return out, err
 	}
 	plan, err := parseResolutions(answer)
 	if err != nil {
-		return out, err
+		return out, &badAnswer{err: err}
 	}
 	perFile := map[string]int{}
 	for _, h := range hunks {
 		perFile[h.File]++
 	}
 	if len(plan) != len(perFile) {
-		return out, fmt.Errorf("the model resolved %d files but %d have conflicts", len(plan), len(perFile))
+		return out, bad("the model resolved %d files but %d have conflicts", len(plan), len(perFile))
 	}
 	type write struct {
 		path string
@@ -92,10 +123,10 @@ func (e Env) ResolveConflict(ctx context.Context, job *Job, hunks []gitx.Hunk) (
 	for file, count := range perFile {
 		resolutions, ok := plan[file]
 		if !ok {
-			return out, fmt.Errorf("the model left %s unresolved", file)
+			return out, bad("the model left %s unresolved", file)
 		}
 		if len(resolutions) != count {
-			return out, fmt.Errorf("the model gave %d resolutions for the %d conflicts in %s", len(resolutions), count, file)
+			return out, bad("the model gave %d resolutions for the %d conflicts in %s", len(resolutions), count, file)
 		}
 		data, err := os.ReadFile(filepath.Join(job.Dir, file))
 		if err != nil {
@@ -103,10 +134,10 @@ func (e Env) ResolveConflict(ctx context.Context, job *Job, hunks []gitx.Hunk) (
 		}
 		resolved, err := gitx.Resolve(string(data), resolutions)
 		if err != nil {
-			return out, fmt.Errorf("applying the resolutions to %s: %w", file, err)
+			return out, bad("applying the resolutions to %s: %w", file, err)
 		}
 		if gitx.HasMarkers(resolved) {
-			return out, fmt.Errorf("the resolution of %s still contains conflict markers", file)
+			return out, bad("the resolution of %s still contains conflict markers", file)
 		}
 		writes = append(writes, write{path: file, text: resolved})
 		out.Hunks += count
@@ -134,7 +165,7 @@ func parseResolutions(answer string) (map[string][]string, error) {
 			Resolutions []string `json:"resolutions"`
 		} `json:"files"`
 	}
-	if err := json.Unmarshal([]byte(answer[start:end+1]), &doc); err != nil {
+	if err := json.Unmarshal([]byte(jsonfix.Repair(answer[start:end+1])), &doc); err != nil {
 		return nil, fmt.Errorf("the model's answer is not valid JSON: %w", err)
 	}
 	plan := make(map[string][]string, len(doc.Files))
