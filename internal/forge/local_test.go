@@ -1,83 +1,20 @@
-package forge
+package forge_test
 
 import (
 	"errors"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 
-	"github.com/aalvaropc/upkeep/internal/gitx"
+	"github.com/aalvaropc/upkeep/internal/forge"
+	"github.com/aalvaropc/upkeep/internal/forge/forgetest"
 	"github.com/aalvaropc/upkeep/internal/pull"
-	"github.com/aalvaropc/upkeep/internal/scenario"
 )
 
-func git(t *testing.T, dir string, args ...string) string {
-	t.Helper()
-	full := append([]string{"-c", "user.name=Author", "-c", "user.email=author@example.com", "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null"}, args...)
-	cmd := exec.CommandContext(t.Context(), "git", full...)
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %v: %v\n%s", args, err, out)
-	}
-	return strings.TrimSpace(string(out))
-}
-
-func write(t *testing.T, dir, name, content string) {
-	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func testScenario() scenario.Scenario {
-	person := pull.Author{Login: "alice", Kind: pull.Person}
-	return scenario.Scenario{
-		Name: "tiny",
-		Base: "main",
-		PRs: []scenario.PR{
-			{Number: 2, Title: "Change b", Branch: "feat/b", Author: person, Labels: []string{"upkeep"}},
-			{Number: 1, Title: "Change a", Branch: "feat/a", Author: person},
-			{Number: 3, Title: "Also change a", Branch: "feat/a2", Author: person},
-			{Number: 4, Title: "Bump", Branch: "dependabot/x", Author: pull.Author{Login: "dependabot[bot]", Kind: pull.Bot}, Bump: &pull.Bump{Module: "example.com/x", From: "v1.0.0", To: "v1.0.1", Level: pull.Patch}},
-		},
-	}
-}
-
-func newLocal(t *testing.T) *Local {
-	t.Helper()
-	root := t.TempDir()
-	src := filepath.Join(root, "src")
-	if err := os.MkdirAll(src, 0o750); err != nil {
-		t.Fatal(err)
-	}
-	git(t, src, "init", "--quiet", "--initial-branch=main")
-	write(t, src, "a.txt", "one\n")
-	write(t, src, "b.txt", "bee\n")
-	git(t, src, "add", "-A")
-	git(t, src, "commit", "--quiet", "-m", "chore: start")
-	branch := func(name, file, content string) {
-		git(t, src, "switch", "--quiet", "-c", name, "main")
-		write(t, src, file, content)
-		git(t, src, "add", "-A")
-		git(t, src, "commit", "--quiet", "-m", "change "+file)
-	}
-	branch("feat/a", "a.txt", "two\n")
-	branch("feat/a2", "a.txt", "three\n")
-	branch("feat/b", "b.txt", "see\n")
-	branch("dependabot/x", "c.txt", "new\n")
-	git(t, src, "switch", "--quiet", "main")
-	bare := filepath.Join(root, "forge.git")
-	g := gitx.Git{}
-	if err := g.CloneBare(t.Context(), src, bare); err != nil {
-		t.Fatal(err)
-	}
-	return NewLocal(g, bare, testScenario())
-}
+var git = forgetest.Git
+var write = forgetest.Write
+var newLocal = forgetest.New
 
 func TestPullsListsOpenRequestsInOrder(t *testing.T) {
 	l := newLocal(t)
@@ -165,11 +102,11 @@ func TestMergeCreatesAMergeCommitAndClosesTheRequest(t *testing.T) {
 	if len(after) != 3 {
 		t.Fatalf("%d requests are still open, want 3", len(after))
 	}
-	if _, err := l.Merge(t.Context(), pulls[2]); !errors.Is(err, ErrClosed) {
+	if _, err := l.Merge(t.Context(), pulls[2]); !errors.Is(err, forge.ErrClosed) {
 		t.Fatalf("merging twice: %v", err)
 	}
 	views := l.Views(t.Context())
-	if views[2].State != Merged || views[2].MergeSHA != sha {
+	if views[2].State != forge.Merged || views[2].MergeSHA != sha {
 		t.Fatalf("view = %+v", views[2])
 	}
 }
@@ -182,13 +119,13 @@ func TestMergeRefusesAConflictAndLeavesTheBaseAlone(t *testing.T) {
 	}
 	before := git(t, l.Repo, "rev-parse", "main")
 	_, err := l.Merge(t.Context(), pulls[2])
-	if !errors.Is(err, ErrNotMergeable) {
-		t.Fatalf("error = %v, want ErrNotMergeable", err)
+	if !errors.Is(err, forge.ErrNotMergeable) {
+		t.Fatalf("error = %v, want forge.ErrNotMergeable", err)
 	}
 	if after := git(t, l.Repo, "rev-parse", "main"); after != before {
 		t.Fatalf("a refused merge moved main from %s to %s", before, after)
 	}
-	if views := l.Views(t.Context()); views[2].State != Open {
+	if views := l.Views(t.Context()); views[2].State != forge.Open {
 		t.Fatalf("state = %s, want open", views[2].State)
 	}
 }
@@ -223,10 +160,10 @@ func TestConcurrentMergesOfIndependentRequestsAllLand(t *testing.T) {
 func TestCommentsAreKeptWithTheirKind(t *testing.T) {
 	l := newLocal(t)
 	pulls, _ := l.Pulls(t.Context())
-	if err := l.Comment(t.Context(), pulls[0], Comment{Kind: "patch", Body: "diff --git"}); err != nil {
+	if err := l.Comment(t.Context(), pulls[0], forge.Comment{Kind: "patch", Body: "diff --git"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := l.Comment(t.Context(), pull.Request{Number: 99}, Comment{Kind: "note"}); !errors.Is(err, ErrUnknown) {
+	if err := l.Comment(t.Context(), pull.Request{Number: 99}, forge.Comment{Kind: "note"}); !errors.Is(err, forge.ErrUnknown) {
 		t.Fatalf("commenting on an unknown request: %v", err)
 	}
 	views := l.Views(t.Context())
@@ -237,7 +174,7 @@ func TestCommentsAreKeptWithTheirKind(t *testing.T) {
 
 func TestCopyLocalGivesEachSessionItsOwnRepository(t *testing.T) {
 	l := newLocal(t)
-	copyA, err := CopyLocal(t.Context(), l.Git, l.Repo, filepath.Join(t.TempDir(), "a.git"), testScenario())
+	copyA, err := forge.CopyLocal(t.Context(), l.Git, l.Repo, filepath.Join(t.TempDir(), "a.git"), forgetest.Scenario())
 	if err != nil {
 		t.Fatal(err)
 	}
