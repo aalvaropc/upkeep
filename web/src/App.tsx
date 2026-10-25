@@ -46,6 +46,18 @@ export function App() {
           onStart={() => void session.start()}
           onRules={() => setRules(true)}
         />
+        {session.info?.mode === "replay" ? (
+          <p className={styles.caption}>
+            <strong>Replay.</strong> The model answers come from a recorded run of Nemotron on
+            Nebius Token Factory. Git, the sandbox, the compiler and the tests run for real.
+          </p>
+        ) : null}
+        {session.info?.mode === "live" ? (
+          <p className={styles.caption}>
+            <strong>Live.</strong> Every model call goes to Nemotron on Nebius Token Factory now.
+            When the daily budget is spent, runs replay a recording and say so.
+          </p>
+        ) : null}
         {board.run === "idle" ? <Onboarding /> : null}
         <div className={styles.layout}>
           <Board board={board} now={now} onOpen={setOpen} />
@@ -55,6 +67,35 @@ export function App() {
           </div>
         </div>
       </main>
+      <footer className={styles.footer}>
+        <span>Upkeep · MIT · Nemotron on Nebius Token Factory</span>
+        <nav aria-label="Project links">
+          <a href="https://github.com/aalvaropc/upkeep" target="_blank" rel="noreferrer noopener">
+            Source
+          </a>
+          <a
+            href="https://github.com/aalvaropc/upkeep/blob/main/docs/architecture.md"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            How it works
+          </a>
+          <a
+            href="https://github.com/aalvaropc/upkeep/blob/main/docs/models.md"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Which model does what
+          </a>
+          <a
+            href="https://github.com/aalvaropc/upkeep/blob/main/docs/limitations.md"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Limitations
+          </a>
+        </nav>
+      </footer>
       {open !== null ? (
         <DetailPanel number={open} load={session.detail} onClose={() => setOpen(null)} />
       ) : null}

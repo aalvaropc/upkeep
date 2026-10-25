@@ -405,6 +405,26 @@ describe("App", () => {
     expect((await screen.findByRole("alert")).textContent).toBe("unknown pull request");
   });
 
+  it("says what replay means and links to the documentation", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    expect(
+      await screen.findByText(/The model answers come from a recorded run of Nemotron/),
+    ).toBeTruthy();
+    const nav = screen.getByRole("navigation", { name: "Project links" });
+    const links = within(nav).getAllByRole("link");
+    expect(links.map((l) => l.textContent)).toEqual([
+      "Source",
+      "How it works",
+      "Which model does what",
+      "Limitations",
+    ]);
+    for (const link of links) {
+      expect(link.getAttribute("rel")).toBe("noreferrer noopener");
+    }
+  });
+
   it("shows the rules the server runs with", async () => {
     installFetch(newServer());
     render(<App />);

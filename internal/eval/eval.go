@@ -43,6 +43,8 @@ type Report struct {
 	Version  string    `json:"version"`
 	Runs     int       `json:"runs"`
 	At       time.Time `json:"at"`
+	Notices  []string  `json:"notices,omitempty"`
+	Degraded bool      `json:"degraded,omitempty"`
 	Cases    []Case    `json:"cases"`
 }
 
@@ -109,6 +111,12 @@ func Run(ctx context.Context, m *demo.Manager, s scenario.Scenario, runs int, mo
 		}
 		for _, it := range session.Items() {
 			report.Cases = append(report.Cases, Check(run, byNumber[it.PR.Number], it))
+		}
+		for _, n := range session.Notices() {
+			if !slices.Contains(report.Notices, n) {
+				report.Notices = append(report.Notices, n)
+			}
+			report.Degraded = report.Degraded || mode != "replay"
 		}
 		if err := m.Discard(session.ID); err != nil {
 			return report, err
@@ -182,7 +190,7 @@ func (r Report) Summary() Summary {
 }
 
 func (r Report) AllPassed() bool {
-	return len(r.Cases) > 0 && r.Summary().Passed == len(r.Cases)
+	return len(r.Cases) > 0 && !r.Degraded && r.Summary().Passed == len(r.Cases)
 }
 
 func (r Report) JSON() ([]byte, error) {
@@ -206,6 +214,12 @@ func (r Report) Markdown() string {
 	b.WriteString("\n\n| # | Pull request | Passed | Attempts | Model calls | Cost | At the largest price | Seconds |\n|---|---|---|---|---|---|---|---|\n")
 	for _, row := range s.Rows {
 		fmt.Fprintf(&b, "| %d | %s | %d/%d | %.1f | %.1f | %s | %s | %.1f |\n", row.Number, row.Title, row.Passed, row.Runs, row.MeanAttempts, row.MeanCalls, usd(row.MeanMicros), usd(row.MeanBaseline), row.MeanDurationMS/1000)
+	}
+	for _, n := range r.Notices {
+		fmt.Fprintf(&b, "\nNotice from the server: %s\n", n)
+	}
+	if r.Degraded {
+		b.WriteString("\nThis evaluation did not run the way its mode says, so it does not count as a pass.\n")
 	}
 	var problems []string
 	for _, row := range s.Rows {
