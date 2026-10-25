@@ -187,6 +187,7 @@ function newServer(overrides: Partial<Server> = {}): Server {
 
 async function ready() {
   await screen.findByRole("button", { name: /Pull request 1/ });
+  await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
   await act(async () => {
     source().emit("hello", { session: "abcdef123456", version: "v1.2.3", last: 0 });
   });
