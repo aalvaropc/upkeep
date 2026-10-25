@@ -1,0 +1,12 @@
+label = "upkeep"
+bots = ["dependabot[bot]", "renovate[bot]"]
+auto_merge = "bots"
+auto_merge_bumps = ["patch", "minor"]
+merge_method = "merge"
+max_files_changed = 5
+max_lines_changed = 80
+max_conflict_hunks = 3
+max_hunk_lines = 20
+max_attempts = 3
+max_seconds = 180
+max_tokens = 80_000
