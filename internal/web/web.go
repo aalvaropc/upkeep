@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aalvaropc/upkeep/internal/demo"
 	"github.com/aalvaropc/upkeep/internal/events"
 )
 
@@ -36,6 +37,10 @@ type Options struct {
 	Logger    *slog.Logger
 	Done      <-chan struct{}
 	UI        fs.FS
+
+	Demo       *demo.Manager
+	Info       func() map[string]any
+	TrustProxy bool
 }
 
 type server struct {
@@ -59,6 +64,9 @@ func New(opts Options) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("GET /api/sessions/{id}/events", s.events)
+	if opts.Demo != nil {
+		s.routeDemo(mux)
+	}
 	mux.Handle("GET /", dashboard(opts.UI))
 	return securityHeaders(mux)
 }
