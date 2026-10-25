@@ -1,0 +1,147 @@
+{
+  "MiniMaxAI/MiniMax-M3": {
+    "input_per_million": 0.3,
+    "output_per_million": 1.2,
+    "cached_input_per_million": 0.06
+  },
+  "MiniMaxAI/MiniMax-M3.1-Flash": {
+    "input_per_million": 0.15,
+    "output_per_million": 0.6,
+    "cached_input_per_million": 0.015
+  },
+  "NousResearch/Hermes-4-405B": {
+    "input_per_million": 1,
+    "output_per_million": 3,
+    "cached_input_per_million": 0
+  },
+  "Qwen/Qwen3-235B-A22B-Instruct-2507": {
+    "input_per_million": 0.19999999999999998,
+    "output_per_million": 0.6,
+    "cached_input_per_million": 0
+  },
+  "Qwen/Qwen3-30B-A3B-Instruct-2507": {
+    "input_per_million": 0.09999999999999999,
+    "output_per_million": 0.3,
+    "cached_input_per_million": 0
+  },
+  "Qwen/Qwen3-Embedding-8B": {
+    "input_per_million": 0.01,
+    "output_per_million": 0,
+    "cached_input_per_million": 0
+  },
+  "Qwen/Qwen3.8-27B": {
+    "input_per_million": 0.44999999999999996,
+    "output_per_million": 3,
+    "cached_input_per_million": 0.09999999999999999
+  },
+  "deepseek-ai/DeepSeek-V4-Flash-0731": {
+    "input_per_million": 0.14,
+    "output_per_million": 0.28,
+    "cached_input_per_million": 0.01
+  },
+  "deepseek-ai/DeepSeek-V4-Pro": {
+    "input_per_million": 1.75,
+    "output_per_million": 3.5,
+    "cached_input_per_million": 0
+  },
+  "deepseek-ai/DeepSeek-V4-Pro-0813": {
+    "input_per_million": 1.32,
+    "output_per_million": 3.9600000000000004,
+    "cached_input_per_million": 0.04
+  },
+  "deepseek-ai/DeepSeek-V4.1-Flash": {
+    "input_per_million": 0.3,
+    "output_per_million": 1.2,
+    "cached_input_per_million": 0.01
+  },
+  "deepseek-ai/DeepSeek-V4.1-Flash-1017": {
+    "input_per_million": 0.3,
+    "output_per_million": 1.2,
+    "cached_input_per_million": 0.006
+  },
+  "google/gemma-3-27b-it": {
+    "input_per_million": 0.09999999999999999,
+    "output_per_million": 0.3,
+    "cached_input_per_million": 0
+  },
+  "meta-models/muse-spark-open": {
+    "input_per_million": 1.25,
+    "output_per_million": 4.25,
+    "cached_input_per_million": 0.15
+  },
+  "moonshotai/Kimi-K2.6": {
+    "input_per_million": 0.95,
+    "output_per_million": 4,
+    "cached_input_per_million": 0.16
+  },
+  "moonshotai/Kimi-K2.7-Code": {
+    "input_per_million": 0.95,
+    "output_per_million": 4,
+    "cached_input_per_million": 0.15
+  },
+  "moonshotai/Kimi-K3": {
+    "input_per_million": 3,
+    "output_per_million": 15,
+    "cached_input_per_million": 0.3
+  },
+  "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+    "input_per_million": 0.06,
+    "output_per_million": 0.24,
+    "cached_input_per_million": 0
+  },
+  "nvidia/Nemotron-3-Ultra-550b-a55b": {
+    "input_per_million": 1,
+    "output_per_million": 3,
+    "cached_input_per_million": 0.12
+  },
+  "nvidia/Nemotron-3.5-Super-VL": {
+    "input_per_million": 0.3,
+    "output_per_million": 0.8999999999999999,
+    "cached_input_per_million": 0.06
+  },
+  "nvidia/Nemotron-3_5-Lightning": {
+    "input_per_million": 0.06,
+    "output_per_million": 0.24,
+    "cached_input_per_million": 0
+  },
+  "nvidia/nemotron-3-super-120b-a12b": {
+    "input_per_million": 0.3,
+    "output_per_million": 0.8999999999999999,
+    "cached_input_per_million": 0.06
+  },
+  "openai/gpt-oss-120b": {
+    "input_per_million": 0.15,
+    "output_per_million": 0.6,
+    "cached_input_per_million": 0
+  },
+  "openbmb/MiniCPM-V-4_5": {
+    "input_per_million": 0.658,
+    "output_per_million": 1.1099999999999999,
+    "cached_input_per_million": 0
+  },
+  "reflection/beam": {
+    "input_per_million": 0.25,
+    "output_per_million": 1,
+    "cached_input_per_million": 0.049999999999999996
+  },
+  "zai-org/GLM-5.1": {
+    "input_per_million": 1.4,
+    "output_per_million": 4.4,
+    "cached_input_per_million": 0
+  },
+  "zai-org/GLM-5.2": {
+    "input_per_million": 1.4,
+    "output_per_million": 4.4,
+    "cached_input_per_million": 0.14
+  },
+  "zai-org/GLM-5.3": {
+    "input_per_million": 1.4,
+    "output_per_million": 4.4,
+    "cached_input_per_million": 0.26
+  },
+  "zai-org/GLM-5.3-Flash": {
+    "input_per_million": 0.15,
+    "output_per_million": 0.5,
+    "cached_input_per_million": 0.03
+  }
+}

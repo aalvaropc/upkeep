@@ -1,0 +1,33 @@
+{
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "request": {
+    "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You resolve merge conflicts in Go source files. Keep the intent of both sides whenever they can coexist: if both sides add different code at the same place, keep both. Choose one side only when the two cannot both be true, and then choose the side that matches its commit messages. Never add comments.\n\nAnswer with a single JSON object and nothing else:\n{\"files\":[{\"path\":\"\u003cfile\u003e\",\"resolutions\":[\"\u003ctext that replaces the first conflict block\u003e\",\"\u003ctext for the second\u003e\"]}]}\nEach resolution replaces only the lines between the markers, in the order the blocks appear in the file. Write those lines alone, without conflict markers and without repeating any line that appears above or below the markers."
+      },
+      {
+        "role": "user",
+        "content": "Commits on the pull request branch (marked ours):\n- feat: count how often each tag is used\n\nCommits on origin/main (marked theirs):\n- feat: reject bearer tokens that are oversized or contain odd characters\n- refactor: name the list method after what it does\n- feat: store tags in alphabetical order\n- feat: keep titles short enough for the list view\n\nFile notes/service.go with its conflict markers:\n```go\npackage notes\n\nimport (\n\t\"context\"\n\t\"crypto/rand\"\n\t\"encoding/hex\"\n\t\"fmt\"\n\u003c\u003c\u003c\u003c\u003c\u003c\u003c HEAD\n\t\"maps\"\n\t\"slices\"\n=======\n\t\"sort\"\n\u003e\u003e\u003e\u003e\u003e\u003e\u003e origin/main\n\t\"strings\"\n\t\"unicode/utf8\"\n\n\t\"github.com/aalvaropc/upkeep-sample/clock\"\n)\n\ntype Service struct {\n\tstore Store\n\tclock clock.Clock\n\tnewID func() string\n}\n\nfunc NewService(store Store, c clock.Clock) *Service {\n\treturn \u0026Service{store: store, clock: c, newID: NewID}\n}\n\nfunc NewID() string {\n\tb := make([]byte, 8)\n\tif _, err := rand.Read(b); err != nil {\n\t\tpanic(err)\n\t}\n\treturn hex.EncodeToString(b)\n}\n\nfunc (s *Service) Create(ctx context.Context, owner string, in Input) (Note, error) {\n\tin, err := validate(in)\n\tif err != nil {\n\t\treturn Note{}, err\n\t}\n\tnow := s.clock.Now().UTC()\n\tn := Note{\n\t\tID:        s.newID(),\n\t\tOwner:     owner,\n\t\tTitle:     in.Title,\n\t\tBody:      in.Body,\n\t\tTags:      in.Tags,\n\t\tCreatedAt: now,\n\t\tUpdatedAt: now,\n\t}\n\tif err := s.store.Insert(ctx, n); err != nil {\n\t\treturn Note{}, err\n\t}\n\treturn n, nil\n}\n\nfunc (s *Service) Get(ctx context.Context, owner, id string) (Note, error) {\n\treturn s.store.Get(ctx, owner, id)\n}\n\nfunc (s *Service) ListByOwner(ctx context.Context, owner string, page Page) (List, error) {\n\tpage = clampPage(page)\n\tnotes, total, err := s.store.List(ctx, owner, page.Offset, page.Limit)\n\tif err != nil {\n\t\treturn List{}, err\n\t}\n\tif notes == nil {\n\t\tnotes = []Note{}\n\t}\n\treturn List{Notes: notes, Total: total, Offset: page.Offset, Limit: page.Limit}, nil\n}\n\nfunc (s *Service) Update(ctx context.Context, owner, id string, in Input) (Note, error) {\n\tin, err := validate(in)\n\tif err != nil {\n\t\treturn Note{}, err\n\t}\n\tn, err := s.store.Get(ctx, owner, id)\n\tif err != nil {\n\t\treturn Note{}, err\n\t}\n\tn.Title, n.Body, n.Tags = in.Title, in.Body, in.Tags\n\tn.UpdatedAt = s.clock.Now().UTC()\n\tif err := s.store.Update(ctx, n); err != nil {\n\t\treturn Note{}, err\n\t}\n\treturn n, nil\n}\n\nfunc (s *Service) Delete(ctx context.Context, owner, id string) error {\n\treturn s.store.Delete(ctx, owner, id)\n}\n\nfunc (s *Service) TagCounts(ctx context.Context, owner string) ([]TagCount, error) {\n\tcounts := map[string]int{}\n\tfor offset := 0; ; offset += MaxPageSize {\n\t\tpage, total, err := s.store.List(ctx, owner, offset, MaxPageSize)\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\tfor _, n := range page {\n\t\t\tfor _, tag := range n.Tags {\n\t\t\t\tcounts[tag]++\n\t\t\t}\n\t\t}\n\t\tif len(page) == 0 || offset+len(page) \u003e= total {\n\t\t\tbreak\n\t\t}\n\t}\n\tout := make([]TagCount, 0, len(counts))\n\tfor _, tag := range slices.Sorted(maps.Keys(counts)) {\n\t\tout = append(out, TagCount{Tag: tag, Count: counts[tag]})\n\t}\n\treturn out, nil\n}\n\nfunc clampPage(p Page) Page {\n\tif p.Offset \u003c 0 {\n\t\tp.Offset = 0\n\t}\n\tswitch {\n\tcase p.Limit \u003c= 0:\n\t\tp.Limit = DefaultPageSize\n\tcase p.Limit \u003e MaxPageSize:\n\t\tp.Limit = MaxPageSize\n\t}\n\treturn p\n}\n\nfunc validate(in Input) (Input, error) {\n\tin.Title = strings.TrimSpace(in.Title)\n\tif in.Title == \"\" {\n\t\treturn Input{}, fmt.Errorf(\"%w: title is required\", ErrInvalid)\n\t}\n\tif utf8.RuneCountInString(in.Title) \u003e MaxTitleLength {\n\t\treturn Input{}, fmt.Errorf(\"%w: title is longer than %d characters\", ErrInvalid, MaxTitleLength)\n\t}\n\tif utf8.RuneCountInString(in.Body) \u003e MaxBodyLength {\n\t\treturn Input{}, fmt.Errorf(\"%w: body is longer than %d characters\", ErrInvalid, MaxBodyLength)\n\t}\n\tif len(in.Tags) \u003e MaxTags {\n\t\treturn Input{}, fmt.Errorf(\"%w: at most %d tags\", ErrInvalid, MaxTags)\n\t}\n\ttags := make([]string, 0, len(in.Tags))\n\tseen := make(map[string]bool, len(in.Tags))\n\tfor _, tag := range in.Tags {\n\t\ttag = strings.ToLower(strings.TrimSpace(tag))\n\t\tif !validTag(tag) {\n\t\t\treturn Input{}, fmt.Errorf(\"%w: tag %q must be 1 to %d lowercase letters, digits or dashes\", ErrInvalid, tag, MaxTagLength)\n\t\t}\n\t\tif !seen[tag] {\n\t\t\tseen[tag] = true\n\t\t\ttags = append(tags, tag)\n\t\t}\n\t}\n\tsort.Strings(tags)\n\tin.Tags = tags\n\treturn in, nil\n}\n\nfunc validTag(tag string) bool {\n\tif tag == \"\" || len(tag) \u003e MaxTagLength {\n\t\treturn false\n\t}\n\tfor _, r := range tag {\n\t\tswitch {\n\t\tcase r \u003e= 'a' \u0026\u0026 r \u003c= 'z', r \u003e= '0' \u0026\u0026 r \u003c= '9', r == '-':\n\t\tdefault:\n\t\t\treturn false\n\t\t}\n\t}\n\treturn true\n}\n```"
+      }
+    ],
+    "max_tokens": 4000,
+    "reasoning": false
+  },
+  "response": {
+    "message": {
+      "role": "assistant",
+      "content": "{\"files\":[{\"path\":\"notes/service.go\",\"resolutions\":[\"\\\"maps\\\"\\n\\t\\\"slices\\\"\\n\\t\\\"sort\\\"\"]}]}"
+    },
+    "usage": {
+      "prompt_tokens": 1530,
+      "completion_tokens": 33,
+      "reasoning_tokens": 0,
+      "cached_prompt_tokens": 0
+    },
+    "latency": 998014264,
+    "finish_reason": "stop"
+  },
+  "recorded_at": "2026-10-25T14:16:18.441535648Z"
+}

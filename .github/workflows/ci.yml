@@ -111,3 +111,30 @@ jobs:
         run: make build
       - name: Smoke
         run: make smoke
+
+  eval:
+    name: eval
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.26.x"
+          cache-dependency-path: go.mod
+      - name: Pull the sandbox image
+        run: docker pull golang:1.26.10-bookworm
+      - name: Replay the recorded scenario and check every outcome
+        env:
+          UPKEEP_SANDBOX: docker
+          UPKEEP_DATA_DIR: ${{ runner.temp }}/upkeep-data
+          EVAL_OUT: ${{ runner.temp }}/evals
+        run: make eval
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f "${{ runner.temp }}/evals/latest.md" ]; then
+            cat "${{ runner.temp }}/evals/latest.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
