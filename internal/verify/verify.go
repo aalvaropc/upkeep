@@ -41,19 +41,29 @@ func (c Checklist) Failed() []Check {
 }
 
 type Input struct {
-	Policy  policy.Policy
-	Changes []gitx.FileChange
-	Report  sandbox.Report
+	Policy      policy.Policy
+	Changes     []gitx.FileChange
+	Report      sandbox.Report
+	Comments    int
+	Unformatted []string
+	Dependency  bool
+}
+
+func dependencyFile(path string) bool {
+	return path == "go.mod" || path == "go.sum"
 }
 
 func Verify(in Input) Checklist {
 	files := len(in.Changes)
 	lines := 0
-	var tests []string
+	var tests, foreign []string
 	for _, c := range in.Changes {
 		lines += c.Added + c.Deleted
 		if c.IsTest() {
 			tests = append(tests, c.Path)
+		}
+		if !strings.HasSuffix(c.Path, ".go") && (!in.Dependency || !dependencyFile(c.Path)) {
+			foreign = append(foreign, c.Path)
 		}
 	}
 	return Checklist{
@@ -78,12 +88,46 @@ func Verify(in Input) Checklist {
 			Pass:   len(tests) == 0,
 			Detail: strings.Join(tests, ", "),
 		},
+		{
+			ID:     "go-only",
+			Label:  goOnlyLabel(in.Dependency),
+			Pass:   len(foreign) == 0,
+			Detail: strings.Join(foreign, ", "),
+		},
+		{
+			ID:     "no-comments",
+			Label:  "adds no comments",
+			Pass:   in.Comments == 0,
+			Detail: commentDetail(in.Comments),
+		},
+		{
+			ID:     "formatted",
+			Label:  "leaves the code formatted",
+			Pass:   len(in.Unformatted) == 0,
+			Detail: strings.Join(in.Unformatted, ", "),
+		},
 	}
+}
+
+func goOnlyLabel(dependency bool) string {
+	if dependency {
+		return "changes only Go files and the module files"
+	}
+	return "changes only Go files"
+}
+
+func commentDetail(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d added", n)
 }
 
 func result(id, label string, r sandbox.Result) Check {
 	c := Check{ID: id, Label: label, Pass: r.OK()}
 	switch {
+	case r.Skipped:
+		c.Detail = "not run"
 	case r.TimedOut:
 		c.Detail = "timed out"
 	case !c.Pass:
