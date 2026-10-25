@@ -2,7 +2,9 @@ package fixture
 
 import (
 	"errors"
+	"os"
 	"testing"
+	"testing/fstest"
 )
 
 type request struct {
@@ -69,5 +71,40 @@ func TestDirRejectsPaths(t *testing.T) {
 		if err := d.Save(name[0], name[1], 1); err == nil {
 			t.Errorf("Save(%q, %q) accepted a path", name[0], name[1])
 		}
+	}
+}
+
+func TestFSReadsWhatADirWrote(t *testing.T) {
+	dir := t.TempDir()
+	want := request{Model: "m", Messages: []string{"a", "b"}}
+	if err := (Dir{Path: dir}).Save("model", "abc", want); err != nil {
+		t.Fatal(err)
+	}
+	var got request
+	if err := (FS{FS: os.DirFS(dir)}).Load("model", "abc", &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Model != want.Model || len(got.Messages) != 2 {
+		t.Fatalf("got = %+v", got)
+	}
+}
+
+func TestFSMissesAndRefusesToWrite(t *testing.T) {
+	store := FS{FS: fstest.MapFS{"model/abc.json": {Data: []byte(`{"model":"m"}`)}}}
+	var got request
+	if err := store.Load("model", "nope", &got); !errors.Is(err, ErrMiss) {
+		t.Fatalf("Load of a missing fixture: %v", err)
+	}
+	if err := store.Save("model", "abc", request{}); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("Save: %v", err)
+	}
+	for _, bad := range []string{"", ".", "..", "a/b", `a\b`} {
+		if err := store.Load("model", bad, &got); err == nil || errors.Is(err, ErrMiss) {
+			t.Errorf("Load of the name %q: %v, want a validation error", bad, err)
+		}
+	}
+	broken := FS{FS: fstest.MapFS{"model/bad.json": {Data: []byte("{")}}}
+	if err := broken.Load("model", "bad", &got); err == nil || errors.Is(err, ErrMiss) {
+		t.Fatalf("Load of invalid JSON: %v", err)
 	}
 }

@@ -32,13 +32,21 @@ type Dir struct {
 	Path string
 }
 
-func (d Dir) file(kind, key string) (string, error) {
+func name(kind, key string) (string, error) {
 	for _, part := range []string{kind, key} {
 		if part == "" || strings.ContainsAny(part, `/\`) || part == "." || part == ".." {
 			return "", fmt.Errorf("invalid fixture name %q", part)
 		}
 	}
-	return filepath.Join(d.Path, kind, key+".json"), nil
+	return kind + "/" + key + ".json", nil
+}
+
+func (d Dir) file(kind, key string) (string, error) {
+	rel, err := name(kind, key)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(d.Path, filepath.FromSlash(rel)), nil
 }
 
 func (d Dir) Load(kind, key string, v any) error {
@@ -82,4 +90,29 @@ func (d Dir) Save(kind, key string, v any) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+var ErrReadOnly = errors.New("the fixture store is read-only")
+
+type FS struct {
+	FS fs.FS
+}
+
+func (f FS) Load(kind, key string, v any) error {
+	rel, err := name(kind, key)
+	if err != nil {
+		return err
+	}
+	data, err := fs.ReadFile(f.FS, rel)
+	if errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("%w: %s/%s", ErrMiss, kind, key)
+	}
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, v)
+}
+
+func (FS) Save(kind, key string, _ any) error {
+	return fmt.Errorf("%w: %s/%s", ErrReadOnly, kind, key)
 }
