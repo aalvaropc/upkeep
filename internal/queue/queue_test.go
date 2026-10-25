@@ -241,6 +241,24 @@ func TestABotRequestIsMergedWhenThePolicyAllowsIt(t *testing.T) {
 	}
 }
 
+type arming struct{ forge.Forge }
+
+func (a arming) Merge(context.Context, pull.Request) (string, error) { return "", nil }
+
+func TestAnArmedMergeIsNotCountedAsMerged(t *testing.T) {
+	p := &scripted{t: t, results: map[int]engine.Result{4: {Outcome: pull.Mergeable, WantsMerge: true}}}
+	r, f, _ := newRunner(t, p)
+	r.Forge = arming{Forge: f}
+	s, err := r.Run(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := item(t, s, 4)
+	if got.Outcome != pull.Mergeable || got.Actions[0].Kind != "merge" || got.Actions[0].Status != "done" || !strings.Contains(got.Actions[0].Detail, "auto-merge is armed") {
+		t.Fatalf("item = %+v", got)
+	}
+}
+
 func TestARequestThatNoLongerMergesIsHandedToAPerson(t *testing.T) {
 	p := &scripted{t: t, results: map[int]engine.Result{
 		1: {Outcome: pull.Mergeable, WantsMerge: true},

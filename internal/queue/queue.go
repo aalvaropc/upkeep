@@ -175,9 +175,12 @@ func (r Runner) act(ctx context.Context, it *Item) {
 			return
 		}
 		if res.WantsMerge {
-			if r.record(it, r.merge(ctx, it)) {
+			a, merged := r.merge(ctx, it)
+			ok := r.record(it, a)
+			switch {
+			case merged:
 				it.Outcome = pull.Merged
-			} else {
+			case !ok:
 				it.Outcome = pull.NeedsHuman
 			}
 			return
@@ -210,12 +213,15 @@ func (r Runner) patch(ctx context.Context, it *Item) Action {
 	return Action{Kind: "patch", Status: "done", Detail: "attached the fix as a patch"}
 }
 
-func (r Runner) merge(ctx context.Context, it *Item) Action {
+func (r Runner) merge(ctx context.Context, it *Item) (Action, bool) {
 	sha, err := r.Forge.Merge(ctx, it.PR)
-	if err != nil {
-		return Action{Kind: "merge", Status: "failed", Detail: err.Error()}
+	switch {
+	case err != nil:
+		return Action{Kind: "merge", Status: "failed", Detail: err.Error()}, false
+	case sha == "":
+		return Action{Kind: "merge", Status: "done", Detail: "auto-merge is armed; it merges once the checks pass"}, false
 	}
-	return Action{Kind: "merge", Status: "done", Detail: "merged as " + short(sha)}
+	return Action{Kind: "merge", Status: "done", Detail: "merged as " + short(sha)}, true
 }
 
 func short(sha string) string {

@@ -1,12 +1,10 @@
 package github
 
 import (
-	"context"
 	"net/http"
 	"time"
 
 	"github.com/aalvaropc/upkeep/internal/config"
-	"github.com/aalvaropc/upkeep/internal/stub"
 )
 
 const DefaultBaseURL = "https://api.github.com"
@@ -20,12 +18,18 @@ type Label struct {
 	Name string `json:"name"`
 }
 
+type Repo struct {
+	FullName string `json:"full_name"`
+}
+
 type Ref struct {
-	Ref string `json:"ref"`
-	SHA string `json:"sha"`
+	Ref  string `json:"ref"`
+	SHA  string `json:"sha"`
+	Repo *Repo  `json:"repo"`
 }
 
 type PullRequest struct {
+	NodeID  string  `json:"node_id"`
 	Number  int     `json:"number"`
 	Title   string  `json:"title"`
 	User    User    `json:"user"`
@@ -48,16 +52,4 @@ type Client struct {
 	BaseURL string
 	Token   config.Secret
 	HTTP    *http.Client
-}
-
-func (c *Client) ListOpenPulls(_ context.Context, _, _ string) ([]PullRequest, error) {
-	return nil, stub.Err("list open pull requests")
-}
-
-func (c *Client) Comment(_ context.Context, _, _ string, _ int, _ string) error {
-	return stub.Err("comment on a pull request")
-}
-
-func (c *Client) Merge(_ context.Context, _, _ string, _ int, _ string) error {
-	return stub.Err("merge a pull request")
 }
