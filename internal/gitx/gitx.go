@@ -3,11 +3,13 @@ package gitx
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +27,13 @@ type Git struct {
 	AuthorName  string
 	AuthorEmail string
 	Timeout     time.Duration
+	Env         []string
+}
+
+func (g Git) WithToken(token string) Git {
+	header := "AUTHORIZATION: basic " + base64.StdEncoding.EncodeToString([]byte("x-access-token:"+token))
+	g.Env = append(slices.Clone(g.Env), "GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=http.https://github.com/.extraheader", "GIT_CONFIG_VALUE_0="+header)
+	return g
 }
 
 type Hunk struct {
@@ -99,7 +108,7 @@ func (g Git) run(ctx context.Context, dir string, stdin string, args ...string) 
 	full = append(full, args...)
 	cmd := exec.CommandContext(ctx, g.bin(), full...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0", "LC_ALL=C", "GIT_CONFIG_NOSYSTEM=1")
+	cmd.Env = append(append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0", "LC_ALL=C", "GIT_CONFIG_NOSYSTEM=1"), g.Env...)
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)
 	}

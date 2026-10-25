@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/aalvaropc/upkeep/internal/buildinfo"
-	"github.com/aalvaropc/upkeep/internal/stub"
 )
 
 const usage = `usage: upkeep <command>
@@ -55,7 +54,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, environ [
 	case "eval":
 		err = evalCommand(ctx, args[1:], stdout, stderr, environ)
 	case "run":
-		err = stub.Err(args[0])
+		err = runCommand(ctx, args[1:], stdout, stderr, environ)
 	default:
 		fmt.Fprintf(stderr, "upkeep: unknown command %q\n\n%s", args[0], usage)
 		return 2
