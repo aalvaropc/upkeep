@@ -211,6 +211,28 @@ func (g Git) unmerged(ctx context.Context, dir string) ([]string, error) {
 	return files, nil
 }
 
+func (g Git) MergeInProgress(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, ".git", "MERGE_HEAD"))
+	return err == nil
+}
+
+func (g Git) Subjects(ctx context.Context, dir, rev string, limit int) ([]string, error) {
+	if strings.HasPrefix(rev, "-") {
+		return nil, fmt.Errorf("invalid revision %q", rev)
+	}
+	out, err := g.run(ctx, dir, "", "log", "--format=%s", "-n", strconv.Itoa(max(limit, 1)), rev, "--")
+	if err != nil {
+		return nil, err
+	}
+	var subjects []string
+	for _, line := range strings.Split(out, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			subjects = append(subjects, line)
+		}
+	}
+	return subjects, nil
+}
+
 func (g Git) MergeAbort(ctx context.Context, dir string) error {
 	_, err := g.run(ctx, dir, "", "merge", "--abort")
 	return err

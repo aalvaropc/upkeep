@@ -2,37 +2,26 @@ package engine
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"time"
 
 	"github.com/aalvaropc/upkeep/internal/detect"
 	"github.com/aalvaropc/upkeep/internal/events"
+	"github.com/aalvaropc/upkeep/internal/fixer"
 	"github.com/aalvaropc/upkeep/internal/gitx"
-	"github.com/aalvaropc/upkeep/internal/model"
-	"github.com/aalvaropc/upkeep/internal/policy"
+	"github.com/aalvaropc/upkeep/internal/gocomments"
 	"github.com/aalvaropc/upkeep/internal/pull"
-	"github.com/aalvaropc/upkeep/internal/sandbox"
-	"github.com/aalvaropc/upkeep/internal/store"
+	"github.com/aalvaropc/upkeep/internal/receipt"
 	"github.com/aalvaropc/upkeep/internal/strategy"
-	"github.com/aalvaropc/upkeep/internal/stub"
+	"github.com/aalvaropc/upkeep/internal/verify"
 )
 
-type Forge interface {
-	Pulls(ctx context.Context) ([]pull.Request, error)
-	Push(ctx context.Context, pr pull.Request, dir string) error
-	Comment(ctx context.Context, pr pull.Request, body string) error
-	Merge(ctx context.Context, pr pull.Request) error
-}
-
-type Deps struct {
-	Forge      Forge
-	Git        gitx.Git
-	Runner     sandbox.Runner
-	Detector   detect.Detector
-	Strategies *strategy.Registry
-	Router     *model.Router
-	Policy     policy.Policy
-	Events     *events.Ring
-	Store      *store.Store
-}
+const maxRounds = 6
 
 type Limits struct {
 	PRsPerRun     int
@@ -41,23 +30,320 @@ type Limits struct {
 
 var DefaultLimits = Limits{PRsPerRun: 4, RunsPerServer: 2}
 
-type Engine struct {
-	deps   Deps
-	limits Limits
+type Input struct {
+	PR    pull.Request
+	Dir   string
+	Base  string
+	Notes string
 }
 
-func New(deps Deps, limits Limits) *Engine {
-	if limits.PRsPerRun <= 0 {
-		limits.PRsPerRun = DefaultLimits.PRsPerRun
-	}
-	if limits.RunsPerServer <= 0 {
-		limits.RunsPerServer = DefaultLimits.RunsPerServer
-	}
-	return &Engine{deps: deps, limits: limits}
+type Result struct {
+	PR         pull.Request
+	Blocker    pull.Blocker
+	Outcome    pull.Outcome
+	Reason     string
+	Diagnosis  string
+	HeadBefore string
+	HeadAfter  string
+	FixBase    string
+	Changed    bool
+	Patch      string
+	Changes    []gitx.FileChange
+	Checklist  verify.Checklist
+	Flaky      []string
+	Receipt    *receipt.Receipt
+	Attempts   int
+	WantsPush  bool
+	WantsPatch bool
+	WantsMerge bool
+	Err        error
 }
 
-func (e *Engine) Limits() Limits { return e.limits }
+type Processor struct {
+	Env strategy.Env
+}
 
-func (e *Engine) Work(_ context.Context, _ string) error {
-	return stub.Err("work the queue")
+func (p Processor) emit(res *Result, kind events.Kind, data any) {
+	if p.Env.Emit != nil {
+		p.Env.Emit(kind, res.PR.Number, data)
+	}
+}
+
+func (p Processor) step(res *Result, name, status, detail string) {
+	p.emit(res, events.PRStep, map[string]any{"step": name, "status": status, "detail": detail})
+}
+
+func (p Processor) Process(ctx context.Context, in Input) Result {
+	env := p.Env
+	job := &strategy.Job{PR: in.PR, Dir: in.Dir, Base: in.Base, Notes: in.Notes, Receipt: receipt.New()}
+	res := Result{PR: in.PR, Receipt: job.Receipt}
+
+	head, err := env.Git.Head(ctx, in.Dir)
+	if err != nil {
+		return p.failed(&res, fmt.Errorf("reading the branch head: %w", err))
+	}
+	res.HeadBefore, res.FixBase = head, head
+	detector := detect.Detector{Git: env.Git, Runner: env.Runner, Policy: env.Policy}
+	ws := detect.Workspace{Dir: in.Dir, Base: in.Base}
+
+	diagnose := func() (detect.Diagnosis, error) {
+		began := time.Now()
+		p.step(&res, "detect", "running", "")
+		diag, err := detector.Detect(ctx, ws)
+		if err != nil {
+			p.step(&res, "detect", "failed", err.Error())
+			return diag, err
+		}
+		detail := string(diag.Blocker)
+		p.step(&res, "detect", "done", detail)
+		job.Receipt.AddStep(receipt.Step{Name: "detect", Detail: detail, Duration: time.Since(began), OK: true})
+		return diag, nil
+	}
+
+	diag, err := diagnose()
+	if err != nil {
+		return p.failed(&res, err)
+	}
+	res.Blocker = diag.Blocker
+	p.emit(&res, events.PRBlocker, map[string]any{"blocker": string(diag.Blocker), "behind": diag.Behind})
+
+	seen := map[pull.Blocker]int{}
+	for round := 0; round < maxRounds; round++ {
+		seen[diag.Blocker]++
+		if seen[diag.Blocker] > 2 {
+			return p.escalate(ctx, &res, job, diag, "the same blocker came back after it was fixed")
+		}
+		switch diag.Blocker {
+		case pull.Clean, pull.Flaky:
+			return p.finish(ctx, &res, job, diag)
+
+		case pull.Behind:
+			if err := p.commitPending(ctx, &res, job); err != nil {
+				return p.failed(&res, err)
+			}
+			return p.finish(ctx, &res, job, diag)
+
+		case pull.Format:
+			if err := p.commitPending(ctx, &res, job); err != nil {
+				return p.failed(&res, err)
+			}
+			p.step(&res, "format", "running", "")
+			files, err := env.Format(ctx, job)
+			if err != nil {
+				return p.failed(&res, err)
+			}
+			p.step(&res, "format", "done", strings.Join(files, ", "))
+			if diag, err = diagnose(); err != nil {
+				return p.failed(&res, err)
+			}
+
+		case pull.ConflictSmall:
+			p.step(&res, "conflict", "running", fmt.Sprintf("%d hunks", diag.Merge.Hunks()))
+			resolved, err := env.ResolveConflict(ctx, job, diag.Merge.Conflicts)
+			if err != nil {
+				p.step(&res, "conflict", "failed", err.Error())
+				out := p.escalate(ctx, &res, job, diag, "the conflict could not be resolved safely: "+err.Error())
+				_ = env.Git.MergeAbort(ctx, in.Dir)
+				return out
+			}
+			p.step(&res, "conflict", "done", fmt.Sprintf("%d hunks in %d files", resolved.Hunks, resolved.Files))
+			if err := env.CommitMerge(ctx, job); err != nil {
+				return p.failed(&res, err)
+			}
+			if res.FixBase, err = env.Git.Head(ctx, in.Dir); err != nil {
+				return p.failed(&res, err)
+			}
+			if diag, err = diagnose(); err != nil {
+				return p.failed(&res, err)
+			}
+
+		case pull.ConflictLarge:
+			out := p.escalate(ctx, &res, job, diag, fmt.Sprintf("%d conflicting hunks are too large to resolve automatically", diag.Merge.Hunks()))
+			_ = env.Git.MergeAbort(ctx, in.Dir)
+			return out
+
+		case pull.Build, pull.Test:
+			if err := p.commitPending(ctx, &res, job); err != nil {
+				return p.failed(&res, err)
+			}
+			failure, _ := diag.Failure()
+			rep := env.Repair(ctx, job, strategy.FailureText(failure), res.FixBase)
+			res.Attempts = rep.Attempts
+			if rep.Err != nil {
+				return p.failed(&res, rep.Err)
+			}
+			if !rep.Fixed {
+				_ = env.Git.ResetTo(ctx, in.Dir, res.FixBase)
+				return p.escalate(ctx, &res, job, diag, fmt.Sprintf("%d attempts did not fix it (%s)", rep.Attempts, rep.Stop))
+			}
+			if _, err := env.Git.Commit(ctx, in.Dir, fixMessage(in.PR, rep.Edits)); err != nil {
+				return p.failed(&res, fmt.Errorf("committing the fix: %w", err))
+			}
+			if diag, err = diagnose(); err != nil {
+				return p.failed(&res, err)
+			}
+
+		default:
+			return p.failed(&res, fmt.Errorf("no way to handle the blocker %q", diag.Blocker))
+		}
+	}
+	return p.escalate(ctx, &res, job, diag, "it needed more rounds of fixing than the limit")
+}
+
+func fixMessage(pr pull.Request, edits []fixer.Edit) string {
+	var paths []string
+	for _, e := range edits {
+		if !slices.Contains(paths, e.Path) {
+			paths = append(paths, e.Path)
+		}
+	}
+	subject := "fix: make the checks pass again"
+	if pr.Bump != nil {
+		subject = fmt.Sprintf("fix: adapt the code to %s %s", pr.Bump.Module, pr.Bump.To)
+	}
+	return subject + "\n\nEdited: " + strings.Join(paths, ", ")
+}
+
+func (p Processor) commitPending(ctx context.Context, res *Result, job *strategy.Job) error {
+	if !p.Env.Git.MergeInProgress(job.Dir) {
+		return nil
+	}
+	if err := p.Env.CommitMerge(ctx, job); err != nil {
+		return err
+	}
+	head, err := p.Env.Git.Head(ctx, job.Dir)
+	if err != nil {
+		return err
+	}
+	res.FixBase = head
+	p.step(res, "merge", "done", "merged "+strings.TrimPrefix(job.Base, "origin/"))
+	return nil
+}
+
+func (p Processor) failed(res *Result, err error) Result {
+	res.Err = err
+	res.Outcome = pull.Failed
+	res.Reason = err.Error()
+	p.step(res, "run", "failed", err.Error())
+	return *res
+}
+
+func (p Processor) escalate(ctx context.Context, res *Result, job *strategy.Job, diag detect.Diagnosis, reason string) Result {
+	res.Outcome = pull.NeedsHuman
+	res.Reason = reason
+	p.step(res, "diagnose", "running", "")
+	var text string
+	var err error
+	switch diag.Blocker {
+	case pull.ConflictLarge, pull.ConflictSmall:
+		text, err = p.Env.DiagnoseConflict(ctx, job, diag.Merge.Conflicts)
+	default:
+		failure, _ := diag.Failure()
+		text, err = p.Env.DiagnoseFailure(ctx, job, strategy.FailureText(failure), res.Attempts)
+	}
+	if err != nil {
+		p.step(res, "diagnose", "failed", err.Error())
+		text = ""
+	} else {
+		p.step(res, "diagnose", "done", "")
+	}
+	res.Diagnosis = text
+	if head, err := p.Env.Git.Head(ctx, job.Dir); err == nil {
+		res.HeadAfter = head
+	}
+	p.emit(res, events.Receipt, receiptData(res.Receipt))
+	return *res
+}
+
+func (p Processor) finish(ctx context.Context, res *Result, job *strategy.Job, diag detect.Diagnosis) Result {
+	env := p.Env
+	head, err := env.Git.Head(ctx, job.Dir)
+	if err != nil {
+		return p.failed(res, err)
+	}
+	res.HeadAfter = head
+	res.Flaky = diag.FlakyTests
+	p.step(res, "verify", "running", "")
+
+	changes, err := env.Git.Diff(ctx, job.Dir, res.FixBase)
+	if err != nil {
+		return p.failed(res, fmt.Errorf("measuring the change: %w", err))
+	}
+	res.Changes = changes
+	comments, err := p.addedComments(ctx, job, changes, res.FixBase)
+	if err != nil {
+		return p.failed(res, err)
+	}
+	report := diag.Report
+	if len(diag.FlakyTests) > 0 && diag.FlakyRerun.OK() {
+		report.Test = diag.FlakyRerun
+	}
+	res.Checklist = verify.Verify(verify.Input{
+		Policy:      env.Policy,
+		Changes:     changes,
+		Report:      report,
+		Comments:    comments,
+		Unformatted: diag.Unformatted,
+		Dependency:  job.PR.Kind == pull.Dependency,
+	})
+	p.emit(res, events.VerifyResult, map[string]any{"passed": res.Checklist.Passed(), "checks": res.Checklist})
+
+	if !res.Checklist.Passed() {
+		failed := res.Checklist.Failed()
+		labels := make([]string, len(failed))
+		for i, c := range failed {
+			labels[i] = c.Label
+		}
+		_ = env.Git.ResetTo(ctx, job.Dir, res.HeadBefore)
+		res.HeadAfter = res.HeadBefore
+		p.step(res, "verify", "failed", strings.Join(labels, "; "))
+		res.Outcome = pull.NeedsHuman
+		res.Reason = "the fix did not pass verification: " + strings.Join(labels, "; ")
+		p.emit(res, events.Receipt, receiptData(res.Receipt))
+		return *res
+	}
+
+	res.Changed = res.HeadAfter != res.HeadBefore
+	if res.Changed {
+		if res.Patch, err = env.Git.PatchAgainst(ctx, job.Dir, res.FixBase); err != nil {
+			return p.failed(res, err)
+		}
+	}
+	res.Outcome = pull.Mergeable
+	res.WantsPush = res.Changed && env.Policy.MayPush(job.PR)
+	res.WantsPatch = res.Changed && !res.WantsPush
+	res.WantsMerge = env.Policy.MayAutoMerge(job.PR.Author, job.PR.Bump)
+	p.step(res, "verify", "done", "every check passed")
+	p.emit(res, events.Receipt, receiptData(res.Receipt))
+	return *res
+}
+
+func (p Processor) addedComments(ctx context.Context, job *strategy.Job, changes []gitx.FileChange, base string) (int, error) {
+	total := 0
+	for _, c := range changes {
+		if !strings.HasSuffix(c.Path, ".go") {
+			continue
+		}
+		after, err := os.ReadFile(filepath.Join(job.Dir, c.Path))
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return 0, err
+		}
+		before, err := p.Env.Git.Show(ctx, job.Dir, base, c.Path)
+		if err != nil {
+			before = ""
+		}
+		total += gocomments.Added([]byte(before), after)
+	}
+	return total, nil
+}
+
+func receiptData(r *receipt.Receipt) map[string]any {
+	t := r.Totals()
+	return map[string]any{
+		"calls": t.Calls, "prompt": t.Usage.PromptTokens, "completion": t.Usage.CompletionTokens,
+		"micros": t.Charge.Micros, "baseline_micros": t.Charge.BaselineMicros, "attempts": r.Attempts(),
+	}
 }

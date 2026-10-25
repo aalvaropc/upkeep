@@ -49,7 +49,7 @@ func Default() Policy {
 		MaxHunkLines:     20,
 		MaxAttempts:      3,
 		MaxSeconds:       180,
-		MaxTokens:        80_000,
+		MaxTokens:        200_000,
 	}
 }
 

@@ -9,4 +9,4 @@ max_conflict_hunks = 3
 max_hunk_lines = 20
 max_attempts = 3
 max_seconds = 180
-max_tokens = 80_000
+max_tokens = 200_000
