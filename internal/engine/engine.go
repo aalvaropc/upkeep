@@ -13,8 +13,10 @@ import (
 	"github.com/aalvaropc/upkeep/internal/detect"
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/fixer"
+	"github.com/aalvaropc/upkeep/internal/forecast"
 	"github.com/aalvaropc/upkeep/internal/gitx"
 	"github.com/aalvaropc/upkeep/internal/gocomments"
+	"github.com/aalvaropc/upkeep/internal/model"
 	"github.com/aalvaropc/upkeep/internal/pull"
 	"github.com/aalvaropc/upkeep/internal/receipt"
 	"github.com/aalvaropc/upkeep/internal/strategy"
@@ -51,6 +53,9 @@ type Result struct {
 	Changes    []gitx.FileChange
 	Checklist  verify.Checklist
 	Flaky      []string
+	Forecast   *forecast.Forecast
+	Confirmed  []string
+	Missed     []string
 	Receipt    *receipt.Receipt
 	Attempts   int
 	WantsPush  bool
@@ -83,6 +88,7 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 		return p.failed(&res, fmt.Errorf("reading the branch head: %w", err))
 	}
 	res.HeadBefore, res.FixBase = head, head
+	p.forecast(ctx, &res, job)
 	detector := detect.Detector{Git: env.Git, Runner: env.Runner, Policy: env.Policy}
 	ws := detect.Workspace{Dir: in.Dir, Base: in.Base}
 
@@ -167,6 +173,7 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 				return p.failed(&res, err)
 			}
 			failure, _ := diag.Failure()
+			p.confirmForecast(&res, strategy.FailureText(failure))
 			rep := env.Repair(ctx, job, strategy.FailureText(failure), res.FixBase)
 			res.Attempts = rep.Attempts
 			if rep.Err != nil {
@@ -188,6 +195,49 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 		}
 	}
 	return p.escalate(ctx, &res, job, diag, "it needed more rounds of fixing than the limit")
+}
+
+func (p Processor) forecast(ctx context.Context, res *Result, job *strategy.Job) {
+	env := p.Env
+	bump := job.PR.Bump
+	if bump == nil || env.Forecaster == nil || strings.TrimSpace(job.Notes) != "" {
+		return
+	}
+	began := time.Now()
+	p.step(res, "forecast", "running", fmt.Sprintf("%s %s to %s", bump.Module, bump.From, bump.To))
+	fc, cost, err := env.Forecaster.Forecast(ctx, forecast.Input{Module: bump.Module, From: bump.From, To: bump.To, Dir: job.Dir})
+	if cost.Model != "" && !cost.Cached {
+		job.Receipt.AddCall(model.Nano, cost.Model, cost.Usage, cost.Charge, cost.Latency)
+		p.emit(res, events.ModelCall, map[string]any{
+			"model": cost.Model, "role": string(model.Nano), "latency_ms": cost.Latency.Milliseconds(), "prompt": cost.Usage.PromptTokens,
+			"completion": cost.Usage.CompletionTokens, "reasoning": cost.Usage.ReasoningTokens, "micros": cost.Charge.Micros,
+		})
+	}
+	if err != nil {
+		p.step(res, "forecast", "failed", err.Error())
+		job.Receipt.AddStep(receipt.Step{Name: "forecast", Detail: err.Error(), Duration: time.Since(began)})
+		return
+	}
+	job.Notes = fc.Notes()
+	res.Forecast = &fc
+	detail := fmt.Sprintf("%d breaking changes expected", len(fc.Breaking))
+	if cost.Cached {
+		detail += ", recorded " + fc.FetchedAt.Format("2006-01-02")
+	}
+	p.step(res, "forecast", "done", detail)
+	job.Receipt.AddStep(receipt.Step{Name: "forecast", Detail: detail, Duration: time.Since(began), OK: true})
+}
+
+func (p Processor) confirmForecast(res *Result, failure string) {
+	if res.Forecast == nil || res.Confirmed != nil || res.Missed != nil {
+		return
+	}
+	res.Confirmed, res.Missed = res.Forecast.Confirm(failure)
+	total := len(res.Confirmed) + len(res.Missed)
+	if total == 0 {
+		return
+	}
+	p.step(res, "forecast", "done", fmt.Sprintf("the build confirmed %d of %d predicted changes", len(res.Confirmed), total))
 }
 
 func fixMessage(pr pull.Request, edits []fixer.Edit) string {

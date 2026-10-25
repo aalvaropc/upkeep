@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aalvaropc/upkeep/internal/events"
+	"github.com/aalvaropc/upkeep/internal/forecast"
 	"github.com/aalvaropc/upkeep/internal/gitx"
 	"github.com/aalvaropc/upkeep/internal/model"
 	"github.com/aalvaropc/upkeep/internal/policy"
@@ -14,14 +15,19 @@ import (
 	"github.com/aalvaropc/upkeep/internal/sandbox"
 )
 
+type Forecaster interface {
+	Forecast(ctx context.Context, in forecast.Input) (forecast.Forecast, forecast.Cost, error)
+}
+
 type Env struct {
-	Git      gitx.Git
-	Runner   sandbox.Runner
-	Executor sandbox.Executor
-	Models   *model.Router
-	Meter    model.Meter
-	Policy   policy.Policy
-	Emit     func(kind events.Kind, pr int, data any)
+	Forecaster Forecaster
+	Git        gitx.Git
+	Runner     sandbox.Runner
+	Executor   sandbox.Executor
+	Models     *model.Router
+	Meter      model.Meter
+	Policy     policy.Policy
+	Emit       func(kind events.Kind, pr int, data any)
 }
 
 type Job struct {

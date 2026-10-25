@@ -14,6 +14,7 @@ import (
 
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/fixer"
+	"github.com/aalvaropc/upkeep/internal/forecast"
 	"github.com/aalvaropc/upkeep/internal/gitx"
 	"github.com/aalvaropc/upkeep/internal/model"
 	"github.com/aalvaropc/upkeep/internal/policy"
@@ -86,6 +87,7 @@ type world struct {
 	steps  []string
 	mu     sync.Mutex
 	pol    policy.Policy
+	fc     strategy.Forecaster
 }
 
 const (
@@ -175,12 +177,13 @@ func (w *world) process(pr pull.Request) Result {
 	router.Set(model.Super, "super", w.super)
 	book := model.PriceBook{"super": {InputPerMillion: 0.3, OutputPerMillion: 0.9}, "ultra": {InputPerMillion: 1, OutputPerMillion: 3}}
 	env := strategy.Env{
-		Git:      w.git,
-		Runner:   sandbox.GoRunner{Executor: sandbox.Exec{}},
-		Executor: sandbox.Exec{},
-		Models:   router,
-		Meter:    model.Meter{Prices: book, Baseline: "ultra"},
-		Policy:   w.pol,
+		Forecaster: w.fc,
+		Git:        w.git,
+		Runner:     sandbox.GoRunner{Executor: sandbox.Exec{}},
+		Executor:   sandbox.Exec{},
+		Models:     router,
+		Meter:      model.Meter{Prices: book, Baseline: "ultra"},
+		Policy:     w.pol,
 		Emit: func(kind events.Kind, _ int, data any) {
 			w.mu.Lock()
 			defer w.mu.Unlock()
@@ -584,5 +587,147 @@ func TestProcessReportsAnUnreadableWorkingCopy(t *testing.T) {
 func TestDefaultLimits(t *testing.T) {
 	if DefaultLimits.PRsPerRun != 4 || DefaultLimits.RunsPerServer != 2 {
 		t.Fatalf("limits = %+v", DefaultLimits)
+	}
+}
+
+type fakeForecaster struct {
+	mu       sync.Mutex
+	calls    int
+	inputs   []forecast.Input
+	forecast forecast.Forecast
+	cost     forecast.Cost
+	err      error
+}
+
+func (f *fakeForecaster) Forecast(_ context.Context, in forecast.Input) (forecast.Forecast, forecast.Cost, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls++
+	f.inputs = append(f.inputs, in)
+	return f.forecast, f.cost, f.err
+}
+
+func dependencyPR() pull.Request {
+	return pull.Request{
+		Author: pull.Author{Login: "dependabot[bot]", Kind: pull.Bot},
+		Kind:   pull.Dependency,
+		Bump:   &pull.Bump{Module: "example.com/lib", From: "v1.0.0", To: "v2.0.0", Level: pull.Major},
+	}
+}
+
+func newForecast() *fakeForecaster {
+	return &fakeForecaster{
+		forecast: forecast.Forecast{
+			Module: "example.com/lib", From: "v1.0.0", To: "v2.0.0",
+			Summary:   "The Add function was renamed.",
+			Breaking:  []forecast.Change{{Symbol: "m.Add", Description: "renamed to Sum"}, {Symbol: "m.Gone", Description: "removed"}},
+			FetchedAt: time.Date(2026, 10, 28, 0, 0, 0, 0, time.UTC),
+		},
+		cost: forecast.Cost{Model: "nano", Usage: model.Usage{PromptTokens: 5000, CompletionTokens: 300}, Charge: model.Charge{Micros: 372, BaselineMicros: 6000, Known: true}, Latency: time.Second},
+	}
+}
+
+func TestDependencyForecastFeedsTheRepair(t *testing.T) {
+	w := renameWorld(t, renameFix(), nil)
+	w.fc = newForecast()
+	res := w.process(dependencyPR())
+	if res.Outcome != pull.Mergeable || res.Forecast == nil {
+		t.Fatalf("result = %+v", res)
+	}
+	fc := w.fc.(*fakeForecaster)
+	if fc.calls != 1 || fc.inputs[0].Module != "example.com/lib" || fc.inputs[0].From != "v1.0.0" || fc.inputs[0].To != "v2.0.0" || fc.inputs[0].Dir != w.dir {
+		t.Fatalf("forecaster calls %d inputs %+v", fc.calls, fc.inputs)
+	}
+	prompt := w.super.requests[0].Messages[1].Content
+	if !strings.Contains(prompt, "Upgrade of example.com/lib from v1.0.0 to v2.0.0.") || !strings.Contains(prompt, "m.Add: renamed to Sum") {
+		t.Fatalf("the forecast did not reach the fixer:\n%s", prompt)
+	}
+	if strings.Contains(prompt, "The Add function was renamed.") {
+		t.Fatal("the model's own summary is a prediction and must not be given to the fixer as fact")
+	}
+	if len(res.Confirmed) != 1 || res.Confirmed[0] != "m.Add" || len(res.Missed) != 1 || res.Missed[0] != "m.Gone" {
+		t.Fatalf("confirmed %v missed %v", res.Confirmed, res.Missed)
+	}
+	var nano, super bool
+	for _, l := range res.Receipt.Lines() {
+		nano = nano || (l.Role == model.Nano && l.Calls == 1 && l.Usage.PromptTokens == 5000 && l.Charge.Micros == 372)
+		super = super || l.Role == model.Super
+	}
+	if !nano || !super {
+		t.Fatalf("the receipt should show Nano reading and Super fixing: %+v", res.Receipt.Lines())
+	}
+	found := false
+	for _, s := range w.steps {
+		found = found || s == "forecast:done"
+	}
+	if !found {
+		t.Fatalf("steps = %v", w.steps)
+	}
+}
+
+func TestACachedForecastCostsNothing(t *testing.T) {
+	w := renameWorld(t, renameFix(), nil)
+	fc := newForecast()
+	fc.cost = forecast.Cost{Cached: true}
+	w.fc = fc
+	res := w.process(dependencyPR())
+	for _, l := range res.Receipt.Lines() {
+		if l.Role == model.Nano {
+			t.Fatalf("a cached forecast was charged: %+v", l)
+		}
+	}
+	if res.Forecast == nil {
+		t.Fatal("the cached forecast should still be used")
+	}
+}
+
+func TestAFailedForecastDoesNotStopTheRepair(t *testing.T) {
+	w := renameWorld(t, renameFix(), nil)
+	fc := newForecast()
+	fc.forecast = forecast.Forecast{}
+	fc.err = errors.New("no release notes or migration guide could be found")
+	w.fc = fc
+	res := w.process(dependencyPR())
+	if res.Outcome != pull.Mergeable || res.Forecast != nil || res.Err != nil {
+		t.Fatalf("result = %+v", res)
+	}
+	if strings.Contains(w.super.requests[0].Messages[1].Content, "Upgrade of") {
+		t.Fatal("a failed forecast must not leave notes in the prompt")
+	}
+	failed := false
+	for _, s := range w.steps {
+		failed = failed || s == "forecast:failed"
+	}
+	if !failed {
+		t.Fatalf("steps = %v", w.steps)
+	}
+	for _, l := range res.Receipt.Lines() {
+		if l.Role == model.Nano && l.Calls != 1 {
+			t.Fatalf("the tokens spent on a failed forecast still count: %+v", l)
+		}
+	}
+}
+
+func TestForecastIsSkippedWhenNotNeeded(t *testing.T) {
+	fc := newForecast()
+	w := newWorld(t, nil, nil)
+	w.fc = fc
+	w.branch("feature")
+	write(t, w.dir, "extra.go", "package m\n\nfunc Extra() int { return 1 }\n")
+	w.commit("feat: add extra")
+	if res := w.process(person()); res.Outcome != pull.Mergeable || fc.calls != 0 {
+		t.Fatalf("a pull request that is not a dependency bump must not be forecast: %d calls", fc.calls)
+	}
+	router := model.NewRouter()
+	router.Set(model.Super, "super", w.super)
+	env := strategy.Env{
+		Forecaster: fc, Git: w.git, Runner: sandbox.GoRunner{Executor: sandbox.Exec{}}, Executor: sandbox.Exec{},
+		Models: router, Policy: w.pol,
+	}
+	pr := dependencyPR()
+	pr.Number, pr.Branch = 9, "feature"
+	res := Processor{Env: env}.Process(t.Context(), Input{PR: pr, Dir: w.dir, Base: "main", Notes: "notes from the caller"})
+	if res.Outcome != pull.Mergeable || fc.calls != 0 || res.Forecast != nil {
+		t.Fatalf("notes given by the caller replace the forecast: %d calls", fc.calls)
 	}
 }

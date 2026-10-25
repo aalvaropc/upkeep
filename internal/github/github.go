@@ -61,7 +61,3 @@ func (c *Client) Comment(_ context.Context, _, _ string, _ int, _ string) error 
 func (c *Client) Merge(_ context.Context, _, _ string, _ int, _ string) error {
 	return stub.Err("merge a pull request")
 }
-
-func (c *Client) ListReleases(_ context.Context, _, _ string) ([]Release, error) {
-	return nil, stub.Err("list releases")
-}
