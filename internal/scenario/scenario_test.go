@@ -10,7 +10,9 @@ import (
 const valid = `{
   "name": "sample",
   "repository": "upkeep-sample",
+  "fork": "0123456789abcdef0123456789abcdef01234567",
   "base": "main",
+  "main": ["tighten-limit"],
   "prs": [
     {
       "number": 1,
@@ -24,6 +26,7 @@ const valid = `{
       "number": 6,
       "title": "Bump a module",
       "branch": "dependabot/go_modules/example",
+      "onto": "main",
       "author": {"login": "dependabot[bot]", "kind": "bot"},
       "bump": {"module": "example.com/m", "from": "v1.2.3", "to": "v1.2.4", "level": "patch"},
       "recipe": "patch-bump",
@@ -39,6 +42,9 @@ func TestLoadValid(t *testing.T) {
 	}
 	if s.Name != "sample" || len(s.PRs) != 2 {
 		t.Fatalf("scenario = %+v", s)
+	}
+	if s.Fork == "" || len(s.Main) != 1 || s.PRs[0].Start() != OntoFork || s.PRs[1].Start() != OntoMain {
+		t.Fatalf("fork %q, main recipes %v, starts %q and %q", s.Fork, s.Main, s.PRs[0].Start(), s.PRs[1].Start())
 	}
 	bump := s.PRs[1]
 	if bump.Author.Kind != pull.Bot || bump.Bump == nil || bump.Bump.Level != pull.Patch || bump.Expect.Outcome != pull.Merged {
@@ -65,6 +71,9 @@ func TestValidate(t *testing.T) {
 	}{
 		{"no name", func(s *Scenario) { s.Name = " " }, "name is required"},
 		{"no base", func(s *Scenario) { s.Base = "" }, "base branch is required"},
+		{"short fork", func(s *Scenario) { s.Fork = "0123abc" }, "full commit hash"},
+		{"fork in capitals", func(s *Scenario) { s.Fork = strings.ToUpper(s.Fork) }, "full commit hash"},
+		{"unknown start", func(s *Scenario) { s.PRs[0].Onto = "tag" }, "onto must be"},
 		{"no pull requests", func(s *Scenario) { s.PRs = nil }, "at least one"},
 		{"duplicate number", func(s *Scenario) { s.PRs[1].Number = 1 }, "number is used twice"},
 		{"zero number", func(s *Scenario) { s.PRs[0].Number = 0 }, "must be positive"},
