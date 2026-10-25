@@ -18,6 +18,7 @@ const (
 	Action       Kind = "action"
 	Receipt      Kind = "receipt"
 	PRDone       Kind = "pr.done"
+	Notice       Kind = "notice"
 	RunFinished  Kind = "run.finished"
 )
 
