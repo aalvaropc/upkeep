@@ -182,6 +182,42 @@ func TestForecastWithoutAModelUsesTheRecordedOne(t *testing.T) {
 	}
 }
 
+func TestAReplayedForecastShowsTheCostItHadWhenRecorded(t *testing.T) {
+	f, _, _, _ := newForecaster(t)
+	_, recordedCost, err := f.Forecast(t.Context(), jwtInput(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay := Forecaster{Cache: f.Cache, Replay: true, Pace: 0.001}
+	began := time.Now()
+	got, cost, err := replay.Forecast(t.Context(), jwtInput(""))
+	if err != nil || len(got.Breaking) != 2 {
+		t.Fatalf("forecast %+v error %v", got, err)
+	}
+	if cost.Cached || cost.Model != "nano" || cost.Role != model.Super || cost.Charge.Micros != recordedCost.Charge.Micros || cost.Usage.PromptTokens != 5000 {
+		t.Fatalf("replayed cost = %+v, recorded %+v", cost, recordedCost)
+	}
+	if took := time.Since(began); took > 3*time.Second {
+		t.Fatalf("pacing at 0.001 of 1.2 seconds took %s", took)
+	}
+	live := Forecaster{Cache: f.Cache}
+	if _, cost, err := live.Forecast(t.Context(), jwtInput("")); err != nil || !cost.Cached || cost.Charge.Known {
+		t.Fatalf("a live cache hit is free: %+v %v", cost, err)
+	}
+}
+
+func TestAReplayedForecastStopsWhenCancelled(t *testing.T) {
+	f, _, _, _ := newForecaster(t)
+	if _, _, err := f.Forecast(t.Context(), jwtInput("")); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, _, err := (Forecaster{Cache: f.Cache, Replay: true, Pace: 1}).Forecast(ctx, jwtInput("")); err == nil {
+		t.Fatal("a cancelled replay returned no error")
+	}
+}
+
 func TestForecastToleratesOneSourceFailing(t *testing.T) {
 	f, rel, srch, _ := newForecaster(t)
 	rel.err = errors.New("github is rate limited")
