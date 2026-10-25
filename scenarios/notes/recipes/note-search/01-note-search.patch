@@ -1,0 +1,105 @@
+From af3df7448b267af91a8ffca35ea9388b68fc97cb Mon Sep 17 00:00:00 2001
+From: Maya Okafor <maya.okafor@example.com>
+Date: Mon, 19 Oct 2026 11:30:00 +0000
+Subject: [PATCH] feat: search notes by title or body
+
+Search is case-insensitive, stays within the caller's notes and pages through the store, so it works for owners with more than one page of notes.
+---
+ notes/search.go      | 29 +++++++++++++++++++++++++
+ notes/search_test.go | 51 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 80 insertions(+)
+ create mode 100644 notes/search.go
+ create mode 100644 notes/search_test.go
+
+diff --git a/notes/search.go b/notes/search.go
+new file mode 100644
+index 0000000..a86363e
+--- /dev/null
++++ b/notes/search.go
+@@ -0,0 +1,29 @@
++package notes
++
++import (
++	"context"
++	"fmt"
++	"strings"
++)
++
++func (s *Service) Search(ctx context.Context, owner, query string) ([]Note, error) {
++	query = strings.ToLower(strings.TrimSpace(query))
++	if query == "" {
++		return nil, fmt.Errorf("%w: a search needs a query", ErrInvalid)
++	}
++	found := []Note{}
++	for offset := 0; ; offset += MaxPageSize {
++		page, total, err := s.store.List(ctx, owner, offset, MaxPageSize)
++		if err != nil {
++			return nil, err
++		}
++		for _, n := range page {
++			if strings.Contains(strings.ToLower(n.Title), query) || strings.Contains(strings.ToLower(n.Body), query) {
++				found = append(found, n)
++			}
++		}
++		if len(page) == 0 || offset+len(page) >= total {
++			return found, nil
++		}
++	}
++}
+diff --git a/notes/search_test.go b/notes/search_test.go
+new file mode 100644
+index 0000000..6ef71be
+--- /dev/null
++++ b/notes/search_test.go
+@@ -0,0 +1,51 @@
++package notes_test
++
++import (
++	"errors"
++	"testing"
++
++	"github.com/aalvaropc/upkeep-sample/notes"
++)
++
++func TestSearchMatchesTitleAndBody(t *testing.T) {
++	svc, _ := newService(t)
++	ctx := t.Context()
++	for _, in := range []notes.Input{
++		{Title: "Groceries", Body: "milk and eggs"},
++		{Title: "Milk run", Body: "before noon"},
++		{Title: "Taxes", Body: "receipts"},
++	} {
++		if _, err := svc.Create(ctx, "alice", in); err != nil {
++			t.Fatal(err)
++		}
++	}
++	found, err := svc.Search(ctx, "alice", "  MILK ")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(found) != 2 {
++		t.Fatalf("found %d notes, want the two that mention milk: %+v", len(found), found)
++	}
++}
++
++func TestSearchStaysWithinTheOwner(t *testing.T) {
++	svc, _ := newService(t)
++	ctx := t.Context()
++	if _, err := svc.Create(ctx, "alice", notes.Input{Title: "Secret plans"}); err != nil {
++		t.Fatal(err)
++	}
++	found, err := svc.Search(ctx, "bob", "secret")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(found) != 0 {
++		t.Fatalf("bob found %+v", found)
++	}
++}
++
++func TestSearchNeedsAQuery(t *testing.T) {
++	svc, _ := newService(t)
++	if _, err := svc.Search(t.Context(), "alice", "   "); !errors.Is(err, notes.ErrInvalid) {
++		t.Fatalf("error = %v, want ErrInvalid", err)
++	}
++}

@@ -1,0 +1,110 @@
+From c65e2e20fabb79f3c1c1e70b75a17a711243a66b Mon Sep 17 00:00:00 2001
+From: Elena Petrova <elena.petrova@example.com>
+Date: Fri, 23 Oct 2026 12:15:00 +0000
+Subject: [PATCH] feat: summarize how many notes and tags an owner has
+
+Summaries are cached per owner so the dashboard does not walk every page on each refresh.
+---
+ notes/summary.go      | 47 +++++++++++++++++++++++++++++++++++++++++++
+ notes/summary_test.go | 38 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 85 insertions(+)
+ create mode 100644 notes/summary.go
+ create mode 100644 notes/summary_test.go
+
+diff --git a/notes/summary.go b/notes/summary.go
+new file mode 100644
+index 0000000..831d540
+--- /dev/null
++++ b/notes/summary.go
+@@ -0,0 +1,47 @@
++package notes
++
++import (
++    "context"
++    "sync"
++)
++
++type Summary struct {
++    Notes int `json:"notes"`
++    Tags int `json:"tags"`
++}
++
++var (
++    summaryMu sync.Mutex
++    summaries = map[string]Summary{}
++)
++
++func  (s *Service) Summarize(ctx context.Context, owner string) (Summary, error) {
++    summaryMu.Lock()
++    cached, ok := summaries[owner]
++    summaryMu.Unlock()
++    if ok {
++        return cached, nil
++    }
++    var sum Summary
++    tags := map[string]bool{}
++    for offset := 0; ; offset += MaxPageSize {
++        page, total, err := s.store.List(ctx, owner, offset, MaxPageSize)
++        if err != nil {
++            return Summary{}, err
++        }
++        for _, n := range page {
++            sum.Notes++
++            for _, tag := range n.Tags {
++                tags[tag] = true
++            }
++        }
++        if len(page) == 0 || offset+len(page) >= total {
++            break
++        }
++    }
++    sum.Tags = len(tags)
++    summaryMu.Lock()
++    summaries[owner] = sum
++    summaryMu.Unlock()
++    return sum, nil
++}
+diff --git a/notes/summary_test.go b/notes/summary_test.go
+new file mode 100644
+index 0000000..414771d
+--- /dev/null
++++ b/notes/summary_test.go
+@@ -0,0 +1,38 @@
++package notes_test
++
++import (
++	"testing"
++
++	"github.com/aalvaropc/upkeep-sample/notes"
++)
++
++func TestSummaryCountsNotesAndDistinctTags(t *testing.T) {
++	svc, _ := newService(t)
++	ctx := t.Context()
++	for _, in := range []notes.Input{
++		{Title: "a", Tags: []string{"home", "work"}},
++		{Title: "b", Tags: []string{"home"}},
++	} {
++		if _, err := svc.Create(ctx, "alice", in); err != nil {
++			t.Fatal(err)
++		}
++	}
++	got, err := svc.Summarize(ctx, "alice")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if want := (notes.Summary{Notes: 2, Tags: 2}); got != want {
++		t.Fatalf("Summarize = %+v, want %+v", got, want)
++	}
++}
++
++func TestSummaryOfAnOwnerWithoutNotes(t *testing.T) {
++	svc, _ := newService(t)
++	got, err := svc.Summarize(t.Context(), "alice")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if got != (notes.Summary{}) {
++		t.Fatalf("Summarize = %+v, want an empty summary", got)
++	}
++}

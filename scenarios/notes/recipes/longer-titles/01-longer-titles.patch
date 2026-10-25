@@ -1,0 +1,51 @@
+From 24923b86eb2556cf71e173325db89590ff5fce3d Mon Sep 17 00:00:00 2001
+From: Tomas Rivera <tomas.rivera@example.com>
+Date: Mon, 19 Oct 2026 15:45:00 +0000
+Subject: [PATCH] feat: allow titles of up to 140 characters
+
+Notes imported from other tools often carry long titles; raise the limit and cover it with a test.
+---
+ notes/limits.go      |  2 +-
+ notes/titles_test.go | 20 ++++++++++++++++++++
+ 2 files changed, 21 insertions(+), 1 deletion(-)
+ create mode 100644 notes/titles_test.go
+
+diff --git a/notes/limits.go b/notes/limits.go
+index 97b1b3b..113c78c 100644
+--- a/notes/limits.go
++++ b/notes/limits.go
+@@ -3,7 +3,7 @@ package notes
+ const (
+ 	DefaultPageSize = 20
+ 	MaxPageSize     = 100
+-	MaxTitleLength  = 120
++	MaxTitleLength  = 140
+ 	MaxBodyLength   = 10_000
+ 	MaxTags         = 10
+ 	MaxTagLength    = 32
+diff --git a/notes/titles_test.go b/notes/titles_test.go
+new file mode 100644
+index 0000000..e643d4d
+--- /dev/null
++++ b/notes/titles_test.go
+@@ -0,0 +1,20 @@
++package notes_test
++
++import (
++	"strings"
++	"testing"
++
++	"github.com/aalvaropc/upkeep-sample/notes"
++)
++
++func TestTitlesFromImportedNotesAreAccepted(t *testing.T) {
++	svc, _ := newService(t)
++	title := strings.Repeat("a", 130)
++	n, err := svc.Create(t.Context(), "alice", notes.Input{Title: title})
++	if err != nil {
++		t.Fatalf("a title of %d characters was rejected: %v", len(title), err)
++	}
++	if n.Title != title {
++		t.Fatalf("title = %q", n.Title)
++	}
++}

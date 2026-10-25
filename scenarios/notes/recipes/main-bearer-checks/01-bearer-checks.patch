@@ -1,0 +1,97 @@
+From 64dd0fbfbfa1792c90181595f6bbcc2f5404d132 Mon Sep 17 00:00:00 2001
+From: Sofia Marchetti <sofia.marchetti@example.com>
+Date: Fri, 23 Oct 2026 16:25:00 +0000
+Subject: [PATCH] feat: reject bearer tokens that are oversized or contain odd
+ characters
+
+Only token68 characters are accepted and a token longer than 4096 bytes is refused before it is parsed, with a message that says which rule failed.
+---
+ middleware/auth.go      | 36 +++++++++++++++++++++++++++++++++---
+ middleware/auth_test.go |  2 ++
+ 2 files changed, 35 insertions(+), 3 deletions(-)
+
+diff --git a/middleware/auth.go b/middleware/auth.go
+index d165acc..ad7801b 100644
+--- a/middleware/auth.go
++++ b/middleware/auth.go
+@@ -11,7 +11,10 @@ import (
+ 	"github.com/aalvaropc/upkeep-sample/auth"
+ )
+ 
+-const realm = "notes"
++const (
++	realm          = "notes"
++	maxTokenLength = 4096
++)
+ 
+ type Verifier interface {
+ 	Parse(token string) (auth.Claims, error)
+@@ -30,13 +33,14 @@ type claimsKey struct{}
+ var (
+ 	errMissingToken   = errors.New("missing bearer token")
+ 	errMalformedToken = errors.New("malformed authorization header")
++	errTokenTooLong   = errors.New("the bearer token is too long")
+ )
+ 
+ func (a *Authenticator) RequireAuth(next http.Handler) http.Handler {
+ 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+ 		token, err := bearerToken(r)
+ 		if err != nil {
+-			unauthorized(w, "invalid_request", err.Error())
++			unauthorized(w, "invalid_request", describe(err))
+ 			return
+ 		}
+ 		claims, err := a.verifier.Parse(token)
+@@ -94,12 +98,38 @@ func bearerToken(r *http.Request) (string, error) {
+ 		return "", errMalformedToken
+ 	}
+ 	token = strings.TrimSpace(token)
+-	if token == "" || strings.ContainsAny(token, " \t") {
++	if token == "" || !isToken68(token) {
+ 		return "", errMalformedToken
+ 	}
++	if len(token) > maxTokenLength {
++		return "", errTokenTooLong
++	}
+ 	return token, nil
+ }
+ 
++func isToken68(token string) bool {
++	for _, r := range token {
++		switch {
++		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
++		case strings.ContainsRune("-._~+/=", r):
++		default:
++			return false
++		}
++	}
++	return true
++}
++
++func describe(err error) string {
++	switch {
++	case errors.Is(err, errTokenTooLong):
++		return fmt.Sprintf("the bearer token is longer than %d characters", maxTokenLength)
++	case errors.Is(err, errMalformedToken):
++		return "the authorization header must be Bearer followed by a single token"
++	default:
++		return err.Error()
++	}
++}
++
+ func unauthorized(w http.ResponseWriter, code, message string) {
+ 	w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm=%q, error=%q`, realm, code))
+ 	WriteError(w, http.StatusUnauthorized, "unauthorized", message)
+diff --git a/middleware/auth_test.go b/middleware/auth_test.go
+index 7f0c27d..3a664d7 100644
+--- a/middleware/auth_test.go
++++ b/middleware/auth_test.go
+@@ -69,6 +69,8 @@ func TestRequireAuth(t *testing.T) {
+ 		{"basic scheme", "Basic dXNlcg==", `error="invalid_request"`},
+ 		{"empty token", "Bearer ", `error="invalid_request"`},
+ 		{"two tokens", "Bearer a b", `error="invalid_request"`},
++		{"control character", "Bearer abc\x01def", `error="invalid_request"`},
++		{"too long", "Bearer " + strings.Repeat("a", 5000), `error="invalid_request"`},
+ 		{"garbage", "Bearer abc.def.ghi", `error="invalid_token"`},
+ 	}
+ 	for _, tt := range tests {

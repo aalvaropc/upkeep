@@ -1,0 +1,116 @@
+From 70e9050bd6e21182cf79052e08fca487666b4f59 Mon Sep 17 00:00:00 2001
+From: Aisha Khan <aisha.khan@example.com>
+Date: Tue, 20 Oct 2026 13:10:00 +0000
+Subject: [PATCH] feat: count how often each tag is used
+
+A tag cloud needs the number of notes per tag, so add TagCounts, sorted by tag.
+---
+ notes/note.go      |  5 +++++
+ notes/service.go   | 25 +++++++++++++++++++++++++
+ notes/tags_test.go | 38 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 68 insertions(+)
+ create mode 100644 notes/tags_test.go
+
+diff --git a/notes/note.go b/notes/note.go
+index 6350361..1afc3ef 100644
+--- a/notes/note.go
++++ b/notes/note.go
+@@ -21,6 +21,11 @@ type Note struct {
+ 	UpdatedAt time.Time `json:"updated_at"`
+ }
+ 
++type TagCount struct {
++	Tag   string `json:"tag"`
++	Count int    `json:"count"`
++}
++
+ type Input struct {
+ 	Title string   `json:"title"`
+ 	Body  string   `json:"body"`
+diff --git a/notes/service.go b/notes/service.go
+index 51a5eb8..ea8a4be 100644
+--- a/notes/service.go
++++ b/notes/service.go
+@@ -5,6 +5,8 @@ import (
+ 	"crypto/rand"
+ 	"encoding/hex"
+ 	"fmt"
++	"maps"
++	"slices"
+ 	"strings"
+ 	"unicode/utf8"
+ 
+@@ -87,6 +89,29 @@ func (s *Service) Delete(ctx context.Context, owner, id string) error {
+ 	return s.store.Delete(ctx, owner, id)
+ }
+ 
++func (s *Service) TagCounts(ctx context.Context, owner string) ([]TagCount, error) {
++	counts := map[string]int{}
++	for offset := 0; ; offset += MaxPageSize {
++		page, total, err := s.store.List(ctx, owner, offset, MaxPageSize)
++		if err != nil {
++			return nil, err
++		}
++		for _, n := range page {
++			for _, tag := range n.Tags {
++				counts[tag]++
++			}
++		}
++		if len(page) == 0 || offset+len(page) >= total {
++			break
++		}
++	}
++	out := make([]TagCount, 0, len(counts))
++	for _, tag := range slices.Sorted(maps.Keys(counts)) {
++		out = append(out, TagCount{Tag: tag, Count: counts[tag]})
++	}
++	return out, nil
++}
++
+ func clampPage(p Page) Page {
+ 	if p.Offset < 0 {
+ 		p.Offset = 0
+diff --git a/notes/tags_test.go b/notes/tags_test.go
+new file mode 100644
+index 0000000..5783b49
+--- /dev/null
++++ b/notes/tags_test.go
+@@ -0,0 +1,38 @@
++package notes_test
++
++import (
++	"slices"
++	"testing"
++
++	"github.com/aalvaropc/upkeep-sample/notes"
++)
++
++func TestTagCounts(t *testing.T) {
++	svc, _ := newService(t)
++	ctx := t.Context()
++	for _, in := range []notes.Input{
++		{Title: "a", Tags: []string{"home"}},
++		{Title: "b", Tags: []string{"home"}},
++		{Title: "c", Tags: []string{"work"}},
++		{Title: "d"},
++	} {
++		if _, err := svc.Create(ctx, "alice", in); err != nil {
++			t.Fatal(err)
++		}
++	}
++	got, err := svc.TagCounts(ctx, "alice")
++	if err != nil {
++		t.Fatal(err)
++	}
++	want := []notes.TagCount{{Tag: "home", Count: 2}, {Tag: "work", Count: 1}}
++	if !slices.Equal(got, want) {
++		t.Fatalf("TagCounts = %+v, want %+v", got, want)
++	}
++	other, err := svc.TagCounts(ctx, "bob")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(other) != 0 {
++		t.Fatalf("bob's counts = %+v", other)
++	}
++}

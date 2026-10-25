@@ -1,0 +1,37 @@
+From cd30e7eb8b50c5fa2866a4614fe6f87f85897c7a Mon Sep 17 00:00:00 2001
+From: "dependabot[bot]" <49699333+dependabot[bot]@users.noreply.github.com>
+Date: Sat, 24 Oct 2026 05:00:00 +0000
+Subject: [PATCH] build(deps): bump github.com/jonboulle/clockwork from 0.4.0
+ to 0.5.0
+
+Bumps [github.com/jonboulle/clockwork](https://github.com/jonboulle/clockwork) from 0.4.0 to 0.5.0.
+---
+ go.mod | 2 +-
+ go.sum | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/go.mod b/go.mod
+index 651d7bd..933b2e0 100644
+--- a/go.mod
++++ b/go.mod
+@@ -4,6 +4,6 @@ go 1.25.0
+ 
+ require (
+ 	github.com/golang-jwt/jwt/v4 v4.5.2
+-	github.com/jonboulle/clockwork v0.4.0
++	github.com/jonboulle/clockwork v0.5.0
+ 	github.com/rs/cors v1.11.0
+ )
+diff --git a/go.sum b/go.sum
+index f31bb59..4040ce6 100644
+--- a/go.sum
++++ b/go.sum
+@@ -1,6 +1,6 @@
+ github.com/golang-jwt/jwt/v4 v4.5.2 h1:YtQM7lnr8iZ+j5q71MGKkNw9Mn7AjHM68uc9g5fXeUI=
+ github.com/golang-jwt/jwt/v4 v4.5.2/go.mod h1:m21LjoU+eqJr34lmDMbreY2eSTRJ1cv77w39/MY0Ch0=
+-github.com/jonboulle/clockwork v0.4.0 h1:p4Cf1aMWXnXAUh8lVfewRBx1zaTSYKrKMF2g3ST4RZ4=
+-github.com/jonboulle/clockwork v0.4.0/go.mod h1:xgRqUGwRcjKCO1vbZUEtSLrqKoPSsUpK7fnezOII0kc=
++github.com/jonboulle/clockwork v0.5.0 h1:Hyh9A8u51kptdkR+cqRpT1EebBwTn1oK9YfGYbdFz6I=
++github.com/jonboulle/clockwork v0.5.0/go.mod h1:3mZlmanh0g2NDKO5TWZVJAfofYk64M7XN3SzBPjZF60=
+ github.com/rs/cors v1.11.0 h1:0B9GE/r9Bc2UxRMMtymBkHTenPkHDv0CW4Y98GBY+po=
+ github.com/rs/cors v1.11.0/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=

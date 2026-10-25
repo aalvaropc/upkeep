@@ -1,0 +1,153 @@
+From adeda81b23669890d17bf25160d766e38188227b Mon Sep 17 00:00:00 2001
+From: Hana Sato <hana.sato@example.com>
+Date: Tue, 20 Oct 2026 10:05:00 +0000
+Subject: [PATCH] feat: accept the token from a cookie and report its state
+
+Browser clients cannot always set an Authorization header, so fall back to the access_token cookie. Responses also carry X-Token-Subject, and X-Token-State when the token is missing or expired. RequireAnyScope admits a caller holding any one of several scopes.
+---
+ middleware/auth.go      | 45 ++++++++++++++++++++++++++++++++---------
+ middleware/auth_test.go | 36 +++++++++++++++++++++++++++++++++
+ 2 files changed, 72 insertions(+), 9 deletions(-)
+
+diff --git a/middleware/auth.go b/middleware/auth.go
+index d165acc..5a018a0 100644
+--- a/middleware/auth.go
++++ b/middleware/auth.go
+@@ -11,7 +11,10 @@ import (
+ 	"github.com/aalvaropc/upkeep-sample/auth"
+ )
+ 
+-const realm = "notes"
++const (
++	realm       = "notes"
++	tokenCookie = "access_token"
++)
+ 
+ type Verifier interface {
+ 	Parse(token string) (auth.Claims, error)
+@@ -30,24 +33,28 @@ type claimsKey struct{}
+ var (
+ 	errMissingToken   = errors.New("missing bearer token")
+ 	errMalformedToken = errors.New("malformed authorization header")
++	errEmptyCookie    = errors.New("the access_token cookie is empty")
+ )
+ 
+ func (a *Authenticator) RequireAuth(next http.Handler) http.Handler {
+ 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+ 		token, err := bearerToken(r)
+ 		if err != nil {
++			w.Header().Set("X-Token-State", "missing")
+ 			unauthorized(w, "invalid_request", err.Error())
+ 			return
+ 		}
+ 		claims, err := a.verifier.Parse(token)
+ 		switch {
+ 		case errors.Is(err, auth.ErrExpired):
++			w.Header().Set("X-Token-State", "expired")
+ 			unauthorized(w, "invalid_token", "the token has expired")
+ 			return
+ 		case err != nil:
+ 			unauthorized(w, "invalid_token", "the token is not valid")
+ 			return
+ 		}
++		w.Header().Set("X-Token-Subject", claims.Subject)
+ 		next.ServeHTTP(w, r.WithContext(WithClaims(r.Context(), claims)))
+ 	})
+ }
+@@ -67,6 +74,23 @@ func RequireScope(scope string, next http.Handler) http.Handler {
+ 	})
+ }
+ 
++func RequireAnyScope(next http.Handler, scopes ...string) http.Handler {
++	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		claims, ok := ClaimsFrom(r.Context())
++		if !ok {
++			unauthorized(w, "invalid_token", "authentication is required")
++			return
++		}
++		for _, scope := range scopes {
++			if claims.HasScope(scope) {
++				next.ServeHTTP(w, r)
++				return
++			}
++		}
++		forbidden(w, strings.Join(scopes, " "))
++	})
++}
++
+ func WithClaims(ctx context.Context, claims auth.Claims) context.Context {
+ 	return context.WithValue(ctx, claimsKey{}, claims)
+ }
+@@ -87,17 +111,20 @@ func SubjectFrom(ctx context.Context) (string, bool) {
+ func bearerToken(r *http.Request) (string, error) {
+ 	header := r.Header.Get("Authorization")
+ 	if header == "" {
+-		return "", errMissingToken
+-	}
+-	scheme, token, ok := strings.Cut(header, " ")
+-	if !ok || !strings.EqualFold(scheme, "Bearer") {
+-		return "", errMalformedToken
++		c, err := r.Cookie(tokenCookie)
++		switch {
++		case err != nil:
++			return "", errMissingToken
++		case c.Value == "":
++			return "", errEmptyCookie
++		}
++		return c.Value, nil
+ 	}
+-	token = strings.TrimSpace(token)
+-	if token == "" || strings.ContainsAny(token, " \t") {
++	fields := strings.Fields(header)
++	if len(fields) != 2 || !strings.EqualFold(fields[0], "Bearer") {
+ 		return "", errMalformedToken
+ 	}
+-	return token, nil
++	return fields[1], nil
+ }
+ 
+ func unauthorized(w http.ResponseWriter, code, message string) {
+diff --git a/middleware/auth_test.go b/middleware/auth_test.go
+index 7f0c27d..e1907ee 100644
+--- a/middleware/auth_test.go
++++ b/middleware/auth_test.go
+@@ -131,3 +131,39 @@ func TestSubjectFromEmptyContext(t *testing.T) {
+ 		t.Fatal("SubjectFrom found a subject in an empty context")
+ 	}
+ }
++
++func TestRequireAuthAcceptsTheTokenCookie(t *testing.T) {
++	issuer, _, h := setup(t)
++	token, err := issuer.Issue("alice", "notes:read")
++	if err != nil {
++		t.Fatal(err)
++	}
++	req := httptest.NewRequest(http.MethodGet, "/read", nil)
++	req.AddCookie(&http.Cookie{Name: tokenCookie, Value: token})
++	rec := httptest.NewRecorder()
++	h.ServeHTTP(rec, req)
++	if rec.Code != http.StatusOK || rec.Body.String() != "hello alice" {
++		t.Fatalf("cookie token: %d %q", rec.Code, rec.Body.String())
++	}
++	if got := rec.Header().Get("X-Token-Subject"); got != "alice" {
++		t.Fatalf("X-Token-Subject = %q", got)
++	}
++}
++
++func TestRequireAnyScope(t *testing.T) {
++	issuer, _, _ := setup(t)
++	token, err := issuer.Issue("alice", "notes:export")
++	if err != nil {
++		t.Fatal(err)
++	}
++	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("fine")) })
++	authn := NewAuthenticator(issuer)
++	h := authn.RequireAuth(RequireAnyScope(ok, "notes:write", "notes:export"))
++	if rec := do(h, "/", "Bearer "+token); rec.Code != http.StatusOK {
++		t.Fatalf("a token with one of the scopes: %d", rec.Code)
++	}
++	denied := authn.RequireAuth(RequireAnyScope(ok, "notes:write"))
++	if rec := do(denied, "/", "Bearer "+token); rec.Code != http.StatusForbidden {
++		t.Fatalf("a token with none of the scopes: %d", rec.Code)
++	}
++}
