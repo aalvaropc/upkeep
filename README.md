@@ -41,6 +41,26 @@ Upkeep reads its settings from the environment; `.env.example` lists every varia
 
 What Upkeep may do on its own is decided by a policy, not by the model. The defaults are in [`examples/upkeep.toml`](examples/upkeep.toml); a repository can override them with an `upkeep.toml` at its root. Some rules are hard and cannot be configured: Upkeep never force-pushes, never merges a pull request opened by a person, and never lets a fix edit, delete or skip tests.
 
+## How it is built
+
+One Go binary is both the command line and the server. The standard library does almost everything; the only dependency is a pure Go SQLite driver.
+
+| Package | Job |
+|---|---|
+| `cmd/upkeep` | the `serve`, `run`, `demo`, `record`, `eval` and `version` commands |
+| `internal/engine` | the queue and the state of each pull request: queued, detecting, forecasting, fixing, verifying, acting, done |
+| `internal/detect` | finds what blocks a pull request, in a fixed order |
+| `internal/strategy` | one fix strategy per blocker |
+| `internal/verify` | the checklist every fix must pass, computed outside the model: build, vet, tests, size limits, tests untouched |
+| `internal/policy` | what Upkeep may do on its own |
+| `internal/model` | Nemotron on Token Factory, routed by role (Ultra, Super, Nano), with record and replay |
+| `internal/forecast` | release notes and search results that predict what a dependency bump breaks |
+| `internal/sandbox` | runs builds and tests in a container without network access |
+| `internal/gitx` | git operations; there is no way to force-push |
+| `internal/github`, `internal/tavily` | API clients |
+| `internal/fixture` | stores recorded exchanges for replay |
+| `internal/store`, `internal/events`, `internal/web` | SQLite audit trail, live events, dashboard and event stream |
+
 ## Development
 
 `make check` runs the same checks as CI: formatting, `go mod tidy`, the dependency allowlist, the no-comments rule, `go vet`, golangci-lint, the tests with the race detector, and the build.
