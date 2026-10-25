@@ -1,5 +1,7 @@
 # Upkeep
 
+[![ci](https://github.com/aalvaropc/upkeep/actions/workflows/ci.yml/badge.svg)](https://github.com/aalvaropc/upkeep/actions/workflows/ci.yml)
+
 Upkeep keeps GitHub pull requests mergeable. It finds what blocks each open pull request, fixes what a bounded policy allows, proves every fix with the compiler and the tests, and hands the rest back with a diagnosis and a receipt that says what each model did and cost.
 
 It runs on NVIDIA Nemotron models (Ultra, Super and Nano) served by Nebius Token Factory. It is written in Go and ships as one binary with its dashboard built in.
@@ -35,6 +37,8 @@ Upkeep never force-pushes, never merges a pull request opened by a person, and n
 | 9 | Auth rewrite | four overlapping conflict hunks | handed back with Ultra's diagnosis |
 
 The whole run costs about two cents: $0.0191 against $0.0502 for the same tokens at the largest model's price. That is a price comparison, not a claim that the largest model would have fixed them. CI replays the recording and fails if any pull request ends differently.
+
+The recording is one run, so it was also measured live: five runs against the real models (nothing replayed) ended with all 45 pull requests as the scenario expects, at $0.020 to $0.037 a run ([`docs/evals/live.md`](docs/evals/live.md)).
 
 Press a card and the side sheet shows what happened to that pull request. This one is the clockwork bump: the release note said `FakeClock` became a struct, Super predicted it before touching anything, the compiler confirmed it, and the fix was one line.
 

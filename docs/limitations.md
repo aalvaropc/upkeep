@@ -20,7 +20,7 @@ What Upkeep does not do, and where it can be wrong. Nothing here is hidden in th
 
 ## Operations
 
-- **One recorded run.** The recording behind replay is one run of the nine-pull-request scenario. Live runs vary between attempts: in earlier runs the large conflicts, the title-limit conflict and the jwt major each needed a different number of attempts. `upkeep eval -runs N` against live models measures that spread.
+- **One recorded run, five live ones.** The recording behind replay is one run of the nine-pull-request scenario. Live runs vary: across five live runs every pull request ended as expected, but the cost ranged from $0.020 to $0.037 and the jwt major needed one attempt in four runs and two in one (`docs/evals/live.md`). Earlier development runs were less tidy: two conflict resolutions came back malformed and were handed back, and the jwt major once used all three attempts without passing. The code now repairs the malformed answer, asks again once, and gives the fixer more turns and tokens. Five runs is a small sample, not a guarantee; `upkeep eval -runs N` with `UPKEEP_MODE=live` measures it again.
 - **Sessions do not survive a restart** of the demo server, and the demo is limited to 50 sessions at a time and two runs at once.
 - **The token budget is per server and per day (UTC).** When it is spent, runs replay the recording and say so.
 - **The sandbox trusts Docker.** Builds run with no network, no capabilities, a read-only root and a non-root user, but a Docker escape would not be stopped by Upkeep.
