@@ -1,0 +1,35 @@
+#cloud-config
+package_update: true
+packages:
+  - docker.io
+  - curl
+  - ca-certificates
+  - debian-keyring
+  - debian-archive-keyring
+  - apt-transport-https
+  - gnupg
+users:
+  - name: upkeep
+    system: true
+    shell: /usr/sbin/nologin
+    groups: [docker]
+write_files:
+  - path: /etc/upkeep/upkeep.env
+    permissions: "0600"
+    owner: root:root
+    content: |
+      UPKEEP_MODE=replay
+      UPKEEP_ADDR=127.0.0.1:8080
+      UPKEEP_DATA_DIR=/var/lib/upkeep
+      UPKEEP_SANDBOX=docker
+      UPKEEP_PUBLIC=1
+      UPKEEP_DAILY_TOKENS=1000000
+runcmd:
+  - mkdir -p /opt/upkeep/releases /var/lib/upkeep
+  - chown -R upkeep:upkeep /var/lib/upkeep
+  - curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  - curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o /etc/apt/sources.list.d/caddy-stable.list
+  - apt-get update
+  - apt-get install -y caddy
+  - systemctl enable --now docker
+  - docker pull golang:1.26.10-bookworm
