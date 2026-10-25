@@ -48,7 +48,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, environ [
 		err = serve(ctx, args[1:], stdout, stderr, environ)
 	case "scenario":
 		err = scenarioCommand(ctx, args[1:], stdout, stderr)
-	case "run", "demo", "record", "eval":
+	case "demo":
+		err = demoCommand(ctx, args[1:], stdout, stderr, environ)
+	case "run", "record", "eval":
 		err = stub.Err(args[0])
 	default:
 		fmt.Fprintf(stderr, "upkeep: unknown command %q\n\n%s", args[0], usage)
