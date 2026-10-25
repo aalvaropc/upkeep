@@ -15,101 +15,37 @@
   top: 12px;
 }
 
-.bar {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px var(--gutter);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-sunken);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.mark {
-  font-size: 26px;
-  color: var(--accent);
-}
-
-.name {
-  font: 700 17px/1 var(--mono);
-  letter-spacing: -0.01em;
-}
-
-.tagline {
-  margin: 0;
-  color: var(--fg-muted);
-  white-space: nowrap;
-}
-
 .main {
-  padding: 20px var(--gutter) 48px;
-  max-width: 1480px;
+  max-width: 1560px;
   margin: 0 auto;
+  padding: 20px var(--gutter) 48px;
 }
 
 .main:focus {
   outline: none;
 }
 
-.toolbar {
+.notice {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.work {
-  display: inline-flex;
-  align-items: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 0 20px;
-  border: 0;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--warn);
   border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--accent-ink);
-  font: 700 14px var(--mono);
-  cursor: pointer;
-  transition:
-    filter var(--fast) var(--ease),
-    transform var(--fast) var(--ease);
+  background: var(--tint-warn);
+  color: var(--warn);
+  font-size: 14px;
 }
 
-.work:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.work:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.work:disabled {
-  background: var(--muted);
-  color: var(--fg-muted);
-  cursor: not-allowed;
-}
-
-.play {
-  font-size: 16px;
-}
-
-.hint {
-  margin: 0;
-  color: var(--fg-muted);
-  font-size: 13px;
+.noticeIcon {
+  flex: none;
+  font-size: 18px;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 16px;
   align-items: start;
 }
@@ -131,15 +67,6 @@
 }
 
 @media (max-width: 800px) {
-  .tagline {
-    display: none;
-  }
-
-  .toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .rail {
     grid-template-columns: 1fr;
   }

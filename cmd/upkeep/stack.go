@@ -49,6 +49,7 @@ func (f stackFlags) validate() error {
 }
 
 type stack struct {
+	policy   policy.Policy
 	cfg      config.Config
 	scenario scenario.Scenario
 	runtime  *runtime.Runtime
@@ -138,5 +139,5 @@ func openStack(ctx context.Context, stderr io.Writer, environ []string, f stackF
 	if err != nil {
 		return nil, err
 	}
-	return &stack{cfg: cfg, scenario: s, runtime: rt, manager: manager, hub: hub, logger: logger}, nil
+	return &stack{policy: pol, cfg: cfg, scenario: s, runtime: rt, manager: manager, hub: hub, logger: logger}, nil
 }

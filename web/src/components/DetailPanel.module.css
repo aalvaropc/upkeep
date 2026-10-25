@@ -1,0 +1,277 @@
+.body {
+  display: grid;
+  gap: 20px;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.outcome,
+.chip {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font: 600 12px/1.6 var(--mono);
+}
+
+.chip {
+  border: 1px solid var(--border-strong);
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.outcome {
+  background: var(--muted);
+  color: var(--fg);
+}
+
+.outcome[data-outcome="merged"] {
+  background: var(--tint-accent);
+  color: var(--accent);
+}
+
+.outcome[data-outcome="mergeable"] {
+  background: var(--tint-info);
+  color: var(--info);
+}
+
+.outcome[data-outcome="needs_human"] {
+  background: var(--tint-warn);
+  color: var(--warn);
+}
+
+.outcome[data-outcome="failed"] {
+  background: var(--tint-danger);
+  color: var(--danger);
+}
+
+.section {
+  display: grid;
+  gap: 8px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.lead {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.muted {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--tint-danger);
+  color: var(--danger);
+}
+
+.predictions,
+.sources,
+.actions,
+.checks,
+.files,
+.steps {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prediction {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-size: 13px;
+}
+
+.prediction code {
+  color: var(--fg);
+  font-size: 13px;
+}
+
+.change {
+  color: var(--fg-muted);
+}
+
+.seen,
+.unseen {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 600 12px/1.6 var(--mono);
+}
+
+.seen {
+  color: var(--accent);
+}
+
+.unseen {
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.sources {
+  font: 12px/1.5 var(--mono);
+}
+
+.sources a {
+  color: var(--info);
+  overflow-wrap: anywhere;
+}
+
+.actions li,
+.checks li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+}
+
+.actions li[data-status="done"] svg,
+.checks li[data-pass="true"] svg {
+  color: var(--accent);
+}
+
+.actions li[data-status="failed"] svg,
+.checks li[data-pass="false"] svg {
+  color: var(--danger);
+}
+
+.actions svg,
+.checks svg {
+  flex: none;
+  margin-top: 2px;
+  font-size: 16px;
+}
+
+.checks em {
+  color: var(--fg-muted);
+  font-style: normal;
+}
+
+.details summary {
+  cursor: pointer;
+  color: var(--info);
+  font: 600 12px var(--mono);
+}
+
+.pre {
+  max-height: 260px;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font: 12px/1.6 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.files li {
+  display: flex;
+  gap: 10px;
+  font: 12px/1.5 var(--mono);
+}
+
+.add {
+  color: #86efac;
+}
+
+.del {
+  color: #fca5a5;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 12px/1.6 var(--mono);
+}
+
+.table th,
+.table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.table thead th {
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+
+.role {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.role[data-role="ultra"] {
+  color: var(--ultra);
+}
+
+.role[data-role="super"] {
+  color: var(--super);
+}
+
+.role[data-role="nano"] {
+  color: var(--nano);
+}
+
+.modelName {
+  color: var(--fg-muted);
+}
+
+.steps {
+  margin-top: 4px;
+  font: 12px/1.5 var(--mono);
+}
+
+.steps li {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: 8px;
+  color: var(--fg-muted);
+}
+
+.steps li[data-ok="true"] .stepName {
+  color: var(--fg);
+}
+
+.stepDetail {
+  overflow-wrap: anywhere;
+}
+
+.stepTime {
+  font-variant-numeric: tabular-nums;
+}

@@ -145,8 +145,8 @@ func (f Fixer) Run(ctx context.Context, task Task) Attempt {
 		a.Usage = a.Usage.Add(resp.Usage)
 		a.Charge = a.Charge.Add(charge)
 		f.emit(events.ModelCall, map[string]any{
-			"model": f.ModelName, "latency_ms": resp.Latency.Milliseconds(), "prompt": resp.Usage.PromptTokens,
-			"completion": resp.Usage.CompletionTokens, "reasoning": resp.Usage.ReasoningTokens, "micros": charge.Micros,
+			"model": f.ModelName, "role": string(model.Super), "latency_ms": resp.Latency.Milliseconds(), "prompt": resp.Usage.PromptTokens,
+			"completion": resp.Usage.CompletionTokens, "reasoning": resp.Usage.ReasoningTokens, "micros": charge.Micros, "baseline_micros": charge.BaselineMicros,
 		})
 
 		reply := resp.Message

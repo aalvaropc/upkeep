@@ -70,7 +70,7 @@ func (e Env) complete(ctx context.Context, job *Job, role model.Role, system, us
 	job.Receipt.AddCall(role, name, resp.Usage, charge, resp.Latency)
 	e.emit(job, events.ModelCall, map[string]any{
 		"model": name, "role": string(role), "latency_ms": resp.Latency.Milliseconds(), "prompt": resp.Usage.PromptTokens,
-		"completion": resp.Usage.CompletionTokens, "reasoning": resp.Usage.ReasoningTokens, "micros": charge.Micros,
+		"completion": resp.Usage.CompletionTokens, "reasoning": resp.Usage.ReasoningTokens, "micros": charge.Micros, "baseline_micros": charge.BaselineMicros,
 	})
 	return resp.Message.Content, nil
 }

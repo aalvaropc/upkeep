@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vitest/config";
 
-const api = "http://127.0.0.1:8080";
+const api = process.env.UPKEEP_API ?? "http://127.0.0.1:8080";
 
 const keepEmbedFolder = (): Plugin => ({
   name: "keep-embed-folder",

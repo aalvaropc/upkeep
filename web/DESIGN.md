@@ -50,6 +50,17 @@ The connection badge uses the same pattern: `connecting` (dots), `live` (signal)
 - Both are self-hosted from `@fontsource-variable` and only the Latin subset is shipped, because the content security policy is `default-src 'self'`. `font-display: swap` avoids invisible text.
 - Body text is 15px with a 1.55 line height; the smallest text is 12px and is always mono.
 
+## Screens
+
+- **Action bar**: the one primary button (Work the queue, then Waiting for a slot, Working, Run again), a plain-words status line, and the policy panel.
+- **Board**: four columns, one card per pull request. A card shows who opened it (person or bot), what blocks it, the current step with a running clock, then the outcome, a one-sentence note, what Upkeep did (pushed, patch attached, merged) and the cost.
+- **Models rail**: Ultra, Super and Nano each with their job, calls, tokens, time and cost, and the cost of the run against the same tokens at the largest model's price, always labelled a price comparison.
+- **Activity**: the last events in plain words.
+- **Detail panel** (side sheet, opens from a card): what changed, what Upkeep did, the forecast with each prediction marked confirmed or not seen by the build, the failure output, the diff, the verifier checklist, flaky tests and the receipt with its steps.
+- **Policy panel**: the rules the server runs with, as the server states them.
+
+Role colors: Ultra violet, Super sky, Nano teal; they appear only where a model is named.
+
 ## Layout
 
 - Header is sticky and carries the brand and the connection badge.
@@ -59,7 +70,7 @@ The connection badge uses the same pattern: `connecting` (dots), `live` (signal)
 
 ## Motion
 
-- Panels rise 6px and fade in over 240ms with a 50ms stagger (`src/motion.module.css`). Only `opacity` and `transform` animate.
+- Panels rise 6px and fade in over 240ms with a 50ms stagger. Only `opacity` and `transform` animate.
 - The connection icon pulses at a 2.4s period while connecting and live.
 - Under `prefers-reduced-motion: reduce`, every animation and transition collapses to an instant change.
 
@@ -74,7 +85,7 @@ The connection badge uses the same pattern: `connecting` (dots), `live` (signal)
 ## Constraints that shape the code
 
 - The content security policy forbids inline styles, so components never use a `style` attribute. Variants are expressed with `data-*` attributes and CSS custom properties.
-- Styles are CSS modules next to their component. Shared motion is a separate module joined in the component's `className`; `composes ... from` is avoided because it makes the PostCSS pipeline warn.
+- Styles are CSS modules next to their component. Dynamic widths (cost bars) are SVG `rect` attributes, which the policy allows, not style attributes. `composes ... from` is avoided because it makes the PostCSS pipeline warn.
 - No comments in any source file; this file is where the reasoning lives.
 
 ## Adding a screen

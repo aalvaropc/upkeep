@@ -1,19 +1,19 @@
-import type { StreamStatus } from "../events";
+import type { Connection } from "../board";
 import { Icon, type IconName } from "./Icon";
 import styles from "./StatusBadge.module.css";
 
 interface Props {
-  status: StreamStatus;
+  status: Connection;
   version: string | null;
 }
 
-const ICONS: Record<StreamStatus, IconName> = {
+const ICONS: Record<Connection, IconName> = {
   connecting: "connecting",
   live: "live",
   lost: "lost",
 };
 
-function label(status: StreamStatus, version: string | null): string {
+function label(status: Connection, version: string | null): string {
   switch (status) {
     case "connecting":
       return "connecting";

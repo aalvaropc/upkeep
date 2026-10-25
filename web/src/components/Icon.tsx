@@ -8,7 +8,18 @@ export type IconName =
   | "live"
   | "lost"
   | "chip"
-  | "play";
+  | "play"
+  | "again"
+  | "close"
+  | "person"
+  | "bot"
+  | "merge"
+  | "patch"
+  | "push"
+  | "rules"
+  | "wait"
+  | "tool"
+  | "alert";
 
 const PATHS: Record<IconName, string[]> = {
   mark: [
@@ -41,6 +52,21 @@ const PATHS: Record<IconName, string[]> = {
     "M17 14h4",
   ],
   play: ["M7 5l12 7-12 7z"],
+  again: ["M4 12a8 8 0 0 1 14-5.3", "M20 4v4h-4", "M20 12a8 8 0 0 1-14 5.3", "M4 20v-4h4"],
+  close: ["M6 6l12 12", "M18 6L6 18"],
+  person: ["M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0", "M4 21c0-4 3.6-6 8-6s8 2 8 6"],
+  bot: ["M5 9h14v10H5z", "M12 5v4", "M10 14h.01", "M14 14h.01", "M3 13h2", "M19 13h2"],
+  merge: [
+    "M6 4v10a4 4 0 0 0 4 4h8",
+    "M6 4m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0",
+    "M18 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0",
+  ],
+  patch: ["M7 3h8l4 4v14H7z", "M15 3v4h4", "M10 13h6", "M10 17h6"],
+  push: ["M12 19V6", "M6 11l6-6 6 6", "M5 21h14"],
+  rules: ["M12 3l8 3v6c0 4.5-3.2 7.7-8 9-4.8-1.3-8-4.5-8-9V6z", "M9 12h6", "M9 15h4"],
+  wait: ["M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0", "M12 7v5l3 2"],
+  tool: ["M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5L15 12l-3-3z"],
+  alert: ["M12 3l9 16H3z", "M12 10v4", "M12 17h.01"],
 };
 
 interface Props {

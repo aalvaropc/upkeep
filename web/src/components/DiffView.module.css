@@ -1,0 +1,36 @@
+.diff {
+  max-height: 360px;
+  margin: 0;
+  padding: 10px 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font: 12px/1.6 var(--mono);
+  tab-size: 4;
+}
+
+.line {
+  display: block;
+  padding: 0 12px;
+  white-space: pre;
+}
+
+.line[data-kind="meta"] {
+  color: var(--fg-muted);
+}
+
+.line[data-kind="hunk"] {
+  color: var(--info);
+  background: var(--tint-info);
+}
+
+.line[data-kind="add"] {
+  color: #86efac;
+  background: rgb(34 197 94 / 0.1);
+}
+
+.line[data-kind="del"] {
+  color: #fca5a5;
+  background: rgb(248 113 113 / 0.1);
+}

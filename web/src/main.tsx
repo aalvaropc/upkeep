@@ -11,6 +11,6 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <App session={document.body.dataset.session ?? "local"} />
+    <App />
   </StrictMode>,
 );

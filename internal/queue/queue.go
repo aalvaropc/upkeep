@@ -145,7 +145,7 @@ func (r Runner) finish(ctx context.Context, it *Item) {
 	res := it.Result
 	r.emit(events.PRDone, it.PR.Number, map[string]any{
 		"outcome": string(it.Outcome), "blocker": string(res.Blocker), "reason": res.Reason, "attempts": res.Attempts,
-		"changed": res.Changed, "flaky": res.Flaky, "summary": res.Summary, "actions": it.Actions,
+		"changed": res.Changed, "flaky": res.Flaky, "summary": res.Summary, "actions": it.Actions, "duration_ms": it.Duration.Milliseconds(),
 	})
 	if r.Done != nil {
 		r.Done(*it)

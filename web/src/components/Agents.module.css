@@ -1,0 +1,160 @@
+.panel {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  animation: rise var(--base) var(--ease) 200ms both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  --tone: var(--fg-muted);
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+}
+
+.row[data-role="ultra"] {
+  --tone: var(--ultra);
+}
+
+.row[data-role="super"] {
+  --tone: var(--super);
+}
+
+.row[data-role="nano"] {
+  --tone: var(--nano);
+}
+
+.icon {
+  flex: none;
+  margin-top: 2px;
+  font-size: 20px;
+  color: var(--tone);
+}
+
+.row[data-active="false"] .icon {
+  opacity: 0.5;
+}
+
+.body {
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font: 600 13px/1.4 var(--mono);
+}
+
+.size {
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.job {
+  margin: 2px 0 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.meta {
+  margin: 6px 0 0;
+  font: 12px/1.4 var(--mono);
+  color: var(--fg-muted);
+}
+
+.bar {
+  display: block;
+  width: 100%;
+  height: 6px;
+  margin-top: 8px;
+}
+
+.track {
+  fill: var(--bg-sunken);
+}
+
+.fill {
+  fill: var(--tone, var(--accent));
+}
+
+.bar[data-tone="ultra"] .fill {
+  fill: var(--ultra);
+}
+
+.bar[data-tone="super"] .fill {
+  fill: var(--super);
+}
+
+.bar[data-tone="nano"] .fill {
+  fill: var(--nano);
+}
+
+.bar[data-tone="cost"] .fill {
+  fill: var(--accent);
+}
+
+.bar[data-tone="baseline"] .fill {
+  fill: var(--border-strong);
+}
+
+.compare {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.compareTitle {
+  margin: 0 0 8px;
+  font: 600 12px/1.4 var(--mono);
+  color: var(--fg);
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  margin-bottom: 8px;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.amount {
+  font: 600 13px/1.4 var(--mono);
+  color: var(--fg);
+}
+
+.footnote {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 12px;
+}

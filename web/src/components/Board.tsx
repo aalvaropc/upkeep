@@ -1,25 +1,35 @@
+import { columns, type BoardState, type Card } from "../board";
 import { Icon, type IconName } from "./Icon";
-import motion from "../motion.module.css";
+import { PullCard } from "./PullCard";
 import styles from "./Board.module.css";
 
-interface Column {
-  id: string;
+interface Props {
+  board: BoardState;
+  now: number;
+  onOpen: (number: number) => void;
+}
+
+interface ColumnSpec {
+  id: "queued" | "working" | "verified" | "done";
+  tone: string;
   title: string;
   meaning: string;
   empty: string;
   icon: IconName;
 }
 
-export const COLUMNS: readonly Column[] = [
+export const COLUMNS: readonly ColumnSpec[] = [
   {
-    id: "blocked",
+    id: "queued",
+    tone: "blocked",
     title: "Blocked",
     meaning: "Needs a change before it can merge",
-    empty: "No pull requests yet.",
+    empty: "Nothing waiting.",
     icon: "blocked",
   },
   {
     id: "working",
+    tone: "working",
     title: "Working",
     meaning: "Upkeep is fixing it now",
     empty: "Nothing in progress.",
@@ -27,6 +37,7 @@ export const COLUMNS: readonly Column[] = [
   },
   {
     id: "verified",
+    tone: "verified",
     title: "Verified",
     meaning: "Passed every check, waiting for its action",
     empty: "Nothing verified yet.",
@@ -34,6 +45,7 @@ export const COLUMNS: readonly Column[] = [
   },
   {
     id: "done",
+    tone: "done",
     title: "Done",
     meaning: "Merged, pushed or handed to a person",
     empty: "Nothing done yet.",
@@ -41,22 +53,41 @@ export const COLUMNS: readonly Column[] = [
   },
 ];
 
-export function Board() {
+export function Board({ board, now, onOpen }: Props) {
+  const cols = columns(board);
   return (
     <section id="board" className={styles.board} aria-label="Pull requests">
-      {COLUMNS.map((column) => (
-        <div key={column.id} className={`${styles.column} ${motion.enter}`} data-column={column.id}>
-          <header className={styles.head}>
-            <Icon name={column.icon} className={styles.icon} />
-            <h2 className={styles.title}>{column.title}</h2>
-            <span className={styles.count} aria-label="0 pull requests">
-              0
-            </span>
-          </header>
-          <p className={styles.meaning}>{column.meaning}</p>
-          <p className={styles.empty}>{column.empty}</p>
-        </div>
-      ))}
+      {COLUMNS.map((column) => {
+        const cards: Card[] = cols[column.id];
+        return (
+          <div
+            key={column.id}
+            className={styles.column}
+            data-column={column.tone}
+            data-empty={cards.length === 0}
+          >
+            <header className={styles.head}>
+              <Icon name={column.icon} className={styles.icon} />
+              <h2 className={styles.title}>{column.title}</h2>
+              <span className={styles.count} aria-label={`${cards.length} pull requests`}>
+                {cards.length}
+              </span>
+            </header>
+            <p className={styles.meaning}>{column.meaning}</p>
+            {cards.length === 0 ? (
+              <p className={styles.empty}>{column.empty}</p>
+            ) : (
+              <ul className={styles.list}>
+                {cards.map((card) => (
+                  <li key={card.pr.number}>
+                    <PullCard card={card} now={now} onOpen={onOpen} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })}
     </section>
   );
 }

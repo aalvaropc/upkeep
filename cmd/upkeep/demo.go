@@ -53,7 +53,7 @@ func demoCommand(ctx context.Context, args []string, stdout, stderr io.Writer, e
 			return map[string]any{
 				"mode": string(st.runtime.Mode()), "version": buildinfo.Version(), "public": st.cfg.Public,
 				"prs_per_run": engine.DefaultLimits.PRsPerRun, "runs_per_server": engine.DefaultLimits.RunsPerServer,
-				"daily_tokens": st.cfg.DailyTokens, "tokens_today": st.runtime.Budget.Spent(),
+				"daily_tokens": st.cfg.DailyTokens, "tokens_today": st.runtime.Budget.Spent(), "rules": st.policy.Rules(),
 			}
 		},
 	})
