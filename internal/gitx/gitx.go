@@ -6,16 +6,35 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 const DefaultTimeout = 2 * time.Minute
+
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
 
 var (
 	ErrNotAncestor = errors.New("not an ancestor")
@@ -112,8 +131,9 @@ func (g Git) run(ctx context.Context, dir string, stdin string, args ...string) 
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)
 	}
-	var out bytes.Buffer
-	cmd.Stdout = &out
+	var stdout bytes.Buffer
+	var out lockedBuffer
+	cmd.Stdout = io.MultiWriter(&stdout, &out)
 	cmd.Stderr = &out
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() != nil {
@@ -124,7 +144,7 @@ func (g Git) run(ctx context.Context, dir string, stdin string, args ...string) 
 		}
 		return out.String(), err
 	}
-	return out.String(), nil
+	return stdout.String(), nil
 }
 
 func (g Git) Clone(ctx context.Context, src, dst string) error {

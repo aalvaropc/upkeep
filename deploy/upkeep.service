@@ -9,6 +9,7 @@ User=upkeep
 Group=upkeep
 SupplementaryGroups=docker
 EnvironmentFile=/etc/upkeep/upkeep.env
+Environment=HOME=/var/lib/upkeep
 ExecStart=/opt/upkeep/current/upkeep demo -trust-proxy
 Restart=on-failure
 RestartSec=5

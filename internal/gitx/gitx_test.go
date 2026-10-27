@@ -362,6 +362,42 @@ func TestCloneFetchAndShow(t *testing.T) {
 	}
 }
 
+func TestWarningsOnStderrNeverReachParsedOutput(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads a directory without permissions, so git would not warn")
+	}
+	g, dir := conflictingBranches(t)
+	ctx := t.Context()
+	locked := t.TempDir()
+	if err := os.Chmod(locked, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
+	g.Env = []string{"HOME=" + filepath.Join(locked, "home"), "XDG_CONFIG_HOME=" + filepath.Join(locked, "config")}
+
+	status := exec.CommandContext(ctx, "git", "status", "--porcelain")
+	status.Dir = dir
+	status.Env = append(append(os.Environ(), "LC_ALL=C"), g.Env...)
+	if out, _ := status.CombinedOutput(); !strings.Contains(string(out), "warning: unable to access") {
+		t.Skipf("git did not warn about the unreadable home: %s", out)
+	}
+
+	head, err := g.Head(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(head) != 40 || strings.Contains(head, "warning") {
+		t.Fatalf("Head() = %q", head)
+	}
+	result, err := g.Merge(ctx, dir, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Clean || result.Hunks() != 1 || result.Conflicts[0].File != "notes/limits.go" {
+		t.Fatalf("merge = %+v", result)
+	}
+}
+
 func TestErrorsCarryTheOutput(t *testing.T) {
 	requireGit(t)
 	_, err := Git{}.Head(t.Context(), t.TempDir())
