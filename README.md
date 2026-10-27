@@ -73,7 +73,7 @@ GITHUB_TOKEN=... ./bin/upkeep run -repo owner/name
 | Command | What it does |
 |---|---|
 | `upkeep demo` | serves the dashboard with isolated sessions of the nine-pull-request scenario |
-| `upkeep run -repo owner/name` | works the open pull requests of a GitHub repository (`-dry-run` changes nothing) |
+| `upkeep run -repo owner/name` | works the open pull requests of a GitHub repository (`-dry-run` changes nothing, `-pr 9,11` picks pull requests) |
 | `upkeep record -fixtures DIR` | runs the scenario with the real models and saves every exchange |
 | `upkeep eval [-runs N]` | runs the scenario (replay by default) and writes the outcomes and costs under `docs/evals` |
 | `upkeep scenario build -out DIR` | builds the scenario's repository from its recipes |
