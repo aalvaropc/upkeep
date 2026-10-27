@@ -8,7 +8,7 @@ Any provider works. The demo only needs Token Factory for its models, which it r
 
 - Ubuntu 24.04, 2 vCPU, 8 GB of memory, 30 GB of disk, a public IPv4 address.
 - Inbound TCP 22, 80 and 443 open.
-- `cloud-init.yaml` as the instance's user data. It installs Docker and Caddy, creates the `upkeep` service user, pulls the sandbox image and writes `/etc/upkeep/upkeep.env` in replay mode. Add your SSH key to a sudo-capable user as your provider does it.
+- `cloud-init.yaml` as the instance's user data. It installs Docker and Caddy, creates the `upkeep` service user, pulls the sandbox image and writes `/etc/upkeep/upkeep.env` in replay mode. Add your SSH key to a sudo-capable user as your provider does it. Some providers let custom user data replace the login user they would otherwise create, and this file has a `users` list of its own: there, add your login user to that list (a name, `sudo: ALL=(ALL) NOPASSWD:ALL`, `shell: /bin/bash` and your public key under `ssh_authorized_keys`), or put `default` first to keep the image's default user.
 
 ## Deploy
 
