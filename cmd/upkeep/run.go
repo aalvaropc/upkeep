@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,16 +30,35 @@ type ownerFlags struct {
 	dryRun   bool
 	policy   string
 	parallel int
+	only     []int
+}
+
+func parseNumbers(list string) ([]int, error) {
+	var out []int
+	for _, part := range strings.Split(list, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		n, err := strconv.Atoi(part)
+		if err != nil || n <= 0 {
+			return nil, fmt.Errorf("run: %q is not a pull request number", part)
+		}
+		out = append(out, n)
+	}
+	return out, nil
 }
 
 func parseRunArgs(args []string, stderr io.Writer) (ownerFlags, string, string, error) {
 	var f ownerFlags
+	var only string
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.StringVar(&f.repo, "repo", "", "repository to work, as owner/name")
 	fs.BoolVar(&f.dryRun, "dry-run", false, "detect and fix, but push, comment and merge nothing")
 	fs.StringVar(&f.policy, "policy", "", "policy file; the built-in policy when empty")
 	fs.IntVar(&f.parallel, "parallel", queue.DefaultParallel, "pull requests worked at once")
+	fs.StringVar(&only, "pr", "", "work only these pull requests, as numbers separated by commas")
 	if err := fs.Parse(args); err != nil {
 		return ownerFlags{}, "", "", err
 	}
@@ -52,6 +72,11 @@ func parseRunArgs(args []string, stderr io.Writer) (ownerFlags, string, string, 
 	if f.parallel < 1 {
 		return ownerFlags{}, "", "", errors.New("run: -parallel must be at least 1")
 	}
+	numbers, err := parseNumbers(only)
+	if err != nil {
+		return ownerFlags{}, "", "", err
+	}
+	f.only = numbers
 	return f, owner, name, nil
 }
 
@@ -110,8 +135,12 @@ func runCommand(ctx context.Context, args []string, stdout, stderr io.Writer, en
 	if err != nil {
 		return err
 	}
-	var f forge.Forge = hub
-	dry := &forge.DryRun{Forge: hub}
+	var selected forge.Forge = hub
+	if len(flags.only) > 0 {
+		selected = forge.Only{Forge: hub, Numbers: flags.only}
+	}
+	f := selected
+	dry := &forge.DryRun{Forge: selected}
 	if flags.dryRun {
 		f = dry
 	}

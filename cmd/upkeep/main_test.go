@@ -33,6 +33,7 @@ func TestRun(t *testing.T) {
 		{name: "run without a model key", args: []string{"run", "-repo", "o/r"}, code: 1, stderr: "needs NEBIUS_API_KEY"},
 		{name: "run without a token", args: []string{"run", "-repo", "o/r"}, environ: []string{"NEBIUS_API_KEY=k"}, code: 1, stderr: "GITHUB_TOKEN is required"},
 		{name: "run with arguments", args: []string{"run", "-repo", "o/r", "extra"}, code: 1, stderr: "run takes no arguments"},
+		{name: "run with a bad pull request number", args: []string{"run", "-repo", "o/r", "-pr", "9,x"}, code: 1, stderr: `"x" is not a pull request number`},
 		{name: "run with no parallelism", args: []string{"run", "-repo", "o/r", "-parallel", "0"}, code: 1, stderr: "-parallel must be at least 1"},
 		{name: "demo with arguments", args: []string{"demo", "extra"}, code: 1, stderr: "demo takes no arguments"},
 		{name: "demo with a bad flag", args: []string{"demo", "-pace", "-1"}, code: 1, stderr: "-pace cannot be negative"},

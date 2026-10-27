@@ -148,3 +148,22 @@ func (d *DryRun) Comment(_ context.Context, pr pull.Request, c Comment) error {
 	d.Notes = append(d.Notes, fmt.Sprintf("would post a %s comment on #%d", c.Kind, pr.Number))
 	return nil
 }
+
+type Only struct {
+	Forge
+	Numbers []int
+}
+
+func (o Only) Pulls(ctx context.Context) ([]pull.Request, error) {
+	all, err := o.Forge.Pulls(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []pull.Request
+	for _, p := range all {
+		if slices.Contains(o.Numbers, p.Number) {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}

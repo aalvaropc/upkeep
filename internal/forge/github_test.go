@@ -234,3 +234,15 @@ func TestTheTokenReachesGitAsAHeaderNotInTheArguments(t *testing.T) {
 		t.Fatalf("the token must only be present base64-encoded: %s", raw)
 	}
 }
+
+func TestOnlyTheSelectedPullRequestsAreListed(t *testing.T) {
+	g := newGitHub(t, &api{pulls: pullList})
+	only := forge.Only{Forge: g, Numbers: []int{2, 3, 99}}
+	pulls, err := only.Pulls(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pulls) != 2 || pulls[0].Number != 2 || pulls[1].Number != 3 {
+		t.Fatalf("listed %+v", pulls)
+	}
+}
