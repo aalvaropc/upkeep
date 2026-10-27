@@ -23,14 +23,23 @@ const catalog = `{"data":[
   {"id":"nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B","pricing":{"prompt":"0.00000006","completion":"0.00000024"}}
 ]}`
 
-func catalogServer(t *testing.T) string {
+const completion = `{"choices":[{"message":{"role":"assistant","content":"OK"},"finish_reason":"stop"}],"usage":{"prompt_tokens":12,"completion_tokens":1}}`
+
+func tokenFactoryServer(t *testing.T, chatStatus int) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/models" {
+		switch r.URL.Path {
+		case "/models":
 			_, _ = w.Write([]byte(catalog))
-			return
+		case "/chat/completions":
+			if chatStatus != http.StatusOK {
+				http.Error(w, `{"detail":"insufficient balance"}`, chatStatus)
+				return
+			}
+			_, _ = w.Write([]byte(completion))
+		default:
+			http.NotFound(w, r)
 		}
-		http.NotFound(w, r)
 	}))
 	t.Cleanup(srv.Close)
 	return srv.URL
@@ -38,7 +47,12 @@ func catalogServer(t *testing.T) string {
 
 func options(t *testing.T, mode config.Mode) Options {
 	t.Helper()
-	cfg, err := config.Load([]string{"NEBIUS_API_KEY=test-key", "UPKEEP_MODE=" + string(mode), "UPKEEP_SANDBOX=exec", "NEBIUS_BASE_URL=" + catalogServer(t)})
+	return optionsAt(t, mode, tokenFactoryServer(t, http.StatusOK))
+}
+
+func optionsAt(t *testing.T, mode config.Mode, baseURL string) Options {
+	t.Helper()
+	cfg, err := config.Load([]string{"NEBIUS_API_KEY=test-key", "UPKEEP_MODE=" + string(mode), "UPKEEP_SANDBOX=exec", "NEBIUS_BASE_URL=" + baseURL})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,6 +170,42 @@ func TestAnExhaustedLiveBudgetFallsBackToRecordedRuns(t *testing.T) {
 	}
 	if len(c.events) != 1 || c.events[0] != events.Notice {
 		t.Fatalf("events = %v, want a notice", c.events)
+	}
+}
+
+func TestARefusingTokenFactoryFallsBackToRecordedRuns(t *testing.T) {
+	rec := options(t, config.Record)
+	if _, err := New(t.Context(), rec); err != nil {
+		t.Fatal(err)
+	}
+	live := optionsAt(t, config.Live, tokenFactoryServer(t, http.StatusPaymentRequired))
+	live.Fixtures = rec.Fixtures
+	rt, err := New(t.Context(), live)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &collector{}
+	if _, err := rt.Processor(c.emit); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.events) != 1 || c.events[0] != events.Notice {
+		t.Fatalf("events = %v, want a notice", c.events)
+	}
+	notice, _ := c.data[0].(map[string]string)
+	if !strings.Contains(notice["message"], "Token Factory") || !strings.Contains(notice["message"], "replays a recorded one") {
+		t.Fatalf("notice = %q", notice["message"])
+	}
+}
+
+func TestARefusingTokenFactoryWithNothingToReplayStopsTheRun(t *testing.T) {
+	live := optionsAt(t, config.Live, tokenFactoryServer(t, http.StatusUnauthorized))
+	live.Fixtures = nil
+	rt, err := New(t.Context(), live)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rt.Processor(nil); err == nil || !strings.Contains(err.Error(), "Token Factory") {
+		t.Fatalf("Processor() = %v", err)
 	}
 }
 

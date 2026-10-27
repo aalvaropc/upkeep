@@ -28,7 +28,7 @@ deploy/deploy.sh --rollback admin@203.0.113.7
 
 ## Switch to live models
 
-Edit `/etc/upkeep/upkeep.env` on the VM, set `UPKEEP_MODE=live` and `NEBIUS_API_KEY` (and `TAVILY_API_KEY` for migration guides), then `sudo systemctl restart upkeep`. `deploy/upkeep.env.example` lists the variables. `UPKEEP_DAILY_TOKENS` caps live spending per day; past it runs replay the recording and say so.
+Edit `/etc/upkeep/upkeep.env` on the VM, set `UPKEEP_MODE=live` and `NEBIUS_API_KEY` (and `TAVILY_API_KEY` for migration guides), then `sudo systemctl restart upkeep`. `deploy/upkeep.env.example` lists the variables. `UPKEEP_DAILY_TOKENS` caps live spending per day; past it runs replay the recording and say so. Before each live run the server makes a one-token check call to Token Factory, and if that fails the run replays the recording too, so a spent credit or a revoked key shows a notice instead of failed pull requests.
 
 ## Warm the build cache
 

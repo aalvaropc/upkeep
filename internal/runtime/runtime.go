@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/aalvaropc/upkeep/internal/config"
 	"github.com/aalvaropc/upkeep/internal/engine"
@@ -23,8 +25,9 @@ import (
 )
 
 const (
-	metaKind = "meta"
-	pricesID = "prices"
+	metaKind     = "meta"
+	pricesID     = "prices"
+	probeTimeout = 20 * time.Second
 )
 
 type Options struct {
@@ -51,6 +54,7 @@ type Runtime struct {
 	runner   sandbox.Runner
 	primary  *set
 	replay   *set
+	probe    func(context.Context) error
 	Budget   *Budget
 }
 
@@ -144,6 +148,11 @@ func (r *Runtime) networked(ctx context.Context, mode config.Mode, cache fixture
 	}
 	if mode == config.Live {
 		base = metered{inner: base, budget: r.Budget}
+		off := false
+		r.probe = func(ctx context.Context) error {
+			_, err := tf.Complete(ctx, model.Request{Model: cfg.Models.Nano, Messages: []model.Message{{Role: "user", Content: "Reply with OK."}}, MaxTokens: 1, Reasoning: &off})
+			return err
+		}
 	}
 	router := model.NewRouter()
 	router.Set(model.Ultra, cfg.Models.Ultra, base)
@@ -184,13 +193,13 @@ func (r *Runtime) Mode() config.Mode { return r.opts.Config.Mode }
 
 func (r *Runtime) Processor(emit queue.Emitter) (queue.Processor, error) {
 	chosen := r.primary
-	if r.opts.Config.Mode == config.Live && r.Budget.Exhausted() {
+	if reason := r.liveUnavailable(); reason != "" {
 		if r.replay == nil {
-			return nil, errors.New("today's live token budget is used up and there are no recorded runs to replay")
+			return nil, errors.New(reason + " and there are no recorded runs to replay")
 		}
 		chosen = r.replay
 		if emit != nil {
-			emit(events.Notice, 0, map[string]string{"message": "The live token budget for today is used up, so this run replays a recorded one."})
+			emit(events.Notice, 0, map[string]string{"message": strings.ToUpper(reason[:1]) + reason[1:] + ", so this run replays a recorded one."})
 		}
 	}
 	return engine.Processor{Env: strategy.Env{
@@ -203,4 +212,23 @@ func (r *Runtime) Processor(emit queue.Emitter) (queue.Processor, error) {
 		Policy:     r.opts.Policy,
 		Emit:       emit,
 	}}, nil
+}
+
+func (r *Runtime) liveUnavailable() string {
+	if r.opts.Config.Mode != config.Live {
+		return ""
+	}
+	if r.Budget.Exhausted() {
+		return "the live token budget for today is used up"
+	}
+	if r.probe == nil {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	defer cancel()
+	if err := r.probe(ctx); err != nil {
+		r.opts.Logger.Warn("token factory failed the check before a live run", "error", err)
+		return "a check call to Token Factory failed"
+	}
+	return ""
 }
