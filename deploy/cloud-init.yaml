@@ -1,4 +1,6 @@
 #cloud-config
+groups:
+  - docker
 package_update: true
 packages:
   - docker.io
