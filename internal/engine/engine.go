@@ -124,6 +124,7 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 	}
 	res.Blocker = diag.Blocker
 	p.emit(&res, events.PRBlocker, map[string]any{"blocker": string(diag.Blocker), "behind": diag.Behind})
+	p.step(&res, "plan", "done", approach(diag.Blocker, env.Policy, strings.TrimPrefix(in.Base, "origin/")))
 
 	seen := map[pull.Blocker]int{}
 	for round := 0; round < maxRounds; round++ {
@@ -230,6 +231,7 @@ func (p Processor) forecast(ctx context.Context, res *Result, job *strategy.Job)
 		p.emit(res, events.ModelCall, map[string]any{
 			"model": cost.Model, "role": string(role), "latency_ms": cost.Latency.Milliseconds(), "prompt": cost.Usage.PromptTokens,
 			"completion": cost.Usage.CompletionTokens, "reasoning": cost.Usage.ReasoningTokens, "micros": cost.Charge.Micros, "baseline_micros": cost.Charge.BaselineMicros,
+			"step": "forecast", "purpose": "forecast",
 		})
 	}
 	if err != nil {

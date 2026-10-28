@@ -20,6 +20,7 @@ const (
 	maxPromptFiles   = 6
 	maxPromptFileLen = 12000
 	maxContextChars  = 40000
+	maxTraceChars    = 200
 )
 
 const SystemPrompt = `You repair a Go repository so that go build, go vet and go test pass again after a dependency upgrade or after the base branch changed.
@@ -71,6 +72,7 @@ type Fixer struct {
 	Runner    sandbox.Runner
 	Executor  sandbox.Executor
 	Emit      func(kind events.Kind, data any)
+	Attempt   int
 	MaxTurns  int
 	MaxTokens int
 	Deadline  time.Duration
@@ -147,6 +149,7 @@ func (f Fixer) Run(ctx context.Context, task Task) Attempt {
 		f.emit(events.ModelCall, map[string]any{
 			"model": f.ModelName, "role": string(model.Super), "latency_ms": resp.Latency.Milliseconds(), "prompt": resp.Usage.PromptTokens,
 			"completion": resp.Usage.CompletionTokens, "reasoning": resp.Usage.ReasoningTokens, "micros": charge.Micros, "baseline_micros": charge.BaselineMicros,
+			"step": "repair", "purpose": "fix", "attempt": f.Attempt, "turn": a.Turns, "said": Cut(resp.Message.Content, maxTraceChars), "tools": toolNames(resp.Message.ToolCalls),
 		})
 
 		reply := resp.Message
@@ -166,7 +169,7 @@ func (f Fixer) Run(ctx context.Context, task Task) Attempt {
 		}
 		for _, tc := range reply.ToolCalls {
 			res := box.call(ctx, tc)
-			f.emit(events.ToolCall, map[string]any{"tool": tc.Name, "ok": res.ok, "detail": detail(tc, res)})
+			f.emit(events.ToolCall, f.trace(a.Turns, tc, res))
 			msgs = append(msgs, model.Message{Role: "tool", ToolCallID: tc.ID, Content: res.text})
 		}
 		if box.passed {
@@ -191,6 +194,93 @@ func (f Fixer) Run(ctx context.Context, task Task) Attempt {
 	a.Failure = box.failure
 	a.Report = box.last
 	return a
+}
+
+func (f Fixer) trace(turn int, tc model.ToolCall, res toolResult) map[string]any {
+	data := map[string]any{"tool": tc.Name, "ok": res.ok, "detail": detail(tc, res), "attempt": f.Attempt, "turn": turn, "result": result(tc, res)}
+	var args struct {
+		Path    string `json:"path"`
+		Package string `json:"package"`
+		Symbol  string `json:"symbol"`
+		Old     string `json:"old"`
+		New     string `json:"new"`
+	}
+	if decode(tc.Arguments, &args) != nil {
+		return data
+	}
+	switch tc.Name {
+	case "read_file":
+		data["path"] = Cut(args.Path, maxTraceChars)
+	case "apply_edit":
+		data["path"] = Cut(args.Path, maxTraceChars)
+		if res.ok {
+			data["added"], data["removed"] = changedLines(args.Old, args.New)
+		}
+	case "go_doc":
+		data["package"] = Cut(args.Package, maxTraceChars)
+		data["symbol"] = Cut(args.Symbol, maxTraceChars)
+	}
+	return data
+}
+
+func toolNames(calls []model.ToolCall) []string {
+	names := make([]string, 0, len(calls))
+	for _, tc := range calls {
+		names = append(names, tc.Name)
+	}
+	return names
+}
+
+func changedLines(old, updated string) (added, removed int) {
+	before := strings.Split(old, "\n")
+	after := strings.Split(updated, "\n")
+	for len(before) > 0 && len(after) > 0 && before[0] == after[0] {
+		before, after = before[1:], after[1:]
+	}
+	for len(before) > 0 && len(after) > 0 && before[len(before)-1] == after[len(after)-1] {
+		before, after = before[:len(before)-1], after[:len(after)-1]
+	}
+	return len(after), len(before)
+}
+
+func result(tc model.ToolCall, res toolResult) string {
+	if !res.ok {
+		return Cut(firstLine(strings.TrimPrefix(res.text, "error: ")), maxTraceChars)
+	}
+	switch tc.Name {
+	case "run_checks":
+		return FirstError(res.text)
+	case "read_file":
+		lines := strings.Count(strings.TrimRight(res.text, "\n"), "\n") + 1
+		return fmt.Sprintf("%d lines", lines)
+	case "go_doc":
+		for _, line := range strings.Split(res.text, "\n") {
+			if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "package ") {
+				return Cut(line, maxTraceChars)
+			}
+		}
+		return Cut(firstLine(res.text), maxTraceChars)
+	default:
+		return Cut(firstLine(res.text), maxTraceChars)
+	}
+}
+
+func FirstError(text string) string {
+	for _, line := range strings.Split(text, "\n") {
+		if strings.Contains(line, ".go:") {
+			return Cut(strings.TrimPrefix(strings.TrimSpace(line), "./"), maxTraceChars)
+		}
+	}
+	return Cut(firstLine(text), maxTraceChars)
+}
+
+func Cut(s string, n int) string {
+	s = strings.Join(strings.Fields(s), " ")
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	return strings.TrimSpace(string(runes[:n-1])) + "…"
 }
 
 func detail(tc model.ToolCall, res toolResult) string {

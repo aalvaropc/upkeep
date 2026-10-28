@@ -21,7 +21,7 @@ import (
 
 const (
 	localSession  = "local"
-	ringCapacity  = 1000
+	ringCapacity  = 4000
 	shutdownGrace = 10 * time.Second
 )
 

@@ -44,7 +44,7 @@ func (e Env) Explain(ctx context.Context, job *Job, failure, patch string) (stri
 		fmt.Fprintf(&user, "\nWhat was failing:\n%s\n", failure)
 	}
 	fmt.Fprintf(&user, "\nThe change:\n```diff\n%s\n```", strings.TrimRight(patch, "\n"))
-	answer, err := e.complete(ctx, job, model.Nano, explainSystem, user.String(), false, 300)
+	answer, err := e.complete(ctx, job, model.Nano, "explain", "explain", explainSystem, user.String(), false, 300)
 	if err != nil {
 		return "", err
 	}
