@@ -32,6 +32,13 @@ export interface Comment {
   at: string;
 }
 
+export type ConfidenceLevel = "high" | "medium" | "low";
+
+export interface Confidence {
+  level: ConfidenceLevel;
+  reasons: string[];
+}
+
 export interface PullView extends PullRequest {
   state: "open" | "merged";
   merge_sha?: string;
@@ -40,6 +47,7 @@ export interface PullView extends PullRequest {
   blocker?: string;
   actions?: Action[];
   duration_ms?: number;
+  confidence?: Confidence;
 }
 
 export interface Snapshot {

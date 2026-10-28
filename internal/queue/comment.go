@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aalvaropc/upkeep/internal/confidence"
 	"github.com/aalvaropc/upkeep/internal/engine"
 	"github.com/aalvaropc/upkeep/internal/forecast"
 	"github.com/aalvaropc/upkeep/internal/receipt"
@@ -50,11 +51,11 @@ func receiptComment(res engine.Result) string {
 	if s := strings.TrimSpace(res.Summary); s != "" {
 		b.WriteString(s + "\n\n")
 	}
-	search := searchLine(res.Receipt.Searches())
+	footer := confidenceLine(res.Confidence) + searchLine(res.Receipt.Searches())
 	if len(lines) == 0 {
 		b.WriteString("No model was called; the checks were enough.\n")
-		if search != "" {
-			b.WriteString("\n" + search)
+		if footer != "" {
+			b.WriteString("\n" + footer)
 		}
 		return b.String()
 	}
@@ -67,8 +68,8 @@ func receiptComment(res engine.Result) string {
 		fmt.Fprintf(&b, " The same tokens at the largest model's price would have cost %s; that is a price comparison, not a claim that it would have fixed it.", usd(totals.Charge.BaselineMicros))
 	}
 	b.WriteString("\n")
-	if search != "" {
-		b.WriteString("\n" + search)
+	if footer != "" {
+		b.WriteString("\n" + footer)
 	}
 	return b.String()
 }
@@ -106,4 +107,11 @@ func searchLine(searches []receipt.Search) string {
 		line += ", from the recorded run"
 	}
 	return line + ".\n"
+}
+
+func confidenceLine(a confidence.Assessment) string {
+	if !a.Known() {
+		return ""
+	}
+	return fmt.Sprintf("Merge confidence: %s (%s).\n", a.Level, strings.Join(a.Reasons, "; "))
 }

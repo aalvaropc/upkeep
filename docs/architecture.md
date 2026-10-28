@@ -33,6 +33,7 @@ forge ──► Prepare (clone, check out the branch)
 | `cmd/upkeep` | the commands, the shared setup |
 | `internal/engine` | `Processor.Process`, the state of a pull request, the result with its receipt |
 | `internal/queue` | the worker pool and the actions: push, patch, merge, comment |
+| `internal/confidence` | the merge confidence of a ready pull request: high, medium or low, with the facts behind it (who wrote the code, which attempt, the size, a major upgrade, the forecast the build confirmed, a flaky test, a conflict with a pull request that merges first); it informs and never gates a merge |
 | `internal/plan` | the merge plan: the files each pull request changes, the pairs that conflict, a suggested order, the check after the merges |
 | `internal/detect` | the order of checks that names the blocker |
 | `internal/strategy` | one file per kind of fix: merge, format, conflict (Ultra), repair (Super), explain (Nano) |

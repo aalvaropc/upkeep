@@ -140,6 +140,16 @@ export function PullCard({ card, now, onOpen }: Props) {
           {stepText(card)}
         </span>
       )}
+      {done && card.confidence ? (
+        <span
+          className={styles.confidence}
+          data-level={card.confidence.level}
+          title={card.confidence.reasons.join("; ")}
+        >
+          <Icon name="gauge" className={styles.confidenceIcon} />
+          {card.confidence.level} merge confidence
+        </span>
+      ) : null}
       {lines ? <span className={styles.note}>{lines}</span> : null}
       {done && card.actions.length > 0 ? (
         <span className={styles.actions}>

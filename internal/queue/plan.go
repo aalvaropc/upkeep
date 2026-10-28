@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 
+	"github.com/aalvaropc/upkeep/internal/confidence"
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/plan"
 	"github.com/aalvaropc/upkeep/internal/pull"
@@ -61,4 +62,38 @@ func (r Runner) recheck(ctx context.Context, items []Item, current *plan.Plan) {
 	current.Stale = stale
 	current.Checked = true
 	r.emit(events.RunPlan, 0, *current)
+}
+
+type follow struct {
+	pr    int
+	files []string
+}
+
+func follows(p *plan.Plan) map[int][]follow {
+	out := map[int][]follow{}
+	if p == nil {
+		return out
+	}
+	position := map[int]int{}
+	for i, n := range p.Order {
+		position[n] = i
+	}
+	for _, o := range p.Overlaps {
+		if !o.Conflict {
+			continue
+		}
+		first, second := o.A, o.B
+		if position[second] < position[first] {
+			first, second = second, first
+		}
+		out[second] = append(out[second], follow{pr: first, files: o.Files})
+	}
+	return out
+}
+
+func rating(a confidence.Assessment) *confidence.Assessment {
+	if !a.Known() {
+		return nil
+	}
+	return &a
 }

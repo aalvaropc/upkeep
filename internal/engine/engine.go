@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aalvaropc/upkeep/internal/confidence"
 	"github.com/aalvaropc/upkeep/internal/detect"
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/fixer"
@@ -73,6 +74,7 @@ type Result struct {
 	WantsPush  bool
 	WantsPatch bool
 	WantsMerge bool
+	Confidence confidence.Assessment
 	Err        error
 }
 
@@ -455,8 +457,28 @@ func (p Processor) finish(ctx context.Context, res *Result, job *strategy.Job, d
 	res.WantsPatch = res.Changed && !res.WantsPush
 	res.WantsMerge = env.Policy.MayAutoMerge(job.PR.Author, job.PR.Bump)
 	p.step(res, "verify", "done", "every check passed")
+	res.Confidence = assess(res, job, env.Policy.MaxLinesChanged)
 	p.emit(res, events.Receipt, receiptData(res.Receipt))
 	return *res
+}
+
+func assess(res *Result, job *strategy.Job, maxLines int) confidence.Assessment {
+	lines := 0
+	for _, c := range res.Changes {
+		lines += c.Added + c.Deleted
+	}
+	return confidence.Assess(confidence.Input{
+		Outcome:   res.Outcome,
+		Blocker:   res.Blocker,
+		Bump:      job.PR.Bump,
+		Attempts:  res.Attempts,
+		Files:     len(res.Changes),
+		Lines:     lines,
+		MaxLines:  maxLines,
+		Predicted: len(res.Confirmed) + len(res.Missed),
+		Confirmed: len(res.Confirmed),
+		Flaky:     res.Flaky,
+	})
 }
 
 func (p Processor) addedComments(ctx context.Context, job *strategy.Job, changes []gitx.FileChange, base string) (int, error) {
