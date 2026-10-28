@@ -78,7 +78,7 @@ After the workers finish, the base is fetched again into the working tree of eve
 
 ## Events and the dashboard
 
-Every step emits an event into a per-session ring buffer (`internal/events`): `run.queued`, `run.started`, `run.plan`, `pr.blocker`, `pr.step`, `model.call`, `search.call`, `tool.call`, `verify.result`, `action`, `receipt`, `pr.done`, `notice`, `run.finished`, `session.closed`. The server streams them over Server-Sent Events with resume, a gap notice and keepalives. The dashboard's reducer (`web/src/board.ts`) is a pure function from events to board state, so reloading the page replays the run from the ring.
+Every step emits an event into a per-session ring buffer (`internal/events`): `run.queued`, `run.started`, `run.plan`, `pr.blocker`, `pr.step`, `model.call`, `search.call`, `tool.call`, `verify.result`, `action`, `receipt`, `pr.done`, `notice`, `run.finished`, `session.closed`. The server streams them over Server-Sent Events with resume, a gap notice and keepalives. The dashboard's reducer (`web/src/board.ts`) is a pure function from events to board state, so reloading the page replays the run from the ring. Model and tool events also say which step and purpose a call served, the repair attempt and turn, what the model said and which tools it asked for, and the file or symbol each tool touched; repair steps carry the attempt's stop reason and first error line. The detail panel turns them into a live trace grouped by phase and attempt. The ring keeps the last 4,000 events of a session.
 
 ## Record and replay
 

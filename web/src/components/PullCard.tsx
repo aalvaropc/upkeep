@@ -33,6 +33,7 @@ export function blockerLabel(blocker: string | undefined): string {
 
 const STEPS: Record<string, string> = {
   detect: "Checking",
+  plan: "Plan",
   forecast: "Reading the release notes",
   conflict: "Resolving the conflict",
   merge: "Merging main",

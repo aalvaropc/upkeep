@@ -10,7 +10,8 @@ import {
   type BoardState,
 } from "./board";
 import { overlapLabel, overlapTone } from "./plan";
-import type { EventKind, PullRequest, PullView } from "./types";
+import { MAX_TRACE, traceRows, traceSections } from "./trace";
+import type { EventKind, ModelCallEvent, PullRequest, PullView, ToolCallEvent } from "./types";
 
 const pr = (number: number, extra: Partial<PullRequest> = {}): PullRequest => ({
   number,
@@ -406,6 +407,289 @@ describe("board reducer", () => {
     const state = run([{ type: "gap" }, { type: "gap" }]);
     expect(state.gaps).toBe(2);
     expect(run([{ type: "reset" }], run([started(1)]))).toEqual(initialBoard);
+  });
+});
+
+const superCall = (attempt: number, turn: number, tools: string[]): ModelCallEvent => ({
+  model: "nvidia/super",
+  role: "super",
+  latency_ms: 1000,
+  prompt: 1000,
+  completion: 100,
+  micros: 300,
+  baseline_micros: 1000,
+  step: "repair",
+  purpose: "fix",
+  attempt,
+  turn,
+  said: "Checking the caller.",
+  tools,
+});
+
+const checks = (attempt: number, turn: number, result: string): ToolCallEvent => ({
+  tool: "run_checks",
+  ok: true,
+  detail: "go build ./... failed:",
+  attempt,
+  turn,
+  result,
+});
+
+describe("trace", () => {
+  it("records each step, model call, tool call, verdict and action of a card", () => {
+    const state = run([
+      started(1),
+      event("pr.step", 1, { step: "detect", status: "running", detail: "" }),
+      event("pr.step", 1, { step: "detect", status: "done", detail: "build" }),
+      event("pr.blocker", 1, { blocker: "build", behind: false }),
+      event("pr.step", 1, {
+        step: "plan",
+        status: "done",
+        detail: "build fails: Super repairs it with 4 tools, up to 3 attempts, then 9 checks",
+      }),
+      event("pr.step", 1, { step: "repair", status: "running", attempt: 1, of: 3 }),
+      event("model.call", 1, superCall(1, 1, ["apply_edit"])),
+      event("tool.call", 1, {
+        tool: "apply_edit",
+        ok: true,
+        detail: "apply_edit",
+        attempt: 1,
+        turn: 1,
+        path: "auth/token.go",
+        added: 3,
+        removed: 1,
+        result: "ok",
+      } satisfies ToolCallEvent),
+      event("pr.step", 1, { step: "detect", status: "running", detail: "" }),
+      event("verify.result", 1, { passed: true, checks: [] }),
+      event("receipt", 1, { calls: 1, micros: 300, baseline_micros: 1000, attempts: 1 }),
+      event("action", 1, { kind: "push", status: "done", detail: "pushed abc" }),
+    ]);
+    const trace = state.cards[1]?.trace ?? [];
+    expect(trace.map((e) => `${e.phase}:${e.kind}`)).toEqual([
+      "plan:step",
+      "plan:step",
+      "plan:step",
+      "fix:step",
+      "fix:model",
+      "fix:tool",
+      "fix:step",
+      "verify:verify",
+      "act:action",
+    ]);
+    expect(trace[5]).toMatchObject({
+      kind: "tool",
+      target: "auth/token.go",
+      added: 3,
+      removed: 1,
+      attempt: 1,
+    });
+    expect(trace[4]).toMatchObject({ kind: "model", tokens: 1100, tools: ["apply_edit"] });
+    expect(state.log.map((l) => l.text)).toContain("Super edited auth/token.go (+3 −1)");
+  });
+
+  it("groups the fix by attempt and puts each failure in its attempt", () => {
+    const state = run([
+      started(2),
+      event("pr.step", 2, { step: "plan", status: "done", detail: "build fails" }),
+      event("pr.step", 2, {
+        step: "repair",
+        status: "running",
+        detail: "attempt 1 of 3",
+        attempt: 1,
+        of: 3,
+      }),
+      event("model.call", 2, superCall(1, 1, ["run_checks"])),
+      event("tool.call", 2, checks(1, 1, "auth/token.go:24: undefined: jwt.StandardClaims")),
+      event("model.call", 2, superCall(1, 2, [])),
+      event("pr.step", 2, {
+        step: "repair",
+        status: "failed",
+        detail: "attempt 1: turn limit after 2 turns, 0 edits in 0 files, 4.1s",
+        attempt: 1,
+        of: 3,
+        stop: "turn limit",
+        turns: 2,
+        edits: 0,
+        files: 0,
+        failure: "auth/token.go:24: undefined: jwt.StandardClaims",
+      }),
+      event("pr.step", 2, { step: "repair", status: "running", attempt: 2, of: 3 }),
+      event("model.call", 2, superCall(2, 1, ["apply_edit", "run_checks"])),
+      event("tool.call", 2, checks(2, 1, "PASS")),
+      event("pr.step", 2, {
+        step: "repair",
+        status: "done",
+        attempt: 2,
+        of: 3,
+        stop: "checks passed",
+        turns: 1,
+        edits: 1,
+        files: 1,
+      }),
+      event("pr.step", 2, { step: "detect", status: "running", detail: "" }),
+      event("pr.step", 2, { step: "detect", status: "done", detail: "clean" }),
+    ]);
+    const sections = traceSections(state.cards[2]?.trace ?? []);
+    expect(sections.map((s) => s.phase)).toEqual(["plan", "fix"]);
+    const fix = sections[1]?.groups ?? [];
+    expect(fix.map((g) => g.attempt)).toEqual([1, 2, undefined]);
+    expect(fix[0]).toMatchObject({
+      status: "failed",
+      of: 3,
+      stop: "turn limit",
+      turns: 2,
+      failure: "auth/token.go:24: undefined: jwt.StandardClaims",
+      micros: 600,
+    });
+    expect(fix[1]).toMatchObject({ status: "done", turns: 1, edits: 1, micros: 300 });
+    expect(fix[0] && traceRows(fix[0]).map((r) => r.entry.kind)).toEqual([
+      "model",
+      "tool",
+      "model",
+    ]);
+    const recheck = fix[2] ? traceRows(fix[2]) : [];
+    expect(recheck).toHaveLength(1);
+    expect(recheck[0]).toMatchObject({ open: false, durationMs: 0 });
+    expect(recheck[0]?.entry).toMatchObject({ kind: "step", status: "done", detail: "clean" });
+    expect(state.log.map((l) => l.text)).toEqual(
+      expect.arrayContaining([
+        "repair attempt 1 failed: turn limit after 2 turns, 0 edits in 0 files (auth/token.go:24: undefined: jwt.StandardClaims)",
+        "repair attempt 2 passed after 1 turn, 1 edit in 1 file",
+        "run_checks: auth/token.go:24: undefined: jwt.StandardClaims",
+        "super fix (attempt 2, turn 1), 1.0 s, $0.0003: asks for apply_edit, run_checks",
+        "plan: build fails",
+      ]),
+    );
+  });
+
+  it("closes a step that started again without finishing", () => {
+    const state = run([
+      started(3),
+      event("pr.step", 3, { step: "plan", status: "done", detail: "a small conflict" }),
+      event("pr.step", 3, { step: "conflict", status: "running", detail: "1 hunks" }),
+      event("pr.step", 3, { step: "conflict", status: "running", detail: "asking again" }),
+      event("pr.step", 3, { step: "conflict", status: "done", detail: "1 hunks in 1 files" }),
+    ]);
+    const fix = traceSections(state.cards[3]?.trace ?? []).find((s) => s.phase === "fix");
+    const rows = fix?.groups[0] ? traceRows(fix.groups[0]) : [];
+    expect(rows.map((r) => [r.entry.text, r.open])).toEqual([
+      ["conflict running: 1 hunks", false],
+      ["conflict done: 1 hunks in 1 files", false],
+    ]);
+  });
+
+  it("puts the web search of a forecast in the forecast phase", () => {
+    const state = run([
+      started(5),
+      event("pr.step", 5, { step: "forecast", status: "running", detail: "jwt v4 to v5" }),
+      event("search.call", 5, {
+        provider: "tavily",
+        query: "golang-jwt v5 migration guide",
+        results: [
+          { title: "Migration guide", url: "https://example.com/a", score: 0.9, kept: true },
+          { title: "Blog", url: "https://example.com/b", score: 0.2, kept: false },
+        ],
+        kept: ["https://example.com/a"],
+        latency_ms: 800,
+        recorded: true,
+      }),
+      event("search.call", 5, { provider: "tavily", query: "x", skipped: "no key" }),
+      event("pr.step", 5, { step: "forecast", status: "done", detail: "2 breaking changes" }),
+    ]);
+    const trace = state.cards[5]?.trace ?? [];
+    expect(trace.map((e) => `${e.phase}:${e.kind}`)).toEqual([
+      "forecast:step",
+      "forecast:search",
+      "forecast:search",
+      "forecast:step",
+    ]);
+    expect(trace[1]).toMatchObject({
+      kind: "search",
+      provider: "tavily",
+      query: "golang-jwt v5 migration guide",
+      kept: 1,
+      results: 2,
+      latencyMs: 800,
+      recorded: true,
+    });
+    expect(trace[2]).toMatchObject({ kind: "search", skipped: "no key" });
+    const forecast = traceSections(trace)[0];
+    expect(forecast?.phase).toBe("forecast");
+    expect(forecast?.groups[0] && traceRows(forecast.groups[0]).map((r) => r.entry.kind)).toEqual([
+      "step",
+      "search",
+      "search",
+    ]);
+  });
+
+  it("traces a learned fix in the fix phase and pairs its start with its result", () => {
+    const state = run([
+      started(5, 7),
+      event("pr.step", 5, {
+        step: "learned",
+        status: "running",
+        detail: "trying the fix learned from #5: 1 edit in auth/token.go",
+        from: 5,
+        saved_micros: 6400,
+      }),
+      event("pr.step", 5, { step: "learned", status: "done", detail: "reused", from: 5 }),
+      event("pr.step", 5, { step: "learn", status: "done", detail: "remembered" }),
+      event("pr.step", 7, { step: "learned", status: "running", detail: "", from: 3 }),
+      event("pr.step", 7, {
+        step: "learned",
+        status: "failed",
+        detail: "the checks still fail with the fix learned from #3; repairing it from the start",
+      }),
+      event("pr.step", 7, {
+        step: "repair",
+        status: "running",
+        detail: "attempt 1 of 3",
+        attempt: 1,
+        of: 3,
+      }),
+    ]);
+    const reused = state.cards[5]?.trace ?? [];
+    expect(reused.map((e) => `${e.phase}:${e.kind}`)).toEqual([
+      "fix:learned",
+      "fix:learned",
+      "act:step",
+    ]);
+    expect(reused[1]).toMatchObject({
+      kind: "learned",
+      status: "done",
+      from: 5,
+      savedMicros: 6400,
+    });
+    const fix = traceSections(reused).find((s) => s.phase === "fix");
+    const rows = fix?.groups[0] ? traceRows(fix.groups[0]) : [];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ open: false, entry: { status: "done" } });
+
+    const stale = state.cards[7]?.trace ?? [];
+    expect(stale[1]).toMatchObject({ kind: "learned", status: "failed", from: 3 });
+    const groups = traceSections(stale).find((s) => s.phase === "fix")?.groups ?? [];
+    expect(groups.map((g) => g.attempt)).toEqual([undefined, 1]);
+  });
+
+  it("keeps only the newest entries of a long trace", () => {
+    let state = run([started(1)]);
+    for (let i = 0; i < MAX_TRACE + 50; i++) {
+      state = boardReducer(state, event("tool.call", 1, checks(1, i + 1, "PASS")));
+    }
+    const trace = state.cards[1]?.trace ?? [];
+    expect(trace).toHaveLength(MAX_TRACE);
+    expect(trace[0]?.seq).toBe((trace[MAX_TRACE - 1]?.seq ?? 0) - MAX_TRACE + 1);
+    expect(state.cards[1]?.toolCalls).toBe(MAX_TRACE + 50);
+  });
+
+  it("describes older events without the new fields as before", () => {
+    const state = run([
+      started(1),
+      event("tool.call", 1, { tool: "read_file", ok: true, detail: "read_file" }),
+    ]);
+    expect(state.log[0]?.text).toBe("tool read_file ok: read_file");
+    expect(state.cards[1]?.trace[0]).toMatchObject({ kind: "tool", result: "read_file" });
   });
 });
 
