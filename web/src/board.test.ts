@@ -9,6 +9,7 @@ import {
   type BoardAction,
   type BoardState,
 } from "./board";
+import { overlapLabel, overlapTone } from "./plan";
 import { MAX_TRACE, traceRows, traceSections } from "./trace";
 import type { EventKind, ModelCallEvent, PullRequest, PullView, ToolCallEvent } from "./types";
 
@@ -609,5 +610,86 @@ describe("formatting", () => {
     expect(outcomeLabel("needs_human")).toBe("Needs a person");
     expect(outcomeLabel("failed")).toBe("Could not finish");
     expect(outcomeLabel(undefined)).toBe("");
+  });
+});
+
+describe("merge plan", () => {
+  const planned = {
+    order: [6, 7, 1, 5],
+    overlaps: [
+      { a: 5, b: 6, files: ["go.mod", "go.sum"], conflict: false },
+      { a: 5, b: 7, files: ["go.mod", "go.sum"], conflict: true },
+      { a: 6, b: 7, files: ["go.mod", "go.sum"], conflict: false },
+    ],
+    reasons: {
+      "5": "Conflicts with #7 in go.mod, go.sum: merge it after #7 and update its branch.",
+    },
+    stale: [],
+    checked: false,
+  };
+
+  it("keeps the plan and marks the cards that share files", () => {
+    const state = run([started(1, 5, 6, 7), event("run.plan", undefined, planned)]);
+    expect(state.plan?.order).toEqual([6, 7, 1, 5]);
+    expect(state.plan?.reasons["5"]).toContain("merge it after #7");
+    expect(state.cards[5]?.overlap).toEqual({ conflictsWith: [7], sharesWith: [6] });
+    expect(overlapLabel(state.cards[5]!.overlap!)).toBe("conflicts with #7");
+    expect(overlapLabel(state.cards[6]!.overlap!)).toBe("shares files with #5, #7");
+    expect(overlapTone(state.cards[6]!.overlap!)).toBe("shared");
+    expect(state.cards[1]?.overlap).toBeUndefined();
+    expect(state.log[0]?.text).toBe("merge plan for 4 pull requests, 1 conflicting pair");
+  });
+
+  it("merges the check after the run into the plan", () => {
+    const first = run([started(1, 5, 6, 7), event("run.plan", undefined, planned)]);
+    const checked = run(
+      [
+        event("run.plan", undefined, {
+          ...planned,
+          stale: [{ pr: 5, because: "conflicts with main after #7 merged: go.mod, go.sum" }],
+          checked: true,
+        }),
+      ],
+      first,
+    );
+    expect(checked.plan?.checked).toBe(true);
+    expect(checked.plan?.stale).toEqual([
+      { pr: 5, because: "conflicts with main after #7 merged: go.mod, go.sum" },
+    ]);
+    expect(checked.cards[5]?.overlap?.stale).toBe(
+      "conflicts with main after #7 merged: go.mod, go.sum",
+    );
+    expect(overlapLabel(checked.cards[5]!.overlap!)).toBe("conflicts with main");
+    expect(overlapTone(checked.cards[5]!.overlap!)).toBe("conflict");
+    expect(checked.log[0]?.text).toBe(
+      "checked again after the merges: 1 ready pull request no longer merges cleanly",
+    );
+
+    const staleOnly = run(
+      [event("run.plan", undefined, { stale: [{ pr: 1, because: "conflicts with main" }] })],
+      first,
+    );
+    expect(staleOnly.plan?.order).toEqual([6, 7, 1, 5]);
+    expect(staleOnly.plan?.checked).toBe(true);
+    expect(staleOnly.cards[1]?.overlap).toEqual({
+      conflictsWith: [],
+      sharesWith: [],
+      stale: "conflicts with main",
+    });
+  });
+
+  it("reads a malformed plan as an empty one", () => {
+    const state = run([
+      started(1),
+      event("run.plan", undefined, { order: [1, "x"], overlaps: [null, { a: "1" }], stale: "no" }),
+    ]);
+    expect(state.plan).toEqual({
+      order: [1],
+      overlaps: [],
+      reasons: {},
+      stale: [],
+      checked: false,
+    });
+    expect(state.cards[1]?.overlap).toBeUndefined();
   });
 });

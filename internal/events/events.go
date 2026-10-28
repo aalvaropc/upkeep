@@ -12,6 +12,7 @@ const (
 	RunQueued     Kind = "run.queued"
 	SessionClosed Kind = "session.closed"
 	RunStarted    Kind = "run.started"
+	RunPlan       Kind = "run.plan"
 	PRBlocker     Kind = "pr.blocker"
 	PRStep        Kind = "pr.step"
 	ModelCall     Kind = "model.call"

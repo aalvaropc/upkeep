@@ -6,6 +6,7 @@ import { Agents } from "./components/Agents";
 import { Board } from "./components/Board";
 import { DetailPanel } from "./components/DetailPanel";
 import { Icon } from "./components/Icon";
+import { MergePlan } from "./components/MergePlan";
 import { Onboarding } from "./components/Onboarding";
 import { PolicyPanel } from "./components/PolicyPanel";
 import { TopBar } from "./components/TopBar";
@@ -63,6 +64,7 @@ export function App() {
           <Board board={board} now={now} onOpen={setOpen} />
           <div className={styles.rail}>
             <Agents board={board} />
+            <MergePlan board={board} />
             <Activity log={board.log} session={board.session} />
           </div>
         </div>

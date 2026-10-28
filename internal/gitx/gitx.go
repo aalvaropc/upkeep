@@ -91,6 +91,7 @@ func (c FileChange) IsTest() bool {
 type Error struct {
 	Args   []string
 	Output string
+	Stdout string
 	Code   int
 }
 
@@ -140,7 +141,7 @@ func (g Git) run(ctx context.Context, dir string, stdin string, args ...string) 
 			return out.String(), fmt.Errorf("git %s: %w", strings.Join(args, " "), ctx.Err())
 		}
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			return out.String(), &Error{Args: args, Output: out.String(), Code: exitErr.ExitCode()}
+			return out.String(), &Error{Args: args, Output: out.String(), Stdout: stdout.String(), Code: exitErr.ExitCode()}
 		}
 		return out.String(), err
 	}

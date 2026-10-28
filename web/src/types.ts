@@ -180,6 +180,7 @@ export interface Info {
 export type EventKind =
   | "run.queued"
   | "run.started"
+  | "run.plan"
   | "pr.blocker"
   | "pr.step"
   | "model.call"
@@ -192,6 +193,26 @@ export type EventKind =
   | "notice"
   | "run.finished"
   | "session.closed";
+
+export interface PlanOverlap {
+  a: number;
+  b: number;
+  files: string[];
+  conflict: boolean;
+}
+
+export interface PlanStale {
+  pr: number;
+  because: string;
+}
+
+export interface MergePlan {
+  order: number[];
+  overlaps: PlanOverlap[];
+  reasons: Record<string, string>;
+  stale: PlanStale[];
+  checked: boolean;
+}
 
 export interface UpkeepEvent {
   seq: number;

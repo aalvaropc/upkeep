@@ -105,6 +105,27 @@
   color: var(--accent);
 }
 
+.overlap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--tint-info);
+  color: var(--info);
+  font: 600 11px/1.6 var(--mono);
+}
+
+.overlap[data-tone="conflict"] {
+  background: var(--tint-warn);
+  color: var(--warn);
+}
+
+.overlapIcon {
+  flex: none;
+  font-size: 13px;
+}
+
 .step {
   display: flex;
   align-items: center;
