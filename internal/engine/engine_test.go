@@ -16,6 +16,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/fixer"
 	"github.com/aalvaropc/upkeep/internal/forecast"
 	"github.com/aalvaropc/upkeep/internal/gitx"
+	"github.com/aalvaropc/upkeep/internal/learn"
 	"github.com/aalvaropc/upkeep/internal/model"
 	"github.com/aalvaropc/upkeep/internal/policy"
 	"github.com/aalvaropc/upkeep/internal/pull"
@@ -89,6 +90,8 @@ type world struct {
 	mu     sync.Mutex
 	pol    policy.Policy
 	fc     strategy.Forecaster
+	book   learn.Book
+	detail []map[string]any
 }
 
 const (
@@ -194,6 +197,7 @@ func (w *world) process(pr pull.Request) Result {
 			w.events = append(w.events, kind)
 			if m, ok := data.(map[string]any); ok && kind == events.PRStep {
 				w.steps = append(w.steps, m["step"].(string)+":"+m["status"].(string))
+				w.detail = append(w.detail, m)
 			}
 		},
 	}
@@ -203,7 +207,7 @@ func (w *world) process(pr pull.Request) Result {
 	if pr.Branch == "" {
 		pr.Branch = "feature"
 	}
-	return Processor{Env: env}.Process(w.t.Context(), Input{PR: pr, Dir: w.dir, Base: "main"})
+	return Processor{Env: env, Learned: w.book, Repo: "example.test/m"}.Process(w.t.Context(), Input{PR: pr, Dir: w.dir, Base: "main"})
 }
 
 func person(labels ...string) pull.Request {

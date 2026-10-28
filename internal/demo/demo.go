@@ -18,6 +18,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/forge"
 	"github.com/aalvaropc/upkeep/internal/gitx"
+	"github.com/aalvaropc/upkeep/internal/learn"
 	"github.com/aalvaropc/upkeep/internal/queue"
 	"github.com/aalvaropc/upkeep/internal/scenario"
 )
@@ -37,7 +38,7 @@ const (
 	Finished Status = "finished"
 )
 
-type Factory func(emit queue.Emitter) (queue.Processor, error)
+type Factory func(emit queue.Emitter, learned learn.Book) (queue.Processor, error)
 
 type Options struct {
 	Scenario    scenario.Scenario
@@ -127,11 +128,15 @@ func (m *Manager) Shutdown() {
 	}
 }
 
-func (m *Manager) New(ctx context.Context) (*Session, error) {
+func (m *Manager) New(ctx context.Context, inherit string) (*Session, error) {
 	m.createMu.Lock()
 	defer m.createMu.Unlock()
 
 	m.mu.Lock()
+	learned := &learn.Memory{}
+	if old, ok := m.sessions[inherit]; ok && inherit != "" {
+		learned = old.learned.Clone()
+	}
 	m.sweepLocked()
 	if len(m.sessions) >= m.opts.MaxSessions && !m.evictOldestIdleLocked() {
 		m.mu.Unlock()
@@ -156,6 +161,7 @@ func (m *Manager) New(ctx context.Context) (*Session, error) {
 		status:  Idle,
 		touched: m.opts.Now(),
 		items:   map[int]queue.Item{},
+		learned: learned,
 	}
 	m.mu.Lock()
 	m.sessions[id] = s
@@ -295,7 +301,7 @@ func (m *Manager) execute(s *Session) {
 		return
 	}
 	s.setStatus(Running)
-	proc, err := m.opts.Processor(s.emit)
+	proc, err := m.opts.Processor(s.emit, s.learned)
 	if err != nil {
 		m.opts.Logger.Error("preparing a run failed", "session", s.ID, "error", err)
 		s.emit(events.RunFinished, 0, map[string]any{"error": err.Error()})
@@ -324,6 +330,7 @@ type Session struct {
 	dir     string
 	forge   *forge.Local
 	ring    *events.Ring
+	learned *learn.Memory
 
 	mu      sync.Mutex
 	status  Status

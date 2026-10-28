@@ -48,6 +48,13 @@ func receiptComment(res engine.Result) string {
 	if s := strings.TrimSpace(res.Summary); s != "" {
 		b.WriteString(s + "\n\n")
 	}
+	if l := res.Learned; l != nil {
+		fmt.Fprintf(&b, "Learned fix: Upkeep reused the verified fix from #%d with 0 model calls; the first time cost %s.\n", l.From, usd(l.SavedMicros))
+		if len(lines) == 0 {
+			return b.String()
+		}
+		b.WriteString("\n")
+	}
 	if len(lines) == 0 {
 		b.WriteString("No model was called; the checks were enough.\n")
 		return b.String()

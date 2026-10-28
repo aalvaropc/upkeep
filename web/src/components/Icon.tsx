@@ -19,6 +19,7 @@ export type IconName =
   | "rules"
   | "wait"
   | "tool"
+  | "learned"
   | "alert";
 
 const PATHS: Record<IconName, string[]> = {
@@ -67,6 +68,7 @@ const PATHS: Record<IconName, string[]> = {
   wait: ["M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0", "M12 7v5l3 2"],
   tool: ["M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5L15 12l-3-3z"],
   alert: ["M12 3l9 16H3z", "M12 10v4", "M12 17h.01"],
+  learned: ["M6 3h12v18l-6-4-6 4z", "M9 9.5l2 2 4-4"],
 };
 
 interface Props {

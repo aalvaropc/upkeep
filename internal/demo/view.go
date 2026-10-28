@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/aalvaropc/upkeep/internal/engine"
 	"github.com/aalvaropc/upkeep/internal/forecast"
 	"github.com/aalvaropc/upkeep/internal/forge"
 	"github.com/aalvaropc/upkeep/internal/gitx"
@@ -19,10 +20,11 @@ var ErrNoPull = errors.New("unknown pull request")
 
 type PRView struct {
 	forge.View
-	Outcome    pull.Outcome   `json:"outcome,omitempty"`
-	Blocker    pull.Blocker   `json:"blocker,omitempty"`
-	Actions    []queue.Action `json:"actions,omitempty"`
-	DurationMS int64          `json:"duration_ms,omitempty"`
+	Outcome    pull.Outcome    `json:"outcome,omitempty"`
+	Blocker    pull.Blocker    `json:"blocker,omitempty"`
+	Actions    []queue.Action  `json:"actions,omitempty"`
+	DurationMS int64           `json:"duration_ms,omitempty"`
+	Learned    *engine.Learned `json:"learned,omitempty"`
 }
 
 type Snapshot struct {
@@ -100,7 +102,7 @@ func (s *Session) Snapshot(ctx context.Context) Snapshot {
 }
 
 func prView(v forge.View, it queue.Item) PRView {
-	return PRView{View: v, Outcome: it.Outcome, Blocker: it.Result.Blocker, Actions: it.Actions, DurationMS: it.Duration.Milliseconds()}
+	return PRView{View: v, Outcome: it.Outcome, Blocker: it.Result.Blocker, Actions: it.Actions, DurationMS: it.Duration.Milliseconds(), Learned: it.Result.Learned}
 }
 
 func (s *Session) Detail(ctx context.Context, number int) (Detail, error) {

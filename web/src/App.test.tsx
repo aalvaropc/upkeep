@@ -136,10 +136,11 @@ const detail: Detail = {
 };
 
 interface Server {
-  calls: { method: string; path: string }[];
+  calls: { method: string; path: string; body?: string }[];
   snapshot: Snapshot;
   failCreate?: { status: number; message: string };
   missing?: boolean;
+  created?: number;
 }
 
 function installFetch(server: Server) {
@@ -147,7 +148,11 @@ function installFetch(server: Server) {
     "fetch",
     vi.fn(async (path: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      server.calls.push({ method, path });
+      server.calls.push({
+        method,
+        path,
+        body: typeof init?.body === "string" ? init.body : undefined,
+      });
       const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
         new Response(JSON.stringify(body), {
           status,
@@ -162,7 +167,10 @@ function installFetch(server: Server) {
             "Retry-After": "30",
           });
         }
-        return json(server.snapshot, 201);
+        const created = server.created ?? 0;
+        server.created = created + 1;
+        const id = created === 0 ? server.snapshot.id : `${server.snapshot.id}-${created}`;
+        return json({ ...server.snapshot, id }, 201);
       }
       if (method === "GET" && path === `/api/sessions/${server.snapshot.id}`) {
         return server.missing ? json({ error: "unknown session" }, 404) : json(server.snapshot);
@@ -388,6 +396,61 @@ describe("App", () => {
     expect(document.activeElement).toBe(card);
   });
 
+  it("marks a fix learned in the previous run and says what it saved", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    startedEvent();
+    emit("pr.step", 2, {
+      step: "learned",
+      status: "running",
+      detail: "trying the fix learned from #2: 1 edit in caller.go",
+      from: 2,
+      saved_micros: 6400,
+    });
+    const working = screen.getByRole("heading", { name: "Working" }).closest("div") as HTMLElement;
+    expect(within(working).getByText(/Reusing a learned fix…/)).toBeTruthy();
+    expect(within(working).queryByText("learned fix")).toBeNull();
+    emit("pr.done", 2, {
+      outcome: "mergeable",
+      blocker: "build",
+      reason: "",
+      attempts: 0,
+      summary: "Renames the call so the package builds again.",
+      duration_ms: 3000,
+      actions: [{ kind: "push", status: "done", detail: "pushed" }],
+      learned: { from: 2, saved_calls: 4, saved_micros: 6400 },
+    });
+    const done = screen.getByRole("heading", { name: "Done" }).closest("div") as HTMLElement;
+    const card = within(done).getByRole("button", { name: /Pull request 2/ });
+    expect(within(card).getByText("learned fix").getAttribute("title")).toBe(
+      "Reused the fix learned from #2",
+    );
+    expect(within(card).queryByText(/model calls/)).toBeNull();
+
+    const original = globalThis.fetch;
+    const reused: Detail = {
+      ...detail,
+      receipt: { ...detail.receipt!, lines: [], calls: 0, micros: 0, baseline_micros: 0 },
+      learned: { from: 2, saved_calls: 4, saved_micros: 6400 },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string, init?: RequestInit) =>
+        path.includes("/prs/")
+          ? new Response(JSON.stringify(reused), { status: 200 })
+          : original(path, init),
+      ),
+    );
+    fireEvent.click(card);
+    const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
+    expect(
+      await within(dialog).findByText(
+        "Reused the fix learned from #2 in the previous run: 0 model calls (the first time cost $0.0064).",
+      ),
+    ).toBeTruthy();
+  });
+
   it("links only web addresses from the sources of a forecast", async () => {
     installFetch(newServer());
     render(<App />);
@@ -507,11 +570,15 @@ describe("App", () => {
     emit("run.finished", undefined, { counts: {}, micros: 0, baseline_micros: 0, calls: 0 });
     fireEvent.click(screen.getByRole("button", { name: "Run again" }));
     await waitFor(() => expect(server.calls.filter((c) => c.method === "DELETE")).toHaveLength(1));
-    await waitFor(() =>
-      expect(
-        server.calls.filter((c) => c.method === "POST" && c.path === "/api/sessions"),
-      ).toHaveLength(2),
-    );
+    const creates = server.calls.filter((c) => c.method === "POST" && c.path === "/api/sessions");
+    expect(creates).toHaveLength(2);
+    expect(creates[0]?.body).toBeUndefined();
+    expect(JSON.parse(creates[1]?.body ?? "{}")).toEqual({ inherit: "abcdef123456" });
+    const deleted = server.calls.findIndex((c) => c.method === "DELETE");
+    expect(server.calls[deleted]?.path).toBe("/api/sessions/abcdef123456");
+    expect(server.calls.indexOf(creates[1]!)).toBeLessThan(deleted);
+    await waitFor(() => expect(source().url).toBe("/api/sessions/abcdef123456-1/events"));
+    expect(window.sessionStorage.getItem("upkeep.session")).toBe("abcdef123456-1");
 
     await screen.findByRole("button", { name: "Work the queue" });
     emit("session.closed", undefined, {});

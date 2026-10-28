@@ -11,6 +11,12 @@ export interface StepEntry {
   at: number;
 }
 
+export interface LearnedFix {
+  from: number;
+  savedMicros: number;
+  status: "trying" | "reused" | "stale";
+}
+
 export interface Card {
   pr: PullRequest;
   phase: Phase;
@@ -33,6 +39,7 @@ export interface Card {
   startedAt?: number;
   finishedAt?: number;
   durationMs?: number;
+  learned?: LearnedFix;
 }
 
 export interface ModelTotals {
@@ -143,6 +150,7 @@ function seedFrom(views: PullView[]): { cards: Record<number, Card>; order: numb
       card.blocker = v.blocker;
       card.actions = v.actions ?? [];
       card.durationMs = v.duration_ms;
+      card.learned = learnedFix(v.learned);
     }
     cards[v.number] = card;
     order.push(v.number);
@@ -162,6 +170,36 @@ function record(v: unknown): Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v)
     ? (v as Record<string, unknown>)
     : {};
+}
+
+const LEARNED_STATUS: Record<string, LearnedFix["status"]> = {
+  running: "trying",
+  done: "reused",
+  failed: "stale",
+};
+
+function learnedStep(
+  d: Record<string, unknown>,
+  status: string,
+  prev: LearnedFix | undefined,
+): LearnedFix | undefined {
+  const next = LEARNED_STATUS[status];
+  if (!next) {
+    return prev;
+  }
+  return {
+    from: num(d.from) || prev?.from || 0,
+    savedMicros: num(d.saved_micros) || prev?.savedMicros || 0,
+    status: next,
+  };
+}
+
+function learnedFix(v: unknown): LearnedFix | undefined {
+  const l = record(v);
+  if (num(l.from) <= 0) {
+    return undefined;
+  }
+  return { from: num(l.from), savedMicros: num(l.saved_micros), status: "reused" };
 }
 
 function stamp(event: UpkeepEvent): number {
@@ -283,6 +321,7 @@ function applyEvent(state: BoardState, event: UpkeepEvent): BoardState {
           startedAt: c.startedAt ?? at,
           attempts:
             entry.name === "repair" && entry.status === "running" ? c.attempts + 1 : c.attempts,
+          learned: entry.name === "learned" ? learnedStep(d, entry.status, c.learned) : c.learned,
         })),
       };
       break;
@@ -387,6 +426,7 @@ function applyEvent(state: BoardState, event: UpkeepEvent): BoardState {
           attempts: Math.max(c.attempts, num(d.attempts)),
           durationMs: num(d.duration_ms),
           finishedAt: at,
+          learned: learnedFix(d.learned) ?? c.learned,
         })),
       };
       break;

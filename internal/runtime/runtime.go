@@ -16,6 +16,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/forecast"
 	"github.com/aalvaropc/upkeep/internal/github"
 	"github.com/aalvaropc/upkeep/internal/gitx"
+	"github.com/aalvaropc/upkeep/internal/learn"
 	"github.com/aalvaropc/upkeep/internal/model"
 	"github.com/aalvaropc/upkeep/internal/policy"
 	"github.com/aalvaropc/upkeep/internal/queue"
@@ -33,6 +34,7 @@ const (
 type Options struct {
 	Config   config.Config
 	Policy   policy.Policy
+	Repo     string
 	Git      gitx.Git
 	Fixtures fixture.Store
 	Record   fixture.Store
@@ -191,7 +193,7 @@ func (r *Runtime) replayed(fixtures fixture.Store) (*set, error) {
 
 func (r *Runtime) Mode() config.Mode { return r.opts.Config.Mode }
 
-func (r *Runtime) Processor(emit queue.Emitter) (queue.Processor, error) {
+func (r *Runtime) Processor(emit queue.Emitter, learned learn.Book) (queue.Processor, error) {
 	chosen := r.primary
 	if reason := r.liveUnavailable(); reason != "" {
 		if r.replay == nil {
@@ -211,7 +213,7 @@ func (r *Runtime) Processor(emit queue.Emitter) (queue.Processor, error) {
 		Meter:      chosen.meter,
 		Policy:     r.opts.Policy,
 		Emit:       emit,
-	}}, nil
+	}, Learned: learned, Repo: r.opts.Repo}, nil
 }
 
 func (r *Runtime) liveUnavailable() string {

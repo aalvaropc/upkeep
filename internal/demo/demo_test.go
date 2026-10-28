@@ -15,6 +15,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/forge/forgetest"
 	"github.com/aalvaropc/upkeep/internal/gitx"
+	"github.com/aalvaropc/upkeep/internal/learn"
 	"github.com/aalvaropc/upkeep/internal/model"
 	"github.com/aalvaropc/upkeep/internal/pull"
 	"github.com/aalvaropc/upkeep/internal/queue"
@@ -82,7 +83,7 @@ func newHarness(t *testing.T, mutate func(*demo.Options), p *processor) *harness
 		Root:      filepath.Join(t.TempDir(), "sessions"),
 		Git:       gitx.Git{},
 		Hub:       hub,
-		Processor: func(queue.Emitter) (queue.Processor, error) { return p, nil },
+		Processor: func(queue.Emitter, learn.Book) (queue.Processor, error) { return p, nil },
 		Limits:    engine.Limits{PRsPerRun: 2, RunsPerServer: 2},
 		Now:       h.clock,
 	}
@@ -100,7 +101,7 @@ func newHarness(t *testing.T, mutate func(*demo.Options), p *processor) *harness
 
 func (h *harness) session() *demo.Session {
 	h.t.Helper()
-	s, err := h.m.New(h.t.Context())
+	s, err := h.m.New(h.t.Context(), "")
 	if err != nil {
 		h.t.Fatal(err)
 	}
@@ -240,7 +241,7 @@ func TestTheDemoRefusesNewSessionsWhenEveryoneIsBusy(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := h.m.New(t.Context()); !errors.Is(err, demo.ErrFull) {
+	if _, err := h.m.New(t.Context(), ""); !errors.Is(err, demo.ErrFull) {
 		t.Fatalf("a third session while two are running: %v", err)
 	}
 	close(p.gate)
@@ -250,7 +251,7 @@ func TestTheDemoRefusesNewSessionsWhenEveryoneIsBusy(t *testing.T) {
 	if _, err := h.m.Get(b.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := h.m.New(t.Context()); err != nil {
+	if _, err := h.m.New(t.Context(), ""); err != nil {
 		t.Fatalf("a session once the oldest was finished: %v", err)
 	}
 	if _, err := h.m.Get(a.ID); !errors.Is(err, demo.ErrUnknown) {
@@ -335,7 +336,7 @@ func TestShutdownStopsARunningRun(t *testing.T) {
 
 func TestAFailingProcessorFactoryEndsTheRunCleanly(t *testing.T) {
 	h := newHarness(t, func(o *demo.Options) {
-		o.Processor = func(queue.Emitter) (queue.Processor, error) { return nil, context.DeadlineExceeded }
+		o.Processor = func(queue.Emitter, learn.Book) (queue.Processor, error) { return nil, context.DeadlineExceeded }
 	}, &processor{})
 	s := h.session()
 	if _, err := h.m.Start(s.ID); err != nil {

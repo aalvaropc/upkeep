@@ -99,6 +99,60 @@ describe("board reducer", () => {
     expect(state.cards[1]?.steps).toHaveLength(3);
   });
 
+  it("keeps a learned fix on the card from its steps and the finished event", () => {
+    const tried = run([
+      started(5, 7),
+      event("pr.step", 5, {
+        step: "learned",
+        status: "running",
+        detail: "trying the fix learned from #5: 2 edits in auth/token.go",
+        from: 5,
+        saved_micros: 6400,
+      }),
+    ]);
+    expect(tried.cards[5]?.learned).toEqual({ from: 5, savedMicros: 6400, status: "trying" });
+    expect(tried.cards[5]?.attempts).toBe(0);
+    const reused = run(
+      [
+        event("pr.step", 5, { step: "learned", status: "done", detail: "reused", from: 5 }),
+        event("pr.done", 5, {
+          outcome: "merged",
+          blocker: "build",
+          attempts: 0,
+          learned: { from: 5, saved_calls: 4, saved_micros: 6400 },
+        }),
+      ],
+      tried,
+    );
+    expect(reused.cards[5]?.learned).toEqual({ from: 5, savedMicros: 6400, status: "reused" });
+
+    const stale = run(
+      [
+        event("pr.step", 7, { step: "learned", status: "running", detail: "", from: 3 }),
+        event("pr.step", 7, { step: "learned", status: "failed", detail: "no longer applies" }),
+        event("pr.done", 7, { outcome: "mergeable", blocker: "build", learned: null }),
+      ],
+      reused,
+    );
+    expect(stale.cards[7]?.learned).toEqual({ from: 3, savedMicros: 0, status: "stale" });
+    expect(stale.cards[5]?.learned?.status).toBe("reused");
+  });
+
+  it("seeds a learned fix from a reloaded session", () => {
+    const views: PullView[] = [
+      {
+        ...pr(5),
+        state: "open",
+        outcome: "mergeable",
+        learned: { from: 5, saved_calls: 4, saved_micros: 6400 },
+      },
+      { ...pr(6), state: "open", outcome: "mergeable" },
+    ];
+    const seeded = run([{ type: "seed", prs: views, run: "finished" }]);
+    expect(seeded.cards[5]?.learned).toEqual({ from: 5, savedMicros: 6400, status: "reused" });
+    expect(seeded.cards[6]?.learned).toBeUndefined();
+  });
+
   it("totals model calls per role, per card and overall", () => {
     const state = run([
       started(1, 2),

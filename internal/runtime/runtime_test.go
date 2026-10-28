@@ -116,7 +116,7 @@ func TestReplayWithoutRecordedPricesStillRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := rt.Processor(nil); err != nil {
+	if _, err := rt.Processor(nil, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -128,7 +128,7 @@ func TestReplayWithoutAnyFixturesStillStarts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := rt.Processor(nil); err != nil {
+	if _, err := rt.Processor(nil, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -158,14 +158,14 @@ func TestAnExhaustedLiveBudgetFallsBackToRecordedRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := &collector{}
-	if _, err := rt.Processor(c.emit); err != nil || len(c.events) != 0 {
+	if _, err := rt.Processor(c.emit, nil); err != nil || len(c.events) != 0 {
 		t.Fatalf("with budget left: error %v, events %v", err, c.events)
 	}
 	rt.Budget.Add(150)
 	if !rt.Budget.Exhausted() {
 		t.Fatal("the budget should be exhausted")
 	}
-	if _, err := rt.Processor(c.emit); err != nil {
+	if _, err := rt.Processor(c.emit, nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(c.events) != 1 || c.events[0] != events.Notice {
@@ -185,7 +185,7 @@ func TestARefusingTokenFactoryFallsBackToRecordedRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := &collector{}
-	if _, err := rt.Processor(c.emit); err != nil {
+	if _, err := rt.Processor(c.emit, nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(c.events) != 1 || c.events[0] != events.Notice {
@@ -204,7 +204,7 @@ func TestARefusingTokenFactoryWithNothingToReplayStopsTheRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := rt.Processor(nil); err == nil || !strings.Contains(err.Error(), "Token Factory") {
+	if _, err := rt.Processor(nil, nil); err == nil || !strings.Contains(err.Error(), "Token Factory") {
 		t.Fatalf("Processor() = %v", err)
 	}
 }
@@ -218,7 +218,7 @@ func TestAnExhaustedLiveBudgetWithNothingToReplayRefuses(t *testing.T) {
 		t.Fatal(err)
 	}
 	rt.Budget.Add(50)
-	if _, err := rt.Processor(nil); err == nil || !strings.Contains(err.Error(), "budget") {
+	if _, err := rt.Processor(nil, nil); err == nil || !strings.Contains(err.Error(), "budget") {
 		t.Fatalf("Processor() = %v", err)
 	}
 }
