@@ -113,6 +113,21 @@ func TestBuildCreatesTheBranchesOnTheirStartingPoints(t *testing.T) {
 	}
 }
 
+func TestBuildAcceptsARelativeOutput(t *testing.T) {
+	f := newFixture(t)
+	t.Chdir(t.TempDir())
+	built, err := Builder{Git: gitx.Git{}, Recipes: f.recipes}.Build(t.Context(), f.scenario(), f.source, filepath.Join("data", "forge.git"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !filepath.IsAbs(built.Dir) {
+		t.Fatalf("Dir = %q, want an absolute path", built.Dir)
+	}
+	if got := git(t, built.Dir, "show", "main:a.txt"); got != "two" {
+		t.Errorf("main has a.txt = %q, want the main recipe applied", got)
+	}
+}
+
 func TestBuildIsReproducible(t *testing.T) {
 	f := newFixture(t)
 	b := Builder{Git: gitx.Git{}, Recipes: f.recipes}
