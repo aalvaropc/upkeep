@@ -11,6 +11,7 @@ import {
 import {
   traceRows,
   traceSections,
+  type LearnedTrace,
   type ModelTrace,
   type SearchCallTrace,
   type StepTrace,
@@ -48,6 +49,7 @@ const STEP_NAMES: Record<string, string> = {
   conflict: "conflict",
   verify: "verifier",
   explain: "note",
+  learn: "remember",
   diagnose: "diagnosis",
   run: "run",
 };
@@ -160,6 +162,38 @@ function ToolBody({ e }: { e: ToolTrace }) {
   );
 }
 
+export function learnedLine(e: LearnedTrace): string {
+  switch (e.status) {
+    case "done":
+      return `Reused the fix learned from #${e.from}: 0 model calls (the first time cost ${dollars(e.savedMicros)})`;
+    case "failed":
+      return "the learned fix no longer applied; repairing normally";
+    default:
+      return `trying the fix learned from #${e.from}`;
+  }
+}
+
+function LearnedBody({ e, row, live }: { e: LearnedTrace; row: TraceRow; live: boolean }) {
+  return (
+    <>
+      <span className={styles.tool}>
+        <Icon name="learned" />
+        learned fix
+      </span>
+      {e.status === "failed" ? (
+        <span className={styles.status} data-tone="warn">
+          <Icon name="alert" />
+          stale
+        </span>
+      ) : (
+        <Status status={e.status} live={live && row.open} />
+      )}
+      <span className={styles.detail}>{learnedLine(e)}</span>
+      {e.status === "failed" && e.detail ? <span className={styles.result}>{e.detail}</span> : null}
+    </>
+  );
+}
+
 function VerifyBody({ e }: { e: VerifyTrace }) {
   const failed = e.checks.filter((c) => !c.pass);
   return (
@@ -204,6 +238,12 @@ function tone(row: TraceRow, live: boolean): string {
       return e.error ? "danger" : e.skipped ? "warn" : "info";
     case "tool":
       return e.ok ? "info" : "danger";
+    case "learned":
+      return e.status === "done"
+        ? "accent"
+        : e.status === "failed" || (e.status === "running" && live)
+          ? "warn"
+          : "muted";
     case "verify":
       return e.passed ? "accent" : "danger";
     case "action":
@@ -244,6 +284,9 @@ function Row({ row, live, named }: { row: TraceRow; live: boolean; named: boolea
       break;
     case "tool":
       body = <ToolBody e={e} />;
+      break;
+    case "learned":
+      body = <LearnedBody e={e} row={row} live={live} />;
       break;
     case "verify":
       body = <VerifyBody e={e} />;

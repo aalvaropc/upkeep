@@ -26,6 +26,12 @@ forge ──► Prepare (clone, check out the branch)
 
 `engine.Processor.Process` is that loop. It re-detects after every fix and hands the pull request back when the same blocker comes back a third time or after six rounds. `queue.Runner` runs it for every open pull request with a fixed number of workers (four by default), prepares every working tree before the first merge can move the base, and applies the result through the forge.
 
+## Learned fixes
+
+When Super's repair passes the verifier, the engine remembers it in a `learn.Book`: the edits that worked, the patch, Nano's note and what the pull request cost. The key is the repository, the module and its from and to major versions, and a signature of the failure: the `file: message` lines of the build or test output, sorted, with line and column numbers dropped, so the same break on other lines has the same key. The next time that key comes back, the engine applies the stored edits first (`fixer.ApplyEdits`, with the same rules as `apply_edit`, all or nothing), runs the checks and, if they pass, commits and goes on to the same verifier as any other fix; the note is reused when the patch is identical. That path calls no model, does not count as an attempt, and a dependency jump the book already knows is not forecast unless the stored fix fails. A stale fix (an edit no longer matches, or the checks still fail) is undone and the normal repair runs with the same failure. A fix the verifier rejects is never remembered.
+
+The demo keeps the book per session; Run again creates the new session with `{"inherit": "<old id>"}`, which copies it, and only then deletes the old one. `upkeep eval` never inherits, so every evaluation starts empty. `upkeep run` keeps the book as JSON under `<data dir>/learned` (`-learn=false` turns it off).
+
 ## Packages
 
 | Package | Job |
@@ -37,6 +43,7 @@ forge ──► Prepare (clone, check out the branch)
 | `internal/detect` | the order of checks that names the blocker |
 | `internal/strategy` | one file per kind of fix: merge, format, conflict (Ultra), repair (Super), explain (Nano) |
 | `internal/fixer` | Super's tool loop and the tools, with the rules enforced by code |
+| `internal/learn` | learned fixes: the failure signature, the key, the book in memory or on disk |
 | `internal/verify` | the nine-check list |
 | `internal/policy` | the rules and the TOML reader |
 | `internal/forecast` | release notes, search, Super, the grounding filter, confirmation against the build |

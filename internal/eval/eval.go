@@ -99,7 +99,7 @@ func Run(ctx context.Context, m *demo.Manager, s scenario.Scenario, runs int, mo
 		byNumber[pr.Number] = pr
 	}
 	for run := 1; run <= runs; run++ {
-		session, err := m.New(ctx)
+		session, err := m.New(ctx, "")
 		if err != nil {
 			return report, err
 		}

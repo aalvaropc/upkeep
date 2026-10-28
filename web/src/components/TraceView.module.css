@@ -113,6 +113,10 @@
   color: var(--search);
 }
 
+.events li[data-kind="learned"] .tool svg {
+  color: var(--info);
+}
+
 .target {
   color: var(--fg);
   font-size: 12px;

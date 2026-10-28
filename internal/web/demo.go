@@ -1,7 +1,10 @@
 package web
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -74,7 +77,26 @@ func (d *demoAPI) createSession(w http.ResponseWriter, r *http.Request) {
 		tooMany(w)
 		return
 	}
-	s, err := d.manager.New(r.Context())
+	var body struct {
+		Inherit string `json:"inherit"`
+	}
+	raw, err := io.ReadAll(r.Body)
+	if err != nil {
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "the request body is too large"})
+			return
+		}
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "the request body could not be read"})
+		return
+	}
+	if len(bytes.TrimSpace(raw)) > 0 {
+		if err := json.Unmarshal(raw, &body); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": `the body must be empty or JSON like {"inherit":"<session id>"}`})
+			return
+		}
+	}
+	s, err := d.manager.New(r.Context(), body.Inherit)
 	if err != nil {
 		failure(w, err)
 		return

@@ -51,6 +51,16 @@ func receiptComment(res engine.Result) string {
 		b.WriteString(s + "\n\n")
 	}
 	search := searchLine(res.Receipt.Searches())
+	if l := res.Learned; l != nil {
+		fmt.Fprintf(&b, "Learned fix: Upkeep reused the verified fix from #%d with 0 model calls; the first time cost %s.\n", l.From, usd(l.SavedMicros))
+		if len(lines) == 0 {
+			if search != "" {
+				b.WriteString("\n" + search)
+			}
+			return b.String()
+		}
+		b.WriteString("\n")
+	}
 	if len(lines) == 0 {
 		b.WriteString("No model was called; the checks were enough.\n")
 		if search != "" {

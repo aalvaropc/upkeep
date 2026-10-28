@@ -12,8 +12,17 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string): Promise<T> {
-  const response = await fetch(path, { method, headers: { Accept: "application/json" } });
+async function request<T>(method: string, path: string, payload?: unknown): Promise<T> {
+  const response = await fetch(
+    path,
+    payload === undefined
+      ? { method, headers: { Accept: "application/json" } }
+      : {
+          method,
+          headers: { Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+  );
   if (response.status === 204) {
     return undefined as T;
   }
@@ -42,7 +51,8 @@ const enc = encodeURIComponent;
 
 export const api = {
   info: () => request<Info>("GET", "/api/info"),
-  createSession: () => request<Snapshot>("POST", "/api/sessions"),
+  createSession: (inherit?: string) =>
+    request<Snapshot>("POST", "/api/sessions", inherit ? { inherit } : undefined),
   getSession: (id: string) => request<Snapshot>("GET", `/api/sessions/${enc(id)}`),
   startRun: (id: string) => request<{ position: number }>("POST", `/api/sessions/${enc(id)}/run`),
   getPull: (id: string, number: number) =>
