@@ -23,6 +23,12 @@ These cannot be configured. A policy file that names them is rejected.
 | three attempts, 180 seconds or 300,000 tokens are used up | stop, restore the branch and post a diagnosis |
 | a test fails in the full run and passes alone | report it as flaky and leave it alone |
 
+## On a real repository
+
+- **One comment of each kind.** A pull request gets at most one receipt, one patch and one diagnosis comment from Upkeep. Each starts with a hidden marker such as `<!-- upkeep:receipt -->`, and a later run edits that comment instead of posting another.
+- **Dry runs say what they skipped.** `upkeep run -dry-run` detects and fixes in scratch copies but pushes, comments and merges nothing. Every action it held back is listed as `skipped` with what it would have done, and no pull request is counted as merged.
+- **Which pull requests are bumps.** A Dependabot branch under `dependabot/go_modules/` titled "Bump X from A to B", or a Renovate branch under `renovate/` titled "Update module X to B" whose description has the line `` `A` -> `B` ``. When a major bump moves a module whose path ends in `/vN`, the bump names the new path: `github.com/golang-jwt/jwt/v4` from v4.5.2 to v5.3.1 is read as `github.com/golang-jwt/jwt/v5`.
+
 ## What a fix must satisfy
 
 The verifier computes these from the final diff and the container's output, outside any model:

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -81,9 +82,21 @@ func parseRunArgs(args []string, stderr io.Writer) (ownerFlags, string, string, 
 	return f, owner, name, nil
 }
 
+func fields(data any) map[string]any {
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil
+	}
+	return m
+}
+
 func progress(w io.Writer) queue.Emitter {
 	return func(kind events.Kind, number int, data any) {
-		m, _ := data.(map[string]any)
+		m := fields(data)
 		switch kind {
 		case events.PRBlocker:
 			fmt.Fprintf(w, "#%d blocked by %v\n", number, m["blocker"])
@@ -92,7 +105,9 @@ func progress(w io.Writer) queue.Emitter {
 				fmt.Fprintf(w, "#%d %v %v %v\n", number, m["step"], m["status"], m["detail"])
 			}
 		case events.Notice:
-			fmt.Fprintf(w, "%v\n", m["message"])
+			if msg, ok := m["message"].(string); ok && msg != "" {
+				fmt.Fprintln(w, msg)
+			}
 		}
 	}
 }

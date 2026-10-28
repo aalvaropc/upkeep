@@ -51,6 +51,21 @@
   --tone: var(--nano);
 }
 
+.row[data-role="search"] {
+  --tone: var(--search);
+}
+
+.search {
+  margin-top: 10px;
+}
+
+.query {
+  margin: 4px 0 0;
+  font: 12px/1.4 var(--mono);
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
 .icon {
   flex: none;
   margin-top: 2px;

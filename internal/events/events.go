@@ -16,6 +16,7 @@ const (
 	PRBlocker     Kind = "pr.blocker"
 	PRStep        Kind = "pr.step"
 	ModelCall     Kind = "model.call"
+	SearchCall    Kind = "search.call"
 	ToolCall      Kind = "tool.call"
 	VerifyResult  Kind = "verify.result"
 	Action        Kind = "action"

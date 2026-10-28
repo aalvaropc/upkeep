@@ -61,6 +61,21 @@ func (b *Budget) Add(tokens int) {
 	b.saveLocked()
 }
 
+func (b *Budget) Take(n int) bool {
+	if b == nil || n <= 0 {
+		return true
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.rollLocked()
+	if b.Limit > 0 && b.spent+int64(n) > b.Limit {
+		return false
+	}
+	b.spent += int64(n)
+	b.saveLocked()
+	return true
+}
+
 func (b *Budget) saveLocked() {
 	if b.Path == "" {
 		return
