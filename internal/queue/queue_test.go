@@ -368,3 +368,60 @@ func TestCancellingTheRunMarksTheRestAsFailed(t *testing.T) {
 		t.Fatalf("counts = %v", s.Counts)
 	}
 }
+
+func TestADryRunReportsWhatItWouldDoWithoutClaimingIt(t *testing.T) {
+	rec := receipt.New()
+	rec.AddAttempt()
+	p := &scripted{t: t, commit: map[int]string{2: "fixed\n", 4: "bumped\n"}, results: map[int]engine.Result{
+		1: {Outcome: pull.Mergeable, Changed: true, WantsPatch: true, Patch: "diff --git a/x b/x\n"},
+		2: {Outcome: pull.Mergeable, Changed: true, WantsPush: true, HeadAfter: "0123456789abcdef"},
+		3: {Outcome: pull.NeedsHuman, Reason: "too big", Receipt: rec},
+		4: {Outcome: pull.Mergeable, Changed: true, WantsPush: true, WantsMerge: true, HeadAfter: "fedcba9876543210"},
+	}}
+	r, f, _ := newRunner(t, p)
+	before := forgetest.Git(t, f.Repo, "rev-parse", "main", "feat/b", "dependabot/x")
+	dry := &forge.DryRun{Forge: f}
+	r.Forge = dry
+	s, err := r.Run(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[int][]queue.Action{
+		1: {{Kind: "patch", Status: "skipped", Detail: "dry run: would attach the fix as a patch"}},
+		2: {{Kind: "push", Status: "skipped", Detail: "dry run: would push 01234567 to feat/b"}},
+		3: {{Kind: "comment", Status: "skipped", Detail: "dry run: would post the diagnosis"}},
+		4: {{Kind: "push", Status: "skipped", Detail: "dry run: would push fedcba98 to dependabot/x"}, {Kind: "merge", Status: "skipped", Detail: "dry run: would merge it once the checks pass"}},
+	}
+	for number, actions := range want {
+		got := item(t, s, number)
+		wantOutcome := pull.Mergeable
+		if number == 3 {
+			wantOutcome = pull.NeedsHuman
+		}
+		if got.Outcome != wantOutcome || len(got.Actions) != len(actions) {
+			t.Fatalf("#%d = %+v", number, got)
+		}
+		for i := range actions {
+			if got.Actions[i] != actions[i] {
+				t.Errorf("#%d action %d = %+v, want %+v", number, i, got.Actions[i], actions[i])
+			}
+		}
+	}
+	if s.Counts[pull.Merged] != 0 || s.Counts[pull.Failed] != 0 {
+		t.Fatalf("counts = %v", s.Counts)
+	}
+	if after := forgetest.Git(t, f.Repo, "rev-parse", "main", "feat/b", "dependabot/x"); after != before {
+		t.Fatalf("a dry run moved a branch:\n%s\n%s", before, after)
+	}
+	for _, v := range f.Views(t.Context()) {
+		if v.State != forge.Open || len(v.Comments) != 0 {
+			t.Fatalf("a dry run changed #%d: %+v", v.Number, v)
+		}
+	}
+	notes := strings.Join(dry.Notes, "\n")
+	for _, n := range []string{"would push the fix to feat/b (#2)", "would merge #4", "would post a patch comment on #1", "would post a diagnosis comment on #3", "would post a receipt comment on #3"} {
+		if !strings.Contains(notes, n) {
+			t.Errorf("notes lack %q:\n%s", n, notes)
+		}
+	}
+}

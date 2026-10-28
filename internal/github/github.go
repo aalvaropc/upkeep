@@ -32,6 +32,7 @@ type PullRequest struct {
 	NodeID  string  `json:"node_id"`
 	Number  int     `json:"number"`
 	Title   string  `json:"title"`
+	Body    string  `json:"body"`
 	User    User    `json:"user"`
 	Labels  []Label `json:"labels"`
 	Head    Ref     `json:"head"`
