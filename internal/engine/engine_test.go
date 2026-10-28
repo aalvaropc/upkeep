@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -86,6 +87,7 @@ type world struct {
 	ultra  *scripted
 	nano   *scripted
 	events []events.Kind
+	data   []any
 	steps  []string
 	mu     sync.Mutex
 	pol    policy.Policy
@@ -195,6 +197,7 @@ func (w *world) process(pr pull.Request) Result {
 			w.mu.Lock()
 			defer w.mu.Unlock()
 			w.events = append(w.events, kind)
+			w.data = append(w.data, data)
 			if m, ok := data.(map[string]any); ok && kind == events.PRStep {
 				w.steps = append(w.steps, m["step"].(string)+":"+m["status"].(string))
 				w.detail = append(w.detail, m)
@@ -841,5 +844,131 @@ func TestForecastIsSkippedWhenNotNeeded(t *testing.T) {
 	res := Processor{Env: env}.Process(t.Context(), Input{PR: pr, Dir: w.dir, Base: "main", Notes: "notes from the caller"})
 	if res.Outcome != pull.Mergeable || fc.calls != 0 || res.Forecast != nil {
 		t.Fatalf("notes given by the caller replace the forecast: %d calls", fc.calls)
+	}
+}
+
+func tracedForecast() *fakeForecaster {
+	fc := newForecast()
+	fc.forecast.Search = &forecast.SearchTrace{
+		Provider: "tavily", Query: "example.com/lib migration guide", LatencyMS: 900, Micros: 8000,
+		Results: []forecast.SearchHit{
+			{Title: "Guide", URL: "https://example.com/lib/guide", Score: 0.9, Kept: true},
+			{Title: "Other", URL: "https://example.com/other", Score: 0.4},
+		},
+		Kept: []string{"https://example.com/lib/guide"},
+	}
+	return fc
+}
+
+func (w *world) payloads(kind events.Kind) []map[string]any {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var out []map[string]any
+	for i, k := range w.events {
+		if m, ok := w.data[i].(map[string]any); ok && k == kind {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func TestTheSearchIsReportedBeforeTheForecastCall(t *testing.T) {
+	w := renameWorld(t, renameFix(), nil)
+	w.fc = tracedForecast()
+	res := w.process(dependencyPR())
+	if res.Outcome != pull.Mergeable || res.Forecast == nil {
+		t.Fatalf("result = %+v", res)
+	}
+	search, call := slices.Index(w.events, events.SearchCall), slices.Index(w.events, events.ModelCall)
+	if search < 0 || call < 0 || search > call {
+		t.Fatalf("the search must come before the forecast's model call: %v", w.events)
+	}
+	got := w.payloads(events.SearchCall)
+	if len(got) != 1 {
+		t.Fatalf("search events = %+v", got)
+	}
+	d := got[0]
+	results, _ := d["results"].([]map[string]any)
+	kept, _ := d["kept"].([]string)
+	if d["provider"] != "tavily" || d["query"] != "example.com/lib migration guide" || d["latency_ms"] != int64(900) || d["recorded"] != false || d["reused"] != false || d["micros"] != int64(8000) || len(results) != 2 || results[0]["kept"] != true || len(kept) != 1 {
+		t.Fatalf("search event = %+v", d)
+	}
+	if _, ok := d["error"]; ok {
+		t.Fatalf("a search that worked has no error: %+v", d)
+	}
+	lines := res.Receipt.Lines()
+	if len(lines) != 1 || lines[0].Role != model.Super {
+		t.Fatalf("the receipt keeps one Super line: %+v", lines)
+	}
+	searches := res.Receipt.Searches()
+	if len(searches) != 1 || searches[0].Provider != "tavily" || searches[0].Kept != 1 || searches[0].Results != 2 || searches[0].Latency != 900*time.Millisecond || searches[0].Micros != 8000 {
+		t.Fatalf("searches = %+v", searches)
+	}
+	if total := res.Receipt.Totals(); total.Charge.Micros != lines[0].Charge.Micros {
+		t.Fatalf("the search is not part of the model totals: %+v", total)
+	}
+	found := false
+	for _, s := range res.Receipt.Steps() {
+		found = found || (s.Name == "forecast" && s.Detail == "2 breaking changes expected; Tavily kept 1 of 2 pages")
+	}
+	if !found {
+		t.Fatalf("steps = %+v", res.Receipt.Steps())
+	}
+}
+
+func TestASkippedOrFailedSearchIsReportedToo(t *testing.T) {
+	for name, c := range map[string]struct {
+		trace   forecast.SearchTrace
+		detail  string
+		counted bool
+	}{
+		"skipped":  {forecast.SearchTrace{Provider: "tavily", Query: "q", Skipped: "the daily search limit is reached"}, "Tavily was not asked: the daily search limit is reached", false},
+		"failed":   {forecast.SearchTrace{Provider: "tavily", Query: "q", Error: "tavily returned HTTP 432"}, "Tavily failed: tavily returned HTTP 432", true},
+		"reused":   {forecast.SearchTrace{Provider: "tavily", Query: "q", Reused: true, Results: []forecast.SearchHit{{URL: "u", Kept: true}}, Kept: []string{"u"}}, "Tavily kept 1 of 1 page, none new", true},
+		"recorded": {forecast.SearchTrace{Provider: "tavily", Query: "q", Recorded: true, Kept: []string{"u", "v"}}, "Tavily kept 2 pages in the recorded run", true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			w := renameWorld(t, renameFix(), nil)
+			fc := newForecast()
+			fc.cost = forecast.Cost{Cached: true}
+			trace := c.trace
+			fc.forecast.Search = &trace
+			w.fc = fc
+			res := w.process(dependencyPR())
+			got := w.payloads(events.SearchCall)
+			if len(got) != 1 {
+				t.Fatalf("search events = %+v", got)
+			}
+			if c.trace.Skipped != "" && got[0]["skipped"] != c.trace.Skipped {
+				t.Fatalf("event = %+v", got[0])
+			}
+			if c.trace.Error != "" && got[0]["error"] != c.trace.Error {
+				t.Fatalf("event = %+v", got[0])
+			}
+			if n := len(res.Receipt.Searches()); (n == 1) != c.counted {
+				t.Fatalf("receipt searches = %d", n)
+			}
+			want := "2 breaking changes expected, recorded 2026-10-28; " + c.detail
+			found := false
+			for _, s := range res.Receipt.Steps() {
+				found = found || (s.Name == "forecast" && s.Detail == want)
+			}
+			if !found {
+				t.Fatalf("want %q in %+v", want, res.Receipt.Steps())
+			}
+		})
+	}
+}
+
+func TestAFailedForecastStillReportsItsSearch(t *testing.T) {
+	w := renameWorld(t, renameFix(), nil)
+	fc := tracedForecast()
+	fc.forecast = forecast.Forecast{Search: &forecast.SearchTrace{Provider: "tavily", Query: "q", Error: "tavily is down"}}
+	fc.cost = forecast.Cost{}
+	fc.err = errors.New("no release notes or migration guide could be found (the search failed: tavily is down)")
+	w.fc = fc
+	res := w.process(dependencyPR())
+	if res.Forecast != nil || len(w.payloads(events.SearchCall)) != 1 {
+		t.Fatalf("forecast %+v events %v", res.Forecast, w.events)
 	}
 }

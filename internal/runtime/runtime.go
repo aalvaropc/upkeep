@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"path/filepath"
 	"strings"
 	"time"
@@ -58,6 +59,7 @@ type Runtime struct {
 	replay   *set
 	probe    func(context.Context) error
 	Budget   *Budget
+	Searches *Budget
 }
 
 type metered struct {
@@ -72,6 +74,22 @@ func (m metered) Complete(ctx context.Context, req model.Request) (model.Respons
 	}
 	return resp, err
 }
+
+const searchLimitReached = "the daily search limit is reached"
+
+type limitedSearch struct {
+	inner  forecast.Search
+	budget *Budget
+}
+
+func (s limitedSearch) Search(ctx context.Context, query string, limit int) ([]forecast.Result, error) {
+	if !s.budget.Take(1) {
+		return nil, &forecast.SkipError{Reason: searchLimitReached}
+	}
+	return s.inner.Search(ctx, query, limit)
+}
+
+func (s limitedSearch) Provider() string { return forecast.ProviderOf(s.inner) }
 
 func New(ctx context.Context, o Options) (*Runtime, error) {
 	if o.Logger == nil {
@@ -91,6 +109,7 @@ func New(ctx context.Context, o Options) (*Runtime, error) {
 	r.runner = sandbox.GoRunner{Executor: r.executor, Cache: fixture.Dir{Path: filepath.Join(o.CacheDir, "reports")}}
 
 	r.Budget = &Budget{Path: filepath.Join(o.CacheDir, "usage.json"), Limit: o.Config.DailyTokens}
+	r.Searches = &Budget{Path: filepath.Join(o.CacheDir, "searches.json"), Limit: int64(o.Config.SearchDailyLimit)}
 	fixtures := o.Fixtures
 	if fixtures == nil {
 		fixtures = fixture.None{}
@@ -161,16 +180,22 @@ func (r *Runtime) networked(ctx context.Context, mode config.Mode, cache fixture
 	router.Set(model.Super, cfg.Models.Super, base)
 	router.Set(model.Nano, cfg.Models.Nano, base)
 	meter := model.Meter{Prices: book, Baseline: cfg.Models.Ultra}
-	f := forecast.Forecaster{
-		Releases:  forecast.GitHubReleases{Client: &github.Client{Token: cfg.GitHubToken}},
-		Model:     base,
-		ModelName: cfg.Models.Super,
-		Role:      model.Super,
-		Meter:     meter,
-		Cache:     cache,
+	var releases forecast.Releases = forecast.GitHubReleases{Client: &github.Client{Token: cfg.GitHubToken}}
+	if mode == config.Live {
+		releases = forecast.CachedReleases{Inner: releases, Cache: fixture.Dir{Path: filepath.Join(r.opts.CacheDir, "releases")}}
 	}
-	if cfg.TavilyAPIKey.IsSet() {
-		f.Search = tavily.New(cfg.TavilyAPIKey, "github.com", "pkg.go.dev")
+	f := forecast.Forecaster{
+		Releases:     releases,
+		Model:        base,
+		ModelName:    cfg.Models.Super,
+		Role:         model.Super,
+		Meter:        meter,
+		Cache:        cache,
+		Fresh:        mode == config.Live,
+		SearchMicros: int64(math.Round(cfg.SearchPrice * 1_000_000)),
+	}
+	if cfg.TavilyAPIKey.IsSet() && cfg.SearchDailyLimit > 0 {
+		f.Search = limitedSearch{inner: tavily.New(cfg.TavilyAPIKey, "github.com", "pkg.go.dev"), budget: r.Searches}
 	}
 	return &set{mode: mode, router: router, meter: meter, forecaster: f}, nil
 }

@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -12,6 +14,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/config"
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/fixture"
+	"github.com/aalvaropc/upkeep/internal/forecast"
 	"github.com/aalvaropc/upkeep/internal/gitx"
 	"github.com/aalvaropc/upkeep/internal/model"
 	"github.com/aalvaropc/upkeep/internal/policy"
@@ -244,6 +247,94 @@ func TestBudgetCountsPersistsAndRollsOver(t *testing.T) {
 	now = now.Add(2 * time.Hour)
 	if reopened.Spent() != 0 || reopened.Exhausted() {
 		t.Fatalf("the next day starts at %d", reopened.Spent())
+	}
+}
+
+type countingSearch struct {
+	calls int
+}
+
+func (c *countingSearch) Search(context.Context, string, int) ([]forecast.Result, error) {
+	c.calls++
+	return []forecast.Result{{Title: "t", URL: "https://github.com/a/b"}}, nil
+}
+
+func liveForecaster(t *testing.T, o Options) forecast.Forecaster {
+	t.Helper()
+	rt, err := New(t.Context(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, ok := rt.primary.forecaster.(forecast.Forecaster)
+	if !ok {
+		t.Fatalf("forecaster = %T", rt.primary.forecaster)
+	}
+	return f
+}
+
+func TestLiveSearchesCountAgainstTheDailyLimit(t *testing.T) {
+	o := options(t, config.Live)
+	o.Config.TavilyAPIKey = config.Secret("tvly-test")
+	o.Config.SearchDailyLimit = 2
+	o.Config.SearchPrice = 0.008
+	rt, err := New(t.Context(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := rt.primary.forecaster.(forecast.Forecaster)
+	if !f.Fresh || f.SearchMicros != 8000 || forecast.ProviderOf(f.Search) != "tavily" {
+		t.Fatalf("a live forecaster searches on every run: fresh %v, micros %d, provider %q", f.Fresh, f.SearchMicros, forecast.ProviderOf(f.Search))
+	}
+	if _, ok := f.Releases.(forecast.CachedReleases); !ok {
+		t.Fatalf("live release lookups are cached: %T", f.Releases)
+	}
+	limited, ok := f.Search.(limitedSearch)
+	if !ok {
+		t.Fatalf("search = %T", f.Search)
+	}
+	inner := &countingSearch{}
+	limited.inner = inner
+	for i := range 2 {
+		if _, err := limited.Search(t.Context(), "q", 4); err != nil {
+			t.Fatalf("search %d: %v", i+1, err)
+		}
+	}
+	_, err = limited.Search(t.Context(), "q", 4)
+	var skip *forecast.SkipError
+	if !errors.As(err, &skip) || skip.Reason != "the daily search limit is reached" || inner.calls != 2 {
+		t.Fatalf("the third search = %v, %d calls", err, inner.calls)
+	}
+	if rt.Searches.Spent() != 2 {
+		t.Fatalf("searches today = %d", rt.Searches.Spent())
+	}
+	reopened := &Budget{Path: filepath.Join(o.CacheDir, "searches.json")}
+	if reopened.Spent() != 2 {
+		t.Fatalf("the count is saved: %d", reopened.Spent())
+	}
+}
+
+func TestASearchLimitOfZeroTurnsTheSearchOff(t *testing.T) {
+	o := options(t, config.Live)
+	o.Config.TavilyAPIKey = config.Secret("tvly-test")
+	o.Config.SearchDailyLimit = 0
+	if f := liveForecaster(t, o); f.Search != nil {
+		t.Fatalf("search = %T", f.Search)
+	}
+	rec := options(t, config.Record)
+	rec.Config.TavilyAPIKey = config.Secret("tvly-test")
+	if f := liveForecaster(t, rec); f.Fresh || f.Search == nil {
+		t.Fatalf("a recording keeps its cached forecasts: fresh %v, search %T", f.Fresh, f.Search)
+	}
+}
+
+func TestTakeStopsAtTheLimit(t *testing.T) {
+	b := &Budget{Limit: 3}
+	if !b.Take(2) || b.Take(2) || !b.Take(1) || b.Take(1) || b.Spent() != 3 {
+		t.Fatalf("spent %d", b.Spent())
+	}
+	var none *Budget
+	if !none.Take(5) || !(&Budget{}).Take(1<<20) {
+		t.Fatal("a nil or unlimited budget always has room")
 	}
 }
 

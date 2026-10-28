@@ -20,12 +20,14 @@ import (
 )
 
 type api struct {
-	mu     sync.Mutex
-	calls  []string
-	pulls  string
-	graph  string
-	merge  string
-	status int
+	mu       sync.Mutex
+	calls    []string
+	pulls    string
+	graph    string
+	merge    string
+	status   int
+	comments string
+	edit     int
 }
 
 func (a *api) handler(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +49,17 @@ func (a *api) handler(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"number":8,"node_id":"PR_fresh","title":"Bump example.com/x from 1.0.0 to 1.0.1","head":{"ref":"dependabot/go_modules/example.com/x-1.0.1","sha":"head1"}}`))
 	case r.URL.Path == "/graphql":
 		_, _ = w.Write([]byte(a.graph))
+	case strings.HasPrefix(r.URL.Path, "/repos/o/r/issues/comments/"):
+		if a.edit != 0 {
+			w.WriteHeader(a.edit)
+		}
+		_, _ = w.Write([]byte(`{}`))
+	case strings.HasSuffix(r.URL.Path, "/comments") && r.Method == http.MethodGet:
+		if a.comments == "" {
+			_, _ = w.Write([]byte(`[]`))
+			return
+		}
+		_, _ = w.Write([]byte(a.comments))
 	case strings.HasSuffix(r.URL.Path, "/comments"):
 		w.WriteHeader(http.StatusCreated)
 	default:
@@ -129,6 +142,55 @@ func TestBumpFromTitle(t *testing.T) {
 	}
 }
 
+func TestBumpFromPull(t *testing.T) {
+	const table = "This PR contains the following updates:\n\n| Package | Change | Age | Confidence |\n|---|---|---|---|\n"
+	jwt := table + "| [github.com/golang-jwt/jwt/v4](https://redirect.github.com/golang-jwt/jwt) | `v4.5.2` -> `v5.3.1` | ![age](x) | ![confidence](y) |\n"
+	cors := table + "| [github.com/rs/cors](https://redirect.github.com/rs/cors) | `v1.11.0` → `v1.11.1` | ![age](x) |\n"
+	group := table + "| [golang.org/x/net](https://pkg.go.dev/golang.org/x/net) | `v0.29.0` -> `v0.30.0` |\n| [golang.org/x/text](https://pkg.go.dev/golang.org/x/text) | `v0.18.0` -> `v0.19.0` |\n"
+	tests := []struct {
+		name, title, branch, body string
+		want                      *pull.Bump
+	}{
+		{"dependabot", "build(deps): bump github.com/rs/cors from 1.11.0 to 1.11.1", "dependabot/go_modules/github.com/rs/cors-1.11.1", "", &pull.Bump{Module: "github.com/rs/cors", From: "v1.11.0", To: "v1.11.1", Level: pull.Patch}},
+		{"dependabot ignores the body", "Bump github.com/rs/cors from 1.11.0 to 1.11.1", "dependabot/go_modules/github.com/rs/cors-1.11.1", cors, &pull.Bump{Module: "github.com/rs/cors", From: "v1.11.0", To: "v1.11.1", Level: pull.Patch}},
+		{"dependabot outside go modules", "Bump lodash from 4.17.20 to 4.17.21", "dependabot/npm_and_yarn/lodash-4.17.21", "", nil},
+		{"renovate module", "fix(deps): update module github.com/rs/cors to v1.11.1", "renovate/github.com-rs-cors-1.x", cors, &pull.Bump{Module: "github.com/rs/cors", From: "v1.11.0", To: "v1.11.1", Level: pull.Patch}},
+		{"renovate major with a new path", "Update github.com/golang-jwt/jwt/v4 to v5.3.1", "renovate/github.com-golang-jwt-jwt-v5", jwt, &pull.Bump{Module: "github.com/golang-jwt/jwt/v5", From: "v4.5.2", To: "v5.3.1", Level: pull.Major}},
+		{"renovate major named by its major", "chore(deps): update module github.com/golang-jwt/jwt/v4 to v5 (major)", "renovate/major-github.com-golang-jwt-jwt-v4", jwt, &pull.Bump{Module: "github.com/golang-jwt/jwt/v5", From: "v4.5.2", To: "v5.3.1", Level: pull.Major}},
+		{"renovate major without a suffix", "Update module github.com/x/y to v2.0.0", "renovate/github.com-x-y-2.x", "| github.com/x/y | `v1.4.0` -> `v2.0.0` |", &pull.Bump{Module: "github.com/x/y", From: "v1.4.0", To: "v2.0.0", Level: pull.Major}},
+		{"renovate minor", "Update module golang.org/x/net to v0.30.0 [SECURITY]", "renovate/go-x-net", group, &pull.Bump{Module: "golang.org/x/net", From: "v0.29.0", To: "v0.30.0", Level: pull.Minor}},
+		{"renovate without the from version", "Update module github.com/rs/cors to v1.11.1", "renovate/github.com-rs-cors-1.x", "Nothing useful here.", nil},
+		{"renovate with a body for another version", "Update module github.com/rs/cors to v1.12.0", "renovate/github.com-rs-cors-1.x", cors, nil},
+		{"renovate group", "Update all non-major dependencies", "renovate/all-minor-patch", group, nil},
+		{"renovate digest", "Update golang.org/x/exp digest to 7e4ce0a", "renovate/golang.org-x-exp-digest", "| golang.org/x/exp | `9bf2ced` -> `7e4ce0a` |", nil},
+		{"renovate action", "Update actions/checkout action to v5", "renovate/actions-checkout-5.x", "| actions/checkout | `v4` -> `v5` |", nil},
+		{"renovate npm package", "Update dependency react to v19.0.0", "renovate/react-monorepo", "| react | `18.3.1` -> `19.0.0` |", nil},
+		{"renovate title on another branch", "Update module github.com/rs/cors to v1.11.1", "feat/cors", cors, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := forge.BumpFromPull(tt.title, tt.branch, tt.body)
+			switch {
+			case tt.want == nil && got != nil:
+				t.Errorf("got %+v, want none", got)
+			case tt.want != nil && (got == nil || *got != *tt.want):
+				t.Errorf("got %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestARenovatePullRequestIsListedAsADependency(t *testing.T) {
+	list := `[{"number":5,"node_id":"PR_5","title":"Update github.com/golang-jwt/jwt/v4 to v5.3.1","body":"| github.com/golang-jwt/jwt/v4 | ` + "`v4.5.2` -> `v5.3.1`" + ` |","user":{"login":"renovate[bot]","type":"Bot"},"head":{"ref":"renovate/github.com-golang-jwt-jwt-v5","sha":"eee","repo":{"full_name":"o/r"}},"base":{"ref":"main"}}]`
+	pulls, err := newGitHub(t, &api{pulls: list}).Pulls(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pulls) != 1 || pulls[0].Kind != pull.Dependency || pulls[0].Author.Kind != pull.Bot || pulls[0].Bump == nil || *pulls[0].Bump != (pull.Bump{Module: "github.com/golang-jwt/jwt/v5", From: "v4.5.2", To: "v5.3.1", Level: pull.Major}) {
+		t.Fatalf("pulls = %+v", pulls)
+	}
+}
+
 func TestAFixIsPreparedPushedAndExplainedOnTheRealBranch(t *testing.T) {
 	a := &api{pulls: pullList}
 	g := newGitHub(t, a)
@@ -201,17 +263,17 @@ func TestADryRunChangesNothingAndSaysWhatItWouldHaveDone(t *testing.T) {
 	a := &api{pulls: pullList}
 	d := &forge.DryRun{Forge: newGitHub(t, a)}
 	pr := pull.Request{Number: 2, Branch: "feat/a"}
-	if err := d.Push(t.Context(), t.TempDir(), pr); err != nil {
-		t.Fatal(err)
+	if err := d.Push(t.Context(), t.TempDir(), pr); !errors.Is(err, forge.ErrDryRun) {
+		t.Fatalf("push: %v", err)
 	}
-	if err := d.Comment(t.Context(), pr, forge.Comment{Kind: "receipt"}); err != nil {
-		t.Fatal(err)
+	if err := d.Comment(t.Context(), pr, forge.Comment{Kind: "receipt"}); !errors.Is(err, forge.ErrDryRun) {
+		t.Fatalf("comment: %v", err)
 	}
 	sha, err := d.Merge(t.Context(), pr)
-	if err != nil || !strings.HasPrefix(sha, "dry-run") {
-		t.Fatalf("sha %q error %v", sha, err)
+	if !errors.Is(err, forge.ErrDryRun) || sha != "" {
+		t.Fatalf("a dry run reported a merge: sha %q error %v", sha, err)
 	}
-	if strings.Contains(a.log(), "POST") || strings.Contains(a.log(), "PUT") {
+	if strings.Contains(a.log(), "POST") || strings.Contains(a.log(), "PUT") || strings.Contains(a.log(), "PATCH") {
 		t.Fatalf("a dry run reached GitHub:\n%s", a.log())
 	}
 	want := []string{"would push the fix to feat/a (#2)", "would post a receipt comment on #2", "would merge #2"}
@@ -220,6 +282,76 @@ func TestADryRunChangesNothingAndSaysWhatItWouldHaveDone(t *testing.T) {
 	}
 	if pulls, err := d.Pulls(t.Context()); err != nil || len(pulls) != 3 {
 		t.Fatalf("a dry run still lists the pull requests: %d %v", len(pulls), err)
+	}
+}
+
+func TestADryRunTakesNotesFromManyWorkersAtOnce(t *testing.T) {
+	d := &forge.DryRun{Forge: newGitHub(t, &api{pulls: pullList})}
+	var wg sync.WaitGroup
+	for n := range 8 {
+		wg.Go(func() { _ = d.Comment(t.Context(), pull.Request{Number: n}, forge.Comment{Kind: "receipt"}) })
+	}
+	wg.Wait()
+	if len(d.Notes) != 8 {
+		t.Fatalf("notes = %v", d.Notes)
+	}
+}
+
+func TestACommentIsPostedOnceWithItsMarker(t *testing.T) {
+	a := &api{comments: `[{"id":10,"body":"Looks good to me","user":{"login":"alice"}}]`}
+	g := newGitHub(t, a)
+	if err := g.Comment(t.Context(), pull.Request{Number: 1}, forge.Comment{Kind: "receipt", Body: "Upkeep receipt"}); err != nil {
+		t.Fatal(err)
+	}
+	log := a.log()
+	if !strings.Contains(log, "GET /repos/o/r/issues/1/comments") || !strings.Contains(log, `POST /repos/o/r/issues/1/comments {"body":"\u003c!-- upkeep:receipt --\u003e\nUpkeep receipt"}`) || strings.Contains(log, "PATCH") {
+		t.Fatalf("calls:\n%s", log)
+	}
+}
+
+func TestACommentUpdatesTheEarlierOneOfItsKind(t *testing.T) {
+	a := &api{comments: `[
+  {"id":10,"body":"<!-- upkeep:receipt -->\nUpkeep receipt, first run","user":{"login":"upkeep-bot"}},
+  {"id":11,"body":"<!-- upkeep:patch -->\nUpkeep prepared a fix","user":{"login":"upkeep-bot"}},
+  {"id":12,"body":"Thanks!","user":{"login":"alice"}},
+  {"id":13,"body":"<!-- upkeep:receipt -->\nUpkeep receipt, second run","user":{"login":"upkeep-bot"}}
+]`}
+	g := newGitHub(t, a)
+	if err := g.Comment(t.Context(), pull.Request{Number: 1}, forge.Comment{Kind: "receipt", Body: "Upkeep receipt, third run"}); err != nil {
+		t.Fatal(err)
+	}
+	log := a.log()
+	if !strings.Contains(log, "PATCH /repos/o/r/issues/comments/13 ") || !strings.Contains(log, "third run") || strings.Contains(log, "POST") || strings.Contains(log, "comments/10") || strings.Contains(log, "comments/11") {
+		t.Fatalf("calls:\n%s", log)
+	}
+}
+
+func TestAnUnchangedCommentIsLeftAlone(t *testing.T) {
+	a := &api{comments: `[{"id":10,"body":"<!-- upkeep:diagnosis -->\nUpkeep could not finish this pull request.","user":{"login":"upkeep-bot"}}]`}
+	g := newGitHub(t, a)
+	if err := g.Comment(t.Context(), pull.Request{Number: 1}, forge.Comment{Kind: "diagnosis", Body: "Upkeep could not finish this pull request."}); err != nil {
+		t.Fatal(err)
+	}
+	if log := a.log(); strings.Contains(log, "PATCH") || strings.Contains(log, "POST") {
+		t.Fatalf("calls:\n%s", log)
+	}
+}
+
+func TestACommentThatCannotBeEditedIsPostedAgain(t *testing.T) {
+	a := &api{edit: http.StatusForbidden, comments: `[{"id":10,"body":"<!-- upkeep:receipt -->\nquoted by someone else","user":{"login":"alice"}}]`}
+	g := newGitHub(t, a)
+	if err := g.Comment(t.Context(), pull.Request{Number: 1}, forge.Comment{Kind: "receipt", Body: "Upkeep receipt"}); err != nil {
+		t.Fatal(err)
+	}
+	if log := a.log(); !strings.Contains(log, "PATCH /repos/o/r/issues/comments/10") || !strings.Contains(log, "POST /repos/o/r/issues/1/comments") {
+		t.Fatalf("calls:\n%s", log)
+	}
+	b := &api{edit: http.StatusInternalServerError, comments: a.comments}
+	if err := newGitHub(t, b).Comment(t.Context(), pull.Request{Number: 1}, forge.Comment{Kind: "receipt", Body: "Upkeep receipt"}); err == nil {
+		t.Fatal("a failed edit returned no error")
+	}
+	if log := b.log(); strings.Contains(log, "POST") {
+		t.Fatalf("a failed edit was followed by a new comment:\n%s", log)
 	}
 }
 

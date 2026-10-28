@@ -8,11 +8,14 @@ import (
 	"github.com/aalvaropc/upkeep/internal/engine"
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/pull"
+	"github.com/aalvaropc/upkeep/internal/receipt"
 )
 
 func TestALearnedFixIsAnnouncedAndNamedInTheReceipt(t *testing.T) {
+	rec := receipt.New()
+	rec.AddSearch(receipt.Search{Provider: "tavily", Query: "q", Results: 3, Kept: 2, Recorded: true})
 	p := &scripted{t: t, results: map[int]engine.Result{
-		1: {Outcome: pull.Mergeable, Blocker: pull.Build, Summary: "Renames the call.", Learned: &engine.Learned{From: 5, SavedCalls: 4, SavedMicros: 6400}},
+		1: {Outcome: pull.Mergeable, Blocker: pull.Build, Summary: "Renames the call.", Receipt: rec, Learned: &engine.Learned{From: 5, SavedCalls: 4, SavedMicros: 6400}},
 		2: {Outcome: pull.Mergeable, Blocker: pull.Clean},
 	}}
 	r, f, log := newRunner(t, p)
@@ -36,7 +39,7 @@ func TestALearnedFixIsAnnouncedAndNamedInTheReceipt(t *testing.T) {
 		t.Fatalf("a pull request without a learned fix announced %s", got)
 	}
 	c := comments(f, 1, "receipt")
-	if len(c) != 1 || !strings.Contains(c[0].Body, "Learned fix: Upkeep reused the verified fix from #5 with 0 model calls; the first time cost $0.0064.") || strings.Contains(c[0].Body, "the checks were enough") {
+	if len(c) != 1 || !strings.Contains(c[0].Body, "Learned fix: Upkeep reused the verified fix from #5 with 0 model calls; the first time cost $0.0064.\n\nWeb search: ") || strings.Contains(c[0].Body, "the checks were enough") {
 		t.Fatalf("receipt comment = %+v", c)
 	}
 }

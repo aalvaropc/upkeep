@@ -1,4 +1,12 @@
-import { dollars, ROLE_ORDER, seconds, type BoardState } from "../board";
+import {
+  dollars,
+  providerLabel,
+  quantity,
+  ROLE_ORDER,
+  seconds,
+  type BoardState,
+  type SearchTotals,
+} from "../board";
 import { Icon } from "./Icon";
 import styles from "./Agents.module.css";
 
@@ -40,6 +48,51 @@ function Bar({ value, max, tone }: { value: number; max: number; tone: string })
   );
 }
 
+function searchMeta(s: SearchTotals): string {
+  if (s.calls === 0 && s.skipped === 0) {
+    return "no searches yet";
+  }
+  const parts = [
+    quantity(s.calls, "search", "searches"),
+    `${quantity(s.kept, "page", "pages")} kept`,
+  ];
+  if (s.failed > 0) {
+    parts.push(`${s.failed} failed`);
+  }
+  if (s.skipped > 0) {
+    parts.push(`${s.skipped} skipped`);
+  }
+  return parts.join(" · ");
+}
+
+function WebSearch({ search }: { search: SearchTotals }) {
+  const active = search.calls > 0 || search.skipped > 0;
+  return (
+    <div
+      className={`${styles.row} ${styles.search}`}
+      data-role="search"
+      data-active={active}
+      role="group"
+      aria-label="Web search"
+    >
+      <Icon name="search" className={styles.icon} />
+      <div className={styles.body}>
+        <p className={styles.name}>
+          <span>Web search · {providerLabel(search.provider || "tavily")}</span>
+          {search.recorded ? <span className={styles.size}>recorded</span> : null}
+        </p>
+        <p className={styles.job}>
+          Finds the migration guide and changelog pages that Super reads before it fixes a
+          dependency bump.
+        </p>
+        <p className={styles.meta}>{searchMeta(search)}</p>
+        {search.lastQuery ? <p className={styles.query}>“{search.lastQuery}”</p> : null}
+        {search.lastProblem ? <p className={styles.meta}>{search.lastProblem}</p> : null}
+      </div>
+    </div>
+  );
+}
+
 export function Agents({ board }: Props) {
   const totals = board.totals;
   const maxMicros = Math.max(...ROLE_ORDER.map((r) => board.models[r]?.micros ?? 0), 1);
@@ -77,6 +130,7 @@ export function Agents({ board }: Props) {
           );
         })}
       </ul>
+      <WebSearch search={board.search} />
       <div className={styles.compare}>
         <p className={styles.compareTitle}>Cost of this run</p>
         <div className={styles.line}>

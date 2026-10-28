@@ -71,11 +71,13 @@ The demo keeps the book per session; Run again creates the new session with `{"i
 
 ## Events and the dashboard
 
-Every step emits an event into a per-session ring buffer (`internal/events`): `run.queued`, `run.started`, `pr.blocker`, `pr.step`, `model.call`, `tool.call`, `verify.result`, `action`, `receipt`, `pr.done`, `notice`, `run.finished`, `session.closed`. The server streams them over Server-Sent Events with resume, a gap notice and keepalives. The dashboard's reducer (`web/src/board.ts`) is a pure function from events to board state, so reloading the page replays the run from the ring.
+Every step emits an event into a per-session ring buffer (`internal/events`): `run.queued`, `run.started`, `pr.blocker`, `pr.step`, `model.call`, `search.call`, `tool.call`, `verify.result`, `action`, `receipt`, `pr.done`, `notice`, `run.finished`, `session.closed`. The server streams them over Server-Sent Events with resume, a gap notice and keepalives. The dashboard's reducer (`web/src/board.ts`) is a pure function from events to board state, so reloading the page replays the run from the ring.
 
 ## Record and replay
 
 Everything that leaves the process goes through an interface with a live, a record and a replay implementation: model calls (`model.Recorder`, `model.Replayer`), release notes and search (inside the forecaster, cached with the forecast and its cost). A recorded exchange is keyed by a hash of the normalized request (durations, temporary paths and cache markers are removed), so a replay is exact as long as the code sends the same prompts. A request with no recording fails honestly; it never invents an answer. The recording of the nine-pull-request scenario is embedded in the binary (`scenarios/notes/fixtures`), and CI replays it against the real sample repository.
+
+In `live` mode a cached forecast does not skip the web search. Tavily is asked on every run (within `UPKEEP_SEARCH_DAILY_LIMIT`), and Super writes the forecast again only when a page appears that the cached one did not read; a failed or skipped search falls back to the cached forecast and says why. GitHub release lookups are cached on disk for 24 hours so an unauthenticated server stays under GitHub's hourly limit. Each search is a `search.call` event and a line of its own on the receipt, apart from the model lines, so the model cost comparison stays like for like.
 
 ## The sandbox
 

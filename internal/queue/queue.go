@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -153,10 +154,9 @@ func (r Runner) finish(ctx context.Context, it *Item) {
 	}
 }
 
-func (r Runner) record(it *Item, a Action) bool {
+func (r Runner) record(it *Item, a Action) {
 	it.Actions = append(it.Actions, a)
 	r.emit(events.Action, it.PR.Number, a)
-	return a.Status == "done"
 }
 
 func (r Runner) act(ctx context.Context, it *Item) {
@@ -166,7 +166,9 @@ func (r Runner) act(ctx context.Context, it *Item) {
 	case pull.Mergeable:
 		pushed := true
 		if res.WantsPush {
-			pushed = r.record(it, r.push(ctx, it))
+			a := r.push(ctx, it)
+			r.record(it, a)
+			pushed = a.Status != "failed"
 		}
 		if res.WantsPatch {
 			r.record(it, r.patch(ctx, it))
@@ -177,11 +179,11 @@ func (r Runner) act(ctx context.Context, it *Item) {
 		}
 		if res.WantsMerge {
 			a, merged := r.merge(ctx, it)
-			ok := r.record(it, a)
+			r.record(it, a)
 			switch {
 			case merged:
 				it.Outcome = pull.Merged
-			case !ok:
+			case a.Status == "failed":
 				it.Outcome = pull.NeedsHuman
 			}
 			return
@@ -190,35 +192,38 @@ func (r Runner) act(ctx context.Context, it *Item) {
 			r.record(it, Action{Kind: "none", Status: "done", Detail: "nothing to change; a person decides when to merge"})
 		}
 	case pull.NeedsHuman:
-		a := Action{Kind: "comment", Status: "done", Detail: "posted the diagnosis"}
-		if err := r.Forge.Comment(ctx, it.PR, forge.Comment{Kind: "diagnosis", Body: diagnosisComment(res)}); err != nil {
-			a = Action{Kind: "comment", Status: "failed", Detail: err.Error()}
-		}
-		r.record(it, a)
+		err := r.Forge.Comment(ctx, it.PR, forge.Comment{Kind: "diagnosis", Body: diagnosisComment(res)})
+		r.record(it, settled("comment", err, "posted the diagnosis", "would post the diagnosis"))
 	case pull.Failed:
 		r.record(it, Action{Kind: "none", Status: "failed", Detail: res.Reason})
 	}
 }
 
-func (r Runner) push(ctx context.Context, it *Item) Action {
-	if err := r.Forge.Push(ctx, it.Dir, it.PR); err != nil {
-		return Action{Kind: "push", Status: "failed", Detail: err.Error()}
+func settled(kind string, err error, did, would string) Action {
+	switch {
+	case errors.Is(err, forge.ErrDryRun):
+		return Action{Kind: kind, Status: "skipped", Detail: "dry run: " + would}
+	case err != nil:
+		return Action{Kind: kind, Status: "failed", Detail: err.Error()}
 	}
-	return Action{Kind: "push", Status: "done", Detail: "pushed " + short(it.Result.HeadAfter) + " to " + it.PR.Branch}
+	return Action{Kind: kind, Status: "done", Detail: did}
+}
+
+func (r Runner) push(ctx context.Context, it *Item) Action {
+	target := short(it.Result.HeadAfter) + " to " + it.PR.Branch
+	return settled("push", r.Forge.Push(ctx, it.Dir, it.PR), "pushed "+target, "would push "+target)
 }
 
 func (r Runner) patch(ctx context.Context, it *Item) Action {
-	if err := r.Forge.Comment(ctx, it.PR, forge.Comment{Kind: "patch", Body: patchComment(it.Result)}); err != nil {
-		return Action{Kind: "patch", Status: "failed", Detail: err.Error()}
-	}
-	return Action{Kind: "patch", Status: "done", Detail: "attached the fix as a patch"}
+	err := r.Forge.Comment(ctx, it.PR, forge.Comment{Kind: "patch", Body: patchComment(it.Result)})
+	return settled("patch", err, "attached the fix as a patch", "would attach the fix as a patch")
 }
 
 func (r Runner) merge(ctx context.Context, it *Item) (Action, bool) {
 	sha, err := r.Forge.Merge(ctx, it.PR)
 	switch {
 	case err != nil:
-		return Action{Kind: "merge", Status: "failed", Detail: err.Error()}, false
+		return settled("merge", err, "", "would merge it once the checks pass"), false
 	case sha == "":
 		return Action{Kind: "merge", Status: "done", Detail: "auto-merge is armed; it merges once the checks pass"}, false
 	}

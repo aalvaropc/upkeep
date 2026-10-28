@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/fixer"
 	"github.com/aalvaropc/upkeep/internal/learn"
 	"github.com/aalvaropc/upkeep/internal/pull"
@@ -209,13 +210,16 @@ func TestALearnedDependencyFixSkipsTheForecastUnlessItIsStale(t *testing.T) {
 	}
 
 	again := renameWorld(t, nil, nil)
-	again.fc = newForecast()
+	again.fc = tracedForecast()
 	again.nano = &scripted{}
 	again.book = book
 	res := again.process(dependencyPR())
 	fc := again.fc.(*fakeForecaster)
 	if res.Outcome != pull.Mergeable || res.Learned == nil || fc.calls != 0 || res.Forecast != nil || res.Receipt.Totals().Calls != 0 {
 		t.Fatalf("a learned dependency fix still forecast: %d forecasts, result %+v (%s)", fc.calls, res, res.Reason)
+	}
+	if len(res.Receipt.Searches()) != 0 || len(again.payloads(events.SearchCall)) != 0 {
+		t.Fatal("a learned dependency fix still searched the web")
 	}
 
 	stale := fix
@@ -225,7 +229,7 @@ func TestALearnedDependencyFixSkipsTheForecastUnlessItIsStale(t *testing.T) {
 		t.Fatal(err)
 	}
 	late := renameWorld(t, renameFix(), nil)
-	late.fc = newForecast()
+	late.fc = tracedForecast()
 	late.book = staleBook
 	res = late.process(dependencyPR())
 	fc = late.fc.(*fakeForecaster)
@@ -238,6 +242,10 @@ func TestALearnedDependencyFixSkipsTheForecastUnlessItIsStale(t *testing.T) {
 	}
 	if !strings.Contains(late.super.requests[0].Messages[1].Content, "Upgrade of example.com/lib from v1.0.0 to v2.0.0.") {
 		t.Fatal("the repair after a stale learned fix lost the forecast")
+	}
+	searches := late.payloads(events.SearchCall)
+	if len(searches) != 1 || len(res.Receipt.Searches()) != 1 || res.Receipt.Searches()[0].Kept != 1 {
+		t.Fatalf("the late forecast did not report its search: events %v, receipt %+v", searches, res.Receipt.Searches())
 	}
 }
 

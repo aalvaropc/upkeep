@@ -2,6 +2,7 @@ package demo_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/demo"
 	"github.com/aalvaropc/upkeep/internal/engine"
 	"github.com/aalvaropc/upkeep/internal/events"
+	"github.com/aalvaropc/upkeep/internal/forecast"
 	"github.com/aalvaropc/upkeep/internal/forge/forgetest"
 	"github.com/aalvaropc/upkeep/internal/gitx"
 	"github.com/aalvaropc/upkeep/internal/learn"
@@ -170,6 +172,35 @@ func TestARunWorksEveryRequestAndKeepsTheResults(t *testing.T) {
 	}
 	if _, err := s.Detail(t.Context(), 99); !errors.Is(err, demo.ErrNoPull) {
 		t.Fatalf("detail of an unknown request: %v", err)
+	}
+}
+
+func TestTheDetailShowsTheWebSearch(t *testing.T) {
+	rec := receipt.New()
+	rec.AddSearch(receipt.Search{Provider: "tavily", Query: "q", Results: 4, Kept: 3, Latency: 900 * time.Millisecond, Recorded: true})
+	fc := &forecast.Forecast{Module: "m", From: "v1.0.0", To: "v2.0.0", Search: &forecast.SearchTrace{Provider: "tavily", Query: "q", Kept: []string{"u"}, Recorded: true}, Releases: []string{"r"}}
+	p := &processor{results: map[int]engine.Result{2: {Outcome: pull.Mergeable, Receipt: rec, Forecast: fc}}}
+	h := newHarness(t, nil, p)
+	s := h.session()
+	if _, err := h.m.Start(s.ID); err != nil {
+		t.Fatal(err)
+	}
+	h.waitStatus(s, demo.Finished)
+	d, err := s.Detail(t.Context(), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Receipt == nil || len(d.Receipt.Searches) != 1 || d.Receipt.Searches[0] != (demo.ReceiptSearch{Provider: "tavily", Query: "q", Results: 4, Kept: 3, LatencyMS: 900, Recorded: true}) || len(d.Receipt.Lines) != 0 {
+		t.Fatalf("receipt = %+v", d.Receipt)
+	}
+	raw, err := json.Marshal(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"searches":[{"provider":"tavily","query":"q","results":4,"kept":3,"latency_ms":900`, `"search":{"provider":"tavily","query":"q","kept":["u"]`, `"recorded":true`, `"releases":["r"]`} {
+		if !strings.Contains(string(raw), want) {
+			t.Errorf("the detail does not contain %s:\n%s", want, raw)
+		}
 	}
 }
 
