@@ -12,6 +12,7 @@ var (
 	ErrUnknown      = errors.New("unknown pull request")
 	ErrClosed       = errors.New("the pull request is not open")
 	ErrNotMergeable = errors.New("the pull request does not merge cleanly into the base branch")
+	ErrDryRun       = errors.New("dry run: nothing was changed")
 )
 
 type State string

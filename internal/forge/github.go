@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/aalvaropc/upkeep/internal/github"
 	"github.com/aalvaropc/upkeep/internal/gitx"
@@ -72,7 +74,7 @@ func (g *GitHub) Pulls(ctx context.Context) ([]pull.Request, error) {
 			Branch:  p.Head.Ref,
 			HeadSHA: p.Head.SHA,
 			Kind:    pull.Change,
-			Bump:    BumpFromTitle(p.Title, p.Head.Ref),
+			Bump:    BumpFromPull(p.Title, p.Head.Ref, p.Body),
 		}
 		for _, l := range p.Labels {
 			req.Labels = append(req.Labels, l.Name)
@@ -101,8 +103,33 @@ func (g *GitHub) Push(ctx context.Context, dir string, pr pull.Request) error {
 	return g.Git.Push(ctx, dir, "origin", pr.Branch)
 }
 
+func commentMarker(kind string) string { return "<!-- upkeep:" + kind + " -->" }
+
 func (g *GitHub) Comment(ctx context.Context, pr pull.Request, c Comment) error {
-	return g.Client.Comment(ctx, g.Owner, g.Repo, pr.Number, c.Body)
+	if c.Kind == "" {
+		return g.Client.Comment(ctx, g.Owner, g.Repo, pr.Number, c.Body)
+	}
+	marker := commentMarker(c.Kind)
+	body := marker + "\n" + c.Body
+	existing, err := g.Client.ListComments(ctx, g.Owner, g.Repo, pr.Number)
+	if err != nil {
+		return err
+	}
+	for _, old := range slices.Backward(existing) {
+		if !strings.HasPrefix(strings.TrimSpace(old.Body), marker) {
+			continue
+		}
+		if old.Body == body {
+			return nil
+		}
+		err := g.Client.EditComment(ctx, g.Owner, g.Repo, old.ID, body)
+		var apiErr *github.Error
+		if errors.As(err, &apiErr) && (apiErr.Status == http.StatusForbidden || apiErr.Status == http.StatusNotFound) {
+			continue
+		}
+		return err
+	}
+	return g.Client.Comment(ctx, g.Owner, g.Repo, pr.Number, body)
 }
 
 func (g *GitHub) Merge(ctx context.Context, pr pull.Request) (string, error) {
@@ -132,21 +159,27 @@ func (g *GitHub) Merge(ctx context.Context, pr pull.Request) (string, error) {
 type DryRun struct {
 	Forge
 	Notes []string
+
+	mu sync.Mutex
+}
+
+func (d *DryRun) note(format string, args ...any) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.Notes = append(d.Notes, fmt.Sprintf(format, args...))
+	return ErrDryRun
 }
 
 func (d *DryRun) Push(_ context.Context, _ string, pr pull.Request) error {
-	d.Notes = append(d.Notes, fmt.Sprintf("would push the fix to %s (#%d)", pr.Branch, pr.Number))
-	return nil
+	return d.note("would push the fix to %s (#%d)", pr.Branch, pr.Number)
 }
 
 func (d *DryRun) Merge(_ context.Context, pr pull.Request) (string, error) {
-	d.Notes = append(d.Notes, fmt.Sprintf("would merge #%d", pr.Number))
-	return "dry-run, not applied", nil
+	return "", d.note("would merge #%d", pr.Number)
 }
 
 func (d *DryRun) Comment(_ context.Context, pr pull.Request, c Comment) error {
-	d.Notes = append(d.Notes, fmt.Sprintf("would post a %s comment on #%d", c.Kind, pr.Number))
-	return nil
+	return d.note("would post a %s comment on #%d", c.Kind, pr.Number)
 }
 
 type Only struct {
