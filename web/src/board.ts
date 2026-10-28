@@ -3,6 +3,8 @@ import { appendTrace, names, toolTarget, traceEntry, type TraceEntry } from "./t
 import type {
   Action,
   Check,
+  Confidence,
+  ConfidenceLevel,
   MergePlan,
   Outcome,
   PullRequest,
@@ -48,6 +50,7 @@ export interface Card {
   reason?: string;
   summary?: string;
   flaky?: string[];
+  confidence?: Confidence;
   startedAt?: number;
   finishedAt?: number;
   durationMs?: number;
@@ -189,12 +192,27 @@ function seedFrom(views: PullView[]): { cards: Record<number, Card>; order: numb
       card.blocker = v.blocker;
       card.actions = v.actions ?? [];
       card.durationMs = v.duration_ms;
+      card.confidence = v.confidence;
       card.learned = learnedFix(v.learned);
     }
     cards[v.number] = card;
     order.push(v.number);
   }
   return { cards, order };
+}
+
+const LEVELS: ConfidenceLevel[] = ["high", "medium", "low"];
+
+export function confidenceOf(v: unknown): Confidence | undefined {
+  const c = record(v);
+  const level = str(c.level) as ConfidenceLevel;
+  if (!LEVELS.includes(level)) {
+    return undefined;
+  }
+  const reasons = Array.isArray(c.reasons)
+    ? c.reasons.filter((r): r is string => typeof r === "string")
+    : [];
+  return { level, reasons };
 }
 
 function num(v: unknown): number {
@@ -600,6 +618,7 @@ function applyEvent(state: BoardState, event: UpkeepEvent): BoardState {
               : c.actions,
           attempts: Math.max(c.attempts, num(d.attempts)),
           durationMs: num(d.duration_ms),
+          confidence: confidenceOf(d.confidence),
           finishedAt: at,
           learned: learnedFix(d.learned) ?? c.learned,
         })),

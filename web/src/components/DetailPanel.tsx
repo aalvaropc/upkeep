@@ -187,6 +187,20 @@ function Body({ d }: { d: Detail }) {
         </Section>
       ) : null}
 
+      {d.confidence ? (
+        <Section title="Merge confidence">
+          <p className={styles.confidence} data-level={d.confidence.level}>
+            <Icon name="gauge" className={styles.confidenceIcon} />
+            {d.confidence.level}
+          </p>
+          <ul className={styles.reasons}>
+            {d.confidence.reasons.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
+
       {d.reason && d.outcome !== "mergeable" && d.outcome !== "merged" ? (
         <Section title="Why it stopped">
           <p className={styles.lead}>{d.reason}</p>

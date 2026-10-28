@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   boardReducer,
   columns,
+  confidenceOf,
   dollars,
   initialBoard,
   outcomeLabel,
@@ -794,5 +795,48 @@ describe("merge plan", () => {
       checked: false,
     });
     expect(state.cards[1]?.overlap).toBeUndefined();
+  });
+});
+
+describe("merge confidence", () => {
+  it("is read from pr.done and from a snapshot", () => {
+    const state = run([
+      started(5),
+      event("pr.done", 5, {
+        outcome: "mergeable",
+        confidence: {
+          level: "low",
+          reasons: ["a major upgrade", "conflicts with #7 in go.mod, which merges first"],
+        },
+      }),
+    ]);
+    expect(state.cards[5]?.confidence).toEqual({
+      level: "low",
+      reasons: ["a major upgrade", "conflicts with #7 in go.mod, which merges first"],
+    });
+    const seeded = run([
+      {
+        type: "seed",
+        run: "finished",
+        prs: [
+          {
+            ...pr(6),
+            state: "merged",
+            outcome: "merged",
+            confidence: { level: "high", reasons: ["no code written by a model"] },
+          } as PullView,
+        ],
+      },
+    ]);
+    expect(seeded.cards[6]?.confidence?.level).toBe("high");
+  });
+
+  it("ignores what it cannot read", () => {
+    expect(confidenceOf(undefined)).toBeUndefined();
+    expect(confidenceOf({ level: "certain", reasons: [] })).toBeUndefined();
+    expect(confidenceOf({ level: "medium", reasons: ["a flaky test: TestX", 3] })).toEqual({
+      level: "medium",
+      reasons: ["a flaky test: TestX"],
+    });
   });
 });

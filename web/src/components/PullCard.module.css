@@ -140,6 +140,33 @@
   font-size: 13px;
 }
 
+.confidence {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--tint-accent);
+  color: var(--accent);
+  font: 600 11px/1.6 var(--mono);
+}
+
+.confidence[data-level="medium"] {
+  background: var(--tint-warn);
+  color: var(--warn);
+}
+
+.confidence[data-level="low"] {
+  background: var(--tint-danger);
+  color: var(--danger);
+}
+
+.confidenceIcon {
+  flex: none;
+  font-size: 13px;
+}
+
 .step {
   display: flex;
   align-items: center;

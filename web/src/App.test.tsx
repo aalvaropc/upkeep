@@ -122,6 +122,10 @@ const detail: Detail = {
   },
   confirmed: ["lib.Add"],
   missed: ["lib.Gone"],
+  confidence: {
+    level: "medium",
+    reasons: ["fixed on the first attempt", "2 lines in 1 file", "a major upgrade"],
+  },
   receipt: {
     lines: [
       {
@@ -484,6 +488,8 @@ describe("App", () => {
     expect(within(dialog).getByText(/1 predicted change was dropped/)).toBeTruthy();
     expect(within(dialog).getByText("go build passes")).toBeTruthy();
     expect(within(dialog).getByText("nvidia/super")).toBeTruthy();
+    expect(within(dialog).getByText("Merge confidence")).toBeTruthy();
+    expect(within(dialog).getByText("a major upgrade")).toBeTruthy();
     expect(within(dialog).getByText("+func Total() int { return Sum(1, 2) }")).toBeTruthy();
     expect(
       within(dialog)
@@ -495,6 +501,24 @@ describe("App", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(document.activeElement).toBe(card);
+  });
+
+  it("rates a finished pull request on its card", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    emit("pr.done", 2, {
+      outcome: "mergeable",
+      blocker: "build",
+      confidence: {
+        level: "low",
+        reasons: ["a major upgrade", "conflicts with #7 in go.mod, which merges first"],
+      },
+    });
+    const card = await screen.findByRole("button", { name: /Pull request 2/ });
+    const chip = within(card).getByText("low merge confidence");
+    expect(chip.getAttribute("data-level")).toBe("low");
+    expect(chip.getAttribute("title")).toContain("conflicts with #7");
   });
 
   it("follows a running pull request in its trace and reloads the summary when it finishes", async () => {

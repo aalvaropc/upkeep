@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aalvaropc/upkeep/internal/confidence"
 	"github.com/aalvaropc/upkeep/internal/engine"
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/forge"
@@ -37,6 +38,7 @@ type Item struct {
 	Outcome  pull.Outcome  `json:"outcome"`
 	Actions  []Action      `json:"actions"`
 	Duration time.Duration `json:"-"`
+	follows  []follow
 }
 
 type Summary struct {
@@ -81,6 +83,10 @@ func (r Runner) Run(ctx context.Context) (Summary, error) {
 		prepared[i] = true
 	}
 	advice := r.advise(ctx, items, prepared)
+	after := follows(advice)
+	for i := range items {
+		items[i].follows = after[items[i].PR.Number]
+	}
 
 	parallel := r.Parallel
 	if parallel <= 0 {
@@ -146,6 +152,9 @@ func (r Runner) finish(ctx context.Context, it *Item) {
 	if it.Outcome == pull.Pending {
 		it.Outcome = it.Result.Outcome
 	}
+	for _, f := range it.follows {
+		it.Result.Confidence = confidence.After(it.Result.Confidence, f.pr, f.files)
+	}
 	if it.Result.Receipt != nil {
 		_ = r.Forge.Comment(ctx, it.PR, forge.Comment{Kind: "receipt", Body: receiptComment(it.Result)})
 	}
@@ -153,7 +162,8 @@ func (r Runner) finish(ctx context.Context, it *Item) {
 	r.emit(events.PRDone, it.PR.Number, map[string]any{
 		"outcome": string(it.Outcome), "blocker": string(res.Blocker), "reason": res.Reason, "attempts": res.Attempts,
 		"changed": res.Changed, "flaky": res.Flaky, "summary": res.Summary, "actions": it.Actions, "duration_ms": it.Duration.Milliseconds(),
-		"learned": res.Learned,
+		"confidence": rating(res.Confidence),
+		"learned":    res.Learned,
 	})
 	if r.Done != nil {
 		r.Done(*it)

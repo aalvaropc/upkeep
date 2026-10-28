@@ -32,6 +32,13 @@ export interface Comment {
   at: string;
 }
 
+export type ConfidenceLevel = "high" | "medium" | "low";
+
+export interface Confidence {
+  level: ConfidenceLevel;
+  reasons: string[];
+}
+
 export interface Learned {
   from: number;
   saved_calls: number;
@@ -46,6 +53,7 @@ export interface PullView extends PullRequest {
   blocker?: string;
   actions?: Action[];
   duration_ms?: number;
+  confidence?: Confidence;
   learned?: Learned;
 }
 

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aalvaropc/upkeep/internal/confidence"
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/fixer"
 	"github.com/aalvaropc/upkeep/internal/forecast"
@@ -482,6 +483,9 @@ func TestBuildBrokenByMainIsRepairedBySuper(t *testing.T) {
 	}
 	if read(t, w.dir, "caller.go") != "package m\n\nfunc Total() int { return Sum(1, 2) }\n" {
 		t.Fatalf("caller.go = %q", read(t, w.dir, "caller.go"))
+	}
+	if res.Confidence.Level != confidence.High || len(res.Confidence.Reasons) < 2 || res.Confidence.Reasons[0] != "fixed on the first attempt" {
+		t.Fatalf("confidence = %+v", res.Confidence)
 	}
 	if !strings.Contains(res.Patch, "-func Total() int { return Add(1, 2) }") || !strings.Contains(res.Patch, "+func Total() int { return Sum(1, 2) }") {
 		t.Fatalf("patch = %s", res.Patch)
