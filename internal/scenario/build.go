@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -31,6 +32,10 @@ func (b Builder) Build(ctx context.Context, s Scenario, source, out string) (Bui
 	}
 	if b.Recipes == nil {
 		return Built{}, errors.New("scenario: no recipes to build from")
+	}
+	out, err := filepath.Abs(out)
+	if err != nil {
+		return Built{}, err
 	}
 	if entries, err := os.ReadDir(out); err == nil && len(entries) > 0 {
 		return Built{}, fmt.Errorf("scenario: %s is not empty", out)
