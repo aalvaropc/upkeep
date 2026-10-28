@@ -1,0 +1,300 @@
+.trace {
+  display: grid;
+  gap: 18px;
+}
+
+.empty {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.phase {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.events {
+  --dot: var(--fg-muted);
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 12px/1.7 var(--mono);
+}
+
+.events li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  min-width: 0;
+}
+
+.events li::before {
+  content: "";
+  flex: none;
+  align-self: flex-start;
+  width: 6px;
+  height: 6px;
+  margin-top: 0.62em;
+  border-radius: 50%;
+  background: var(--dot);
+}
+
+.events li[data-tone="danger"] {
+  --dot: var(--danger);
+}
+
+.events li[data-tone="warn"] {
+  --dot: var(--warn);
+}
+
+.events li[data-tone="info"] {
+  --dot: var(--info);
+}
+
+.events li[data-tone="accent"] {
+  --dot: var(--accent);
+}
+
+.body {
+  flex: 1 1 16rem;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  overflow-wrap: anywhere;
+}
+
+.what {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.detail,
+.model {
+  color: var(--fg-muted);
+}
+
+.said {
+  flex-basis: 100%;
+  color: var(--fg);
+  font: 13px/1.5 var(--sans);
+}
+
+.tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.tool svg {
+  flex: none;
+  color: var(--super);
+  font-size: 14px;
+}
+
+.target {
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.lines {
+  font-variant-numeric: tabular-nums;
+}
+
+.add {
+  color: var(--accent);
+}
+
+.del {
+  color: var(--danger);
+}
+
+.result {
+  flex-basis: 100%;
+  color: var(--fg-muted);
+}
+
+.result[data-pass="true"] {
+  flex-basis: auto;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.status svg {
+  flex: none;
+  font-size: 14px;
+}
+
+.status[data-tone="accent"] {
+  color: var(--accent);
+}
+
+.status[data-tone="warn"] {
+  color: var(--warn);
+}
+
+.status[data-tone="danger"] {
+  color: var(--danger);
+}
+
+.meta {
+  flex: none;
+  margin-left: auto;
+  color: var(--fg-muted);
+  font: 12px/1.7 var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.attempts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attempt {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+
+.attemptHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.attemptTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--fg);
+  font: 600 13px/1.5 var(--mono);
+}
+
+.attemptTitle svg {
+  flex: none;
+  font-size: 15px;
+}
+
+.attempt[data-status="running"] .attemptTitle svg,
+.attempt[data-status="running"] .attemptWord {
+  color: var(--warn);
+}
+
+.attempt[data-status="done"] .attemptTitle svg,
+.attempt[data-status="done"] .attemptWord {
+  color: var(--accent);
+}
+
+.attempt[data-status="failed"] .attemptTitle svg,
+.attempt[data-status="failed"] .attemptWord {
+  color: var(--danger);
+}
+
+.attemptWord {
+  font-weight: 600;
+}
+
+.why {
+  display: grid;
+  gap: 2px;
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.failure {
+  color: var(--fg);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.loose {
+  min-width: 0;
+}
+
+.now,
+.end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 0;
+  font: 12px/1.6 var(--mono);
+}
+
+.now {
+  color: var(--warn);
+}
+
+.end {
+  color: var(--fg);
+}
+
+.now svg,
+.end svg {
+  flex: none;
+  font-size: 15px;
+}
+
+.end svg {
+  color: var(--info);
+}
+
+.end[data-outcome="merged"] svg {
+  color: var(--accent);
+}
+
+.end[data-outcome="needs_human"] svg {
+  color: var(--warn);
+}
+
+.end[data-outcome="failed"] svg {
+  color: var(--danger);
+}
+
+.link {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--info);
+  font: 600 12px var(--mono);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}

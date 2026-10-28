@@ -97,7 +97,12 @@ export function App() {
         </nav>
       </footer>
       {open !== null ? (
-        <DetailPanel number={open} load={session.detail} onClose={() => setOpen(null)} />
+        <DetailPanel
+          number={open}
+          card={board.cards[open]}
+          load={session.detail}
+          onClose={() => setOpen(null)}
+        />
       ) : null}
       {rules ? <PolicyPanel info={session.info} onClose={() => setRules(false)} /> : null}
     </>
