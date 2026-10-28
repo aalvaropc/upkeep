@@ -172,6 +172,20 @@ func TestCommentsAreKeptWithTheirKind(t *testing.T) {
 	}
 }
 
+func TestACommentReplacesTheEarlierOneOfItsKind(t *testing.T) {
+	l := newLocal(t)
+	pulls, _ := l.Pulls(t.Context())
+	for _, c := range []forge.Comment{{Kind: "receipt", Body: "first"}, {Kind: "patch", Body: "diff"}, {Kind: "receipt", Body: "second"}} {
+		if err := l.Comment(t.Context(), pulls[0], c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := l.Views(t.Context())[0].Comments
+	if len(got) != 2 || got[0].Kind != "receipt" || got[0].Body != "second" || got[1].Kind != "patch" {
+		t.Fatalf("comments = %+v", got)
+	}
+}
+
 func TestCopyLocalGivesEachSessionItsOwnRepository(t *testing.T) {
 	l := newLocal(t)
 	copyA, err := forge.CopyLocal(t.Context(), l.Git, l.Repo, filepath.Join(t.TempDir(), "a.git"), forgetest.Scenario())

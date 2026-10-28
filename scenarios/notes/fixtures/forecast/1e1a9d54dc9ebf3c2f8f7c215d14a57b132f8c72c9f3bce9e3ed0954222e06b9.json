@@ -22,7 +22,19 @@
       "https://pkg.go.dev/github.com/jonboulle/clockwork",
       "https://github.com/jonboulle/clockwork/releases/tag/v0.5.0"
     ],
-    "fetched_at": "2026-10-25T14:17:11.085088978Z"
+    "fetched_at": "2026-10-25T14:17:11.085088978Z",
+    "search": {
+      "provider": "tavily",
+      "query": "github.com/jonboulle/clockwork v0.5.0 release notes changelog",
+      "kept": [
+        "https://pkg.go.dev/github.com/jonboulle/clockwork"
+      ],
+      "at": "2026-10-25T14:17:11.085088978Z",
+      "recorded": true
+    },
+    "releases": [
+      "https://github.com/jonboulle/clockwork/releases/tag/v0.5.0"
+    ]
   },
   "cost": {
     "role": "super",

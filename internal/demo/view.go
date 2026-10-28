@@ -53,13 +53,26 @@ type ReceiptStep struct {
 	OK         bool   `json:"ok"`
 }
 
+type ReceiptSearch struct {
+	Provider  string `json:"provider"`
+	Query     string `json:"query"`
+	Results   int    `json:"results"`
+	Kept      int    `json:"kept"`
+	LatencyMS int64  `json:"latency_ms"`
+	Micros    int64  `json:"micros"`
+	Error     string `json:"error,omitempty"`
+	Recorded  bool   `json:"recorded"`
+	Reused    bool   `json:"reused"`
+}
+
 type ReceiptView struct {
-	Lines          []ReceiptLine `json:"lines"`
-	Steps          []ReceiptStep `json:"steps"`
-	Calls          int           `json:"calls"`
-	Attempts       int           `json:"attempts"`
-	Micros         int64         `json:"micros"`
-	BaselineMicros int64         `json:"baseline_micros"`
+	Lines          []ReceiptLine   `json:"lines"`
+	Steps          []ReceiptStep   `json:"steps"`
+	Searches       []ReceiptSearch `json:"searches"`
+	Calls          int             `json:"calls"`
+	Attempts       int             `json:"attempts"`
+	Micros         int64           `json:"micros"`
+	BaselineMicros int64           `json:"baseline_micros"`
 }
 
 type Detail struct {
@@ -152,6 +165,12 @@ func receiptView(r *receipt.Receipt) *ReceiptView {
 	}
 	for _, st := range r.Steps() {
 		v.Steps = append(v.Steps, ReceiptStep{Name: st.Name, Detail: st.Detail, DurationMS: st.Duration.Milliseconds(), OK: st.OK})
+	}
+	for _, s := range r.Searches() {
+		v.Searches = append(v.Searches, ReceiptSearch{
+			Provider: s.Provider, Query: s.Query, Results: s.Results, Kept: s.Kept, LatencyMS: s.Latency.Milliseconds(),
+			Micros: s.Micros, Error: s.Error, Recorded: s.Recorded, Reused: s.Reused,
+		})
 	}
 	return v
 }

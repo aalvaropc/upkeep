@@ -26,6 +26,7 @@ All tokens live in `src/tokens.css`.
 | `--danger`        | `#f87171` | blocked                         | 5.66             |
 | `--warn`          | `#fbbf24` | working, reconnecting           | 9.39             |
 | `--info`          | `#38bdf8` | verified                        | 7.31             |
+| `--search`        | `#f9a8d4` | web search (Tavily)             | 8.64             |
 | `--border`        | `#334155` | panel outlines                  | decorative       |
 | `--border-strong` | `#475569` | dashed empty states, idle badge | decorative       |
 | `--ring`          | `#ffffff` | focus outline, 2px, 2px offset  |                  |
@@ -54,12 +55,12 @@ The connection badge uses the same pattern: `connecting` (dots), `live` (signal)
 
 - **Action bar**: the one primary button (Work the queue, then Waiting for a slot, Working, Run again), a plain-words status line, and the policy panel.
 - **Board**: four columns, one card per pull request. A card shows who opened it (person or bot), what blocks it, the current step with a running clock, then the outcome, a one-sentence note, what Upkeep did (pushed, patch attached, merged) and the cost.
-- **Models rail**: Ultra, Super and Nano each with their job, calls, tokens, time and cost, and the cost of the run against the same tokens at the largest model's price, always labelled a price comparison.
+- **Models rail**: Ultra, Super and Nano each with their job, calls, tokens, time and cost; then the web search (Tavily) with its searches, pages kept and last query, kept out of the cost comparison; and the cost of the run against the same tokens at the largest model's price, always labelled a price comparison.
 - **Activity**: the last events in plain words.
 - **Detail panel** (side sheet, opens from a card) with two tabs. **Trace** is open by default while the pull request is being worked and follows it live: the plan, the forecast, each fix attempt with its failure in the header, every model turn (role pill, what it said, which tools it asked for, time, tokens, cost) and every tool call with the file or symbol it touched, the verifier and the action. **Summary** is open by default once it is done: what changed, what Upkeep did, the forecast with each prediction marked confirmed or not seen by the build, the failure output, the diff, the verifier checklist, flaky tests and the receipt with its steps. The summary is fetched again when the pull request finishes, without blanking what was shown. The tabs follow the WAI-ARIA tabs pattern (arrow keys, Home, End) and the trace is not a live region.
 - **Policy panel**: the rules the server runs with, as the server states them.
 
-Role colors: Ultra violet, Super sky, Nano teal; they appear only where a model is named.
+Role colors: Ultra violet, Super sky, Nano teal; they appear only where a model is named. The web search is pink, with the globe icon and the words "web search" wherever it appears.
 
 ## Layout
 

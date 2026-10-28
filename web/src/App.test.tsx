@@ -369,6 +369,98 @@ describe("App", () => {
     ).toBeTruthy();
   });
 
+  it("shows the web search next to the models, outside the cost comparison", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    startedEvent();
+    const rail = screen.getByRole("region", { name: "Models" });
+    const block = within(rail).getByRole("group", { name: "Web search" });
+    expect(within(block).getByText("Web search · Tavily")).toBeTruthy();
+    expect(within(block).getByText("no searches yet")).toBeTruthy();
+    emit("search.call", 3, {
+      provider: "tavily",
+      query: "example.com/lib migration guide",
+      results: [
+        { title: "Guide", url: "https://example.com/lib/guide", score: 0.9, kept: true },
+        { title: "Other", url: "https://example.com/other", score: 0.2, kept: false },
+      ],
+      kept: ["https://example.com/lib/guide"],
+      latency_ms: 900,
+      recorded: false,
+      reused: false,
+    });
+    expect(within(block).getByText("1 search · 1 page kept")).toBeTruthy();
+    expect(within(block).getByText("“example.com/lib migration guide”")).toBeTruthy();
+    expect(within(rail).getAllByText("$0")).toHaveLength(2);
+    emit("search.call", 1, {
+      provider: "tavily",
+      query: "q",
+      kept: [],
+      skipped: "the daily search limit is reached",
+    });
+    expect(within(block).getByText("1 search · 1 page kept · 1 skipped")).toBeTruthy();
+    expect(within(block).getByText("the daily search limit is reached")).toBeTruthy();
+  });
+
+  it("says what Super read and which pages the web search found", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    const original = globalThis.fetch;
+    const searched: Detail = {
+      ...detail,
+      forecast: {
+        ...detail.forecast!,
+        sources: [
+          "https://github.com/example/lib/blob/main/MIGRATION.md",
+          "https://pkg.go.dev/github.com/example/lib",
+          "https://github.com/example/lib/releases/tag/v2.0.0",
+        ],
+        releases: ["https://github.com/example/lib/releases/tag/v2.0.0"],
+        search: {
+          provider: "tavily",
+          query: "example.com/lib migration guide",
+          kept: [
+            "https://github.com/example/lib/blob/main/MIGRATION.md",
+            "https://pkg.go.dev/github.com/example/lib",
+          ],
+          at: "2026-10-25T14:16:59Z",
+          recorded: true,
+        },
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string, init?: RequestInit) =>
+        path.includes("/prs/")
+          ? new Response(JSON.stringify(searched), { status: 200 })
+          : original(path, init),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Pull request 2/ }));
+    const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
+    await within(dialog).findByText("confirmed by the build");
+    expect(
+      within(dialog).getByText(
+        /^Super read 1 release note and 2 pages Tavily found for example\.com\/lib v1\.0\.0 to v2\.0\.0 before any fix/,
+      ),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("“example.com/lib migration guide”")).toBeTruthy();
+    expect(within(dialog).getByText(/Tavily searched/).textContent).toContain("· recorded");
+    expect(within(dialog).getAllByText("web search")).toHaveLength(2);
+    expect(within(dialog).getAllByText("release notes")).toHaveLength(1);
+    expect(
+      within(dialog)
+        .getAllByRole("link")
+        .map((a) => a.getAttribute("href")),
+    ).toEqual([
+      "https://github.com/example/lib/blob/main/MIGRATION.md",
+      "https://pkg.go.dev/github.com/example/lib",
+      "https://github.com/example/lib/releases/tag/v2.0.0",
+    ]);
+  });
+
   it("opens the details of a pull request and closes them with Escape", async () => {
     installFetch(newServer());
     render(<App />);

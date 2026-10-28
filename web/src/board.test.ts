@@ -277,6 +277,77 @@ describe("board reducer", () => {
     ]);
   });
 
+  it("totals web searches apart from the model calls and describes them", () => {
+    const state = run([
+      started(1, 2),
+      event("search.call", 1, {
+        provider: "tavily",
+        query: "example.com/lib migration guide",
+        results: [
+          { title: "Guide", url: "https://example.com/lib/guide", score: 0.9, kept: true },
+          { title: "Repo", url: "https://example.com/lib", score: 0.7, kept: true },
+          { title: "Other", url: "https://example.com/other", score: 0.2, kept: false },
+        ],
+        kept: ["https://example.com/lib/guide", "https://example.com/lib"],
+        latency_ms: 900,
+        recorded: false,
+        reused: false,
+      }),
+      event("search.call", 2, {
+        provider: "tavily",
+        query: "example.com/other v1.2.0 release notes changelog",
+        results: [],
+        kept: [],
+        latency_ms: 300,
+        recorded: false,
+        reused: false,
+        error: "tavily returned HTTP 432",
+      }),
+    ]);
+    expect(state.search).toEqual({
+      provider: "tavily",
+      calls: 2,
+      kept: 2,
+      results: 3,
+      failed: 1,
+      skipped: 0,
+      recorded: false,
+      lastQuery: "example.com/other v1.2.0 release notes changelog",
+      lastProblem: "tavily returned HTTP 432",
+    });
+    expect(state.totals.calls).toBe(0);
+    expect(state.models).toEqual({});
+    expect(state.log.slice(0, 2).map((l) => l.text)).toEqual([
+      "Tavily search failed: tavily returned HTTP 432",
+      "Tavily search: kept 2 of 3 pages for “example.com/lib migration guide”",
+    ]);
+  });
+
+  it("counts a skipped search apart and marks a recorded one", () => {
+    const state = run([
+      started(1, 2),
+      event("search.call", 1, {
+        provider: "tavily",
+        query: "q",
+        kept: [],
+        skipped: "the daily search limit is reached",
+      }),
+      event("search.call", 2, {
+        provider: "tavily",
+        query: "github.com/golang-jwt/jwt/v5 migration guide",
+        kept: ["a", "b", "c", "d"],
+        recorded: true,
+      }),
+    ]);
+    expect(state.search).toMatchObject({ calls: 1, skipped: 1, kept: 4, recorded: true });
+    expect(state.search.lastProblem).toBe("");
+    expect(state.log.slice(0, 2).map((l) => l.text)).toEqual([
+      "Tavily search (recorded): kept 4 pages for “github.com/golang-jwt/jwt/v5 migration guide”",
+      "Tavily search skipped: the daily search limit is reached",
+    ]);
+    expect(run([{ type: "reset" }], state).search).toEqual(initialBoard.search);
+  });
+
   it("counts gaps and resets", () => {
     const state = run([{ type: "gap" }, { type: "gap" }]);
     expect(state.gaps).toBe(2);

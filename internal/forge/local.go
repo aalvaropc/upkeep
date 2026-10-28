@@ -168,6 +168,10 @@ func (l *Local) Comment(_ context.Context, pr pull.Request, c Comment) error {
 	if c.At.IsZero() {
 		c.At = l.Now().UTC()
 	}
+	if i := slices.IndexFunc(r.comments, func(old Comment) bool { return c.Kind != "" && old.Kind == c.Kind }); i >= 0 {
+		r.comments[i] = c
+		return nil
+	}
 	r.comments = append(r.comments, c)
 	return nil
 }

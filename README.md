@@ -70,6 +70,8 @@ Work a real repository (needs a model key; a dry run of a public repository need
 GITHUB_TOKEN=... ./bin/upkeep run -repo owner/name
 ```
 
+The same run works from GitHub Actions: `uses: aalvaropc/upkeep@v0.1.0` on a daily schedule, from the Actions tab or from a `/upkeep` comment on a pull request ([`docs/action.md`](docs/action.md)).
+
 | Command | What it does |
 |---|---|
 | `upkeep demo` | serves the dashboard with isolated sessions of the nine-pull-request scenario |
@@ -95,6 +97,7 @@ These are measurements, not assumptions: [`docs/models.md`](docs/models.md) has 
 - [`docs/policy.md`](docs/policy.md): every rule Upkeep follows and how to change the configurable ones.
 - [`docs/models.md`](docs/models.md): what each Nemotron model does, what was measured and what was dropped.
 - [`docs/limitations.md`](docs/limitations.md): what Upkeep does not do and where it can be wrong.
+- [`docs/action.md`](docs/action.md): the GitHub Action, its secrets, the token it needs and what a run costs.
 - [`web/DESIGN.md`](web/DESIGN.md): the dashboard's design system.
 
 ## Configuration
@@ -106,7 +109,9 @@ Settings come from the environment; `.env.example` lists them all.
 | `NEBIUS_API_KEY` | none | Token Factory key; required in `live` and `record` modes |
 | `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1` | Token Factory endpoint |
 | `UPKEEP_MODEL_ULTRA`, `_SUPER`, `_NANO` | the three Nemotron models | which model plays which role |
-| `TAVILY_API_KEY` | none | web search for migration guides |
+| `TAVILY_API_KEY` | none | web search for migration guides; in `live` mode it runs on every dependency forecast |
+| `UPKEEP_SEARCH_DAILY_LIMIT` | `100` | live Tavily searches per day; past it the cached forecast is used, and `0` turns the search off |
+| `UPKEEP_PRICE_TAVILY_SEARCH` | none | USD per Tavily search, shown on the receipt; without it the receipt counts searches |
 | `GITHUB_TOKEN` | none | needed to push to, comment on and merge pull requests |
 | `UPKEEP_MODE` | `replay` | `live` calls the models, `record` calls them and saves every exchange, `replay` answers from recorded exchanges |
 | `UPKEEP_ADDR` | `127.0.0.1:8080` | address of the dashboard |

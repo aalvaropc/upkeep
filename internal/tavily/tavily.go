@@ -37,6 +37,8 @@ func New(key config.Secret, domains ...string) *Client {
 	}
 }
 
+func (c *Client) Provider() string { return "tavily" }
+
 type APIError struct {
 	Status  int
 	Message string

@@ -222,6 +222,15 @@ func (p Processor) forecast(ctx context.Context, res *Result, job *strategy.Job)
 	began := time.Now()
 	p.step(res, "forecast", "running", fmt.Sprintf("%s %s to %s", bump.Module, bump.From, bump.To))
 	fc, cost, err := env.Forecaster.Forecast(ctx, forecast.Input{Module: bump.Module, From: bump.From, To: bump.To, Dir: job.Dir})
+	if s := fc.Search; s != nil {
+		if s.Skipped == "" {
+			job.Receipt.AddSearch(receipt.Search{
+				Provider: s.Provider, Query: s.Query, Results: len(s.Results), Kept: len(s.Kept),
+				Latency: time.Duration(s.LatencyMS) * time.Millisecond, Micros: s.Micros, Error: s.Error, Recorded: s.Recorded, Reused: s.Reused,
+			})
+		}
+		p.emit(res, events.SearchCall, searchData(s))
+	}
 	if cost.Model != "" && !cost.Cached {
 		role := cost.Role
 		if role == "" {
@@ -245,8 +254,66 @@ func (p Processor) forecast(ctx context.Context, res *Result, job *strategy.Job)
 	if cost.Cached {
 		detail += ", recorded " + fc.FetchedAt.Format("2006-01-02")
 	}
+	if fc.Search != nil {
+		detail += "; " + searchDetail(fc.Search)
+	}
 	p.step(res, "forecast", "done", detail)
 	job.Receipt.AddStep(receipt.Step{Name: "forecast", Detail: detail, Duration: time.Since(began), OK: true})
+}
+
+func searchData(s *forecast.SearchTrace) map[string]any {
+	results := make([]map[string]any, 0, len(s.Results))
+	for _, r := range s.Results {
+		results = append(results, map[string]any{"title": r.Title, "url": r.URL, "score": r.Score, "kept": r.Kept})
+	}
+	kept := s.Kept
+	if kept == nil {
+		kept = []string{}
+	}
+	data := map[string]any{
+		"provider": s.Provider, "query": s.Query, "results": results, "kept": kept,
+		"latency_ms": s.LatencyMS, "recorded": s.Recorded, "reused": s.Reused,
+	}
+	if s.Error != "" {
+		data["error"] = s.Error
+	}
+	if s.Skipped != "" {
+		data["skipped"] = s.Skipped
+	}
+	if s.Micros > 0 {
+		data["micros"] = s.Micros
+	}
+	return data
+}
+
+func pagesText(n int) string {
+	if n == 1 {
+		return "1 page"
+	}
+	return fmt.Sprintf("%d pages", n)
+}
+
+func searchDetail(s *forecast.SearchTrace) string {
+	name := forecast.ProviderLabel(s.Provider)
+	switch {
+	case s.Skipped != "":
+		return name + " was not asked: " + s.Skipped
+	case s.Error != "":
+		return name + " failed: " + s.Error
+	}
+	var out string
+	if len(s.Results) == 0 && len(s.Kept) > 0 {
+		out = fmt.Sprintf("%s kept %s", name, pagesText(len(s.Kept)))
+	} else {
+		out = fmt.Sprintf("%s kept %d of %s", name, len(s.Kept), pagesText(len(s.Results)))
+	}
+	switch {
+	case s.Recorded:
+		out += " in the recorded run"
+	case s.Reused:
+		out += ", none new"
+	}
+	return out
 }
 
 func (p Processor) confirmForecast(res *Result, failure string) {

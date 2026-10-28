@@ -2,6 +2,8 @@ package forecast
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -544,5 +546,263 @@ func TestTheMigrationGuideComesBeforeTheReleaseNotes(t *testing.T) {
 	}
 	if !strings.Contains(m.requests[0].Messages[0].Content, "base the answer on it") {
 		t.Fatal("the instructions should prefer the migration guide")
+	}
+}
+
+func goldenInputs() ([]Result, []Release) {
+	results := []Result{
+		{Title: "Other", URL: "https://github.com/knative/eventing/releases", Content: "nope", RawContent: "# nope"},
+		{Title: "Guide", URL: "https://github.com/golang-jwt/jwt/blob/main/MIGRATION_GUIDE.md", Content: "short", RawContent: "[Skip to content](#x)\n# Migration\n" + strings.Repeat("StandardClaims moved. ", 900)},
+		{Title: "Empty", URL: "https://pkg.go.dev/github.com/golang-jwt/jwt/v5", Content: "   "},
+		{Title: "Repo", URL: "https://github.com/golang-jwt/jwt", Content: strings.Repeat("repo text ", 400), RawContent: "ignored raw"},
+		{Title: "Dup", URL: "https://github.com/golang-jwt/jwt", Content: "again"},
+	}
+	releases := []Release{
+		{Version: "v5.3.1", Notes: "  " + strings.Repeat("fix ", 500) + "  ", URL: "https://github.com/golang-jwt/jwt/releases/tag/v5.3.1"},
+		{Version: "v5.0.0", Notes: "Breaking: StandardClaims", URL: ""},
+		{Version: "v5.1.0", Notes: "minor", URL: "https://github.com/golang-jwt/jwt/releases/tag/v5.1.0"},
+	}
+	return results, releases
+}
+
+func digest(text string, urls []string, excerpt, source string) string {
+	sum := sha256.Sum256([]byte(text + "\x00" + strings.Join(urls, "\x00") + "\x00" + excerpt + "\x00" + source))
+	return hex.EncodeToString(sum[:])
+}
+
+func TestAssembleWritesTheSameSourcesAsBefore(t *testing.T) {
+	results, releases := goldenInputs()
+	for name, c := range map[string]struct {
+		f    Forecaster
+		want string
+	}{
+		"both":          {Forecaster{Search: &fakeSearch{results: results}, Releases: &fakeReleases{list: releases}}, "2684a4ca9b792826d4f43be24cf1bfa040d0374d1b535bca0248dc3bfcc1fffc"},
+		"search only":   {Forecaster{Search: &fakeSearch{results: results}}, "94d6ec3494e9133763f72c91eee17de639af0e2077ef84b08eca1ff721460cc0"},
+		"releases only": {Forecaster{Releases: &fakeReleases{list: releases}}, "23e3d1fbb89c2797b72c29f493a1350db73e6df9a88e10fdde402e46e31686eb"},
+	} {
+		pages, trace := c.f.search(t.Context(), jwtInput(""))
+		list, err := c.f.releases(t.Context(), jwtInput(""))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text, urls, excerpt, source := assemble(pages, list)
+		if got := digest(text, urls, excerpt, source); got != c.want {
+			t.Errorf("%s: the text sent to the model changed: digest %s, want %s", name, got, c.want)
+		}
+		if trace != nil && !slices.Equal(trace.Kept, []string{"https://github.com/golang-jwt/jwt/blob/main/MIGRATION_GUIDE.md", "https://github.com/golang-jwt/jwt"}) {
+			t.Errorf("%s: kept %v", name, trace.Kept)
+		}
+	}
+}
+
+type namedSearch struct{ fakeSearch }
+
+func (*namedSearch) Provider() string { return "tavily" }
+
+func freshForecaster(t *testing.T) (*Forecaster, *fakeReleases, *fakeSearch, *fakeModel) {
+	t.Helper()
+	f, rel, srch, m := newForecaster(t)
+	f.Fresh = true
+	return f, rel, srch, m
+}
+
+func TestTheSearchIsTracedOnAForecast(t *testing.T) {
+	f, _, srch, _ := freshForecaster(t)
+	named := &namedSearch{fakeSearch: fakeSearch{results: append([]Result{{Title: "Elsewhere", URL: "https://github.com/knative/eventing/releases", Content: "x", Score: 0.5}}, srch.results...)}}
+	f.Search = named
+	f.SearchMicros = 8000
+	got, _, err := f.Forecast(t.Context(), jwtInput(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := got.Search
+	if s == nil || s.Provider != "tavily" || s.Query != "github.com/golang-jwt/jwt/v5 migration guide" || s.Reused || s.Recorded || s.Error != "" || s.Skipped != "" || s.Micros != 8000 {
+		t.Fatalf("search = %+v", s)
+	}
+	if !s.At.Equal(time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)) || len(s.Results) != 2 || s.Results[0].Kept || !s.Results[1].Kept || s.Results[1].Score != 0.9 || s.Results[1].Title != "Migration guide" {
+		t.Fatalf("results = %+v at %v", s.Results, s.At)
+	}
+	if !slices.Equal(s.Kept, []string{"https://github.com/golang-jwt/jwt/blob/main/MIGRATION_GUIDE.md"}) {
+		t.Fatalf("kept = %v", s.Kept)
+	}
+	if !slices.Equal(got.Releases, []string{"https://github.com/golang-jwt/jwt/releases/tag/v5.0.0"}) || got.ReleasesError != "" {
+		t.Fatalf("releases %v error %q", got.Releases, got.ReleasesError)
+	}
+	var stored recorded
+	key, _ := cacheKey(jwtInput(""))
+	if err := f.Cache.Load(CacheKind, key, &stored); err != nil || stored.Forecast.Search == nil || stored.Forecast.Search.Query != s.Query {
+		t.Fatalf("the trace is saved with the forecast: %+v %v", stored.Forecast.Search, err)
+	}
+	if ProviderOf(&fakeSearch{}) != "search" {
+		t.Fatal("an unnamed search has a generic name")
+	}
+}
+
+func TestAFreshRunReusesTheCachedForecastWhenNoPageIsNew(t *testing.T) {
+	f, rel, srch, m := freshForecaster(t)
+	first, _, err := f.Forecast(t.Context(), jwtInput(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Now = func() time.Time { return time.Date(2026, 10, 29, 9, 0, 0, 0, time.UTC) }
+	got, cost, err := f.Forecast(t.Context(), jwtInput(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cost.Cached || cost.Model != "" || m.calls.Load() != 1 || rel.calls.Load() != 1 || srch.calls.Load() != 2 {
+		t.Fatalf("cost %+v; calls: model %d, releases %d, search %d", cost, m.calls.Load(), rel.calls.Load(), srch.calls.Load())
+	}
+	if got.Search == nil || !got.Search.Reused || !got.Search.At.Equal(time.Date(2026, 10, 29, 9, 0, 0, 0, time.UTC)) || !got.FetchedAt.Equal(first.FetchedAt) {
+		t.Fatalf("a reused forecast carries the fresh search: %+v, fetched %v", got.Search, got.FetchedAt)
+	}
+	if got.Summary != first.Summary || !slices.Equal(got.Sources, first.Sources) {
+		t.Fatalf("reused = %+v", got)
+	}
+}
+
+func TestANewPageWritesTheForecastAgain(t *testing.T) {
+	f, rel, srch, m := freshForecaster(t)
+	if _, _, err := f.Forecast(t.Context(), jwtInput("")); err != nil {
+		t.Fatal(err)
+	}
+	srch.results = append(srch.results, Result{Title: "Changelog", URL: "https://github.com/golang-jwt/jwt/blob/main/CHANGELOG.md", Content: "VerifyExpiresAt is gone."})
+	got, cost, err := f.Forecast(t.Context(), jwtInput(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cost.Cached || cost.Model != "nano" || m.calls.Load() != 2 || rel.calls.Load() != 2 {
+		t.Fatalf("cost %+v; model %d, releases %d", cost, m.calls.Load(), rel.calls.Load())
+	}
+	if got.Search == nil || got.Search.Reused || !slices.Contains(got.Sources, "https://github.com/golang-jwt/jwt/blob/main/CHANGELOG.md") {
+		t.Fatalf("forecast = %+v search %+v", got.Sources, got.Search)
+	}
+	if !strings.Contains(m.requests[1].Messages[1].Content, "VerifyExpiresAt is gone.") {
+		t.Fatal("the new page did not reach the model")
+	}
+	_, cost, err = f.Forecast(t.Context(), jwtInput(""))
+	if err != nil || !cost.Cached || m.calls.Load() != 2 {
+		t.Fatalf("the new forecast is cached: %+v %v, %d model calls", cost, err, m.calls.Load())
+	}
+}
+
+func TestAFailedRewriteKeepsTheCachedForecast(t *testing.T) {
+	f, _, srch, m := freshForecaster(t)
+	first, _, err := f.Forecast(t.Context(), jwtInput(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srch.results = append(srch.results, Result{Title: "Changelog", URL: "https://github.com/golang-jwt/jwt/blob/main/CHANGELOG.md", Content: "news"})
+	m.answer = "not json"
+	got, cost, err := f.Forecast(t.Context(), jwtInput(""))
+	if err != nil || got.Summary != first.Summary || cost.Cached || cost.Usage.Total() == 0 {
+		t.Fatalf("forecast %+v cost %+v error %v", got, cost, err)
+	}
+	m.err = errors.New("token factory is down")
+	got, cost, err = f.Forecast(t.Context(), jwtInput(""))
+	if err != nil || got.Summary != first.Summary || !cost.Cached {
+		t.Fatalf("forecast %+v cost %+v error %v", got, cost, err)
+	}
+}
+
+func TestASearchFailureKeepsTheCachedForecastAndSaysWhy(t *testing.T) {
+	f, rel, srch, m := freshForecaster(t)
+	first, _, err := f.Forecast(t.Context(), jwtInput(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srch.err = errors.New("tavily returned HTTP 432: usage limit")
+	got, cost, err := f.Forecast(t.Context(), jwtInput(""))
+	if err != nil || !cost.Cached || m.calls.Load() != 1 || rel.calls.Load() != 1 {
+		t.Fatalf("cost %+v error %v; model %d releases %d", cost, err, m.calls.Load(), rel.calls.Load())
+	}
+	if got.Summary != first.Summary || got.Search == nil || got.Search.Error != "tavily returned HTTP 432: usage limit" || got.Search.Reused || len(got.Search.Kept) != 0 {
+		t.Fatalf("forecast %+v search %+v", got.Summary, got.Search)
+	}
+}
+
+func TestTheDailySearchLimitSkipsTheSearch(t *testing.T) {
+	f, _, srch, m := freshForecaster(t)
+	if _, _, err := f.Forecast(t.Context(), jwtInput("")); err != nil {
+		t.Fatal(err)
+	}
+	srch.err = &SkipError{Reason: "the daily search limit is reached"}
+	got, cost, err := f.Forecast(t.Context(), jwtInput(""))
+	if err != nil || !cost.Cached || m.calls.Load() != 1 || got.Search == nil || got.Search.Skipped != "the daily search limit is reached" || got.Search.Error != "" || got.Search.LatencyMS != 0 {
+		t.Fatalf("forecast search %+v cost %+v error %v", got.Search, cost, err)
+	}
+
+	miss, _, srch2, _ := freshForecaster(t)
+	srch2.err = &SkipError{Reason: "the daily search limit is reached"}
+	got, cost, err = miss.Forecast(t.Context(), jwtInput(""))
+	if err != nil || cost.Cached || got.Search == nil || got.Search.Skipped == "" || !slices.Equal(got.Sources, []string{"https://github.com/golang-jwt/jwt/releases/tag/v5.0.0"}) {
+		t.Fatalf("without a cached forecast the release notes are enough: %+v %+v %v", got.Sources, got.Search, err)
+	}
+}
+
+func TestAForecastWithNothingToReadSaysWhatFailed(t *testing.T) {
+	f, rel, srch, m := freshForecaster(t)
+	rel.err, srch.err = errors.New("github is rate limited"), errors.New("tavily is down")
+	got, _, err := f.Forecast(t.Context(), jwtInput(""))
+	if err == nil || !strings.Contains(err.Error(), "the search failed: tavily is down") || !strings.Contains(err.Error(), "the releases could not be read: github is rate limited") || m.calls.Load() != 0 {
+		t.Fatalf("error = %v", err)
+	}
+	if got.Search == nil || got.Search.Error != "tavily is down" || got.ReleasesError != "github is rate limited" {
+		t.Fatalf("a failed forecast still carries what was tried: %+v %q", got.Search, got.ReleasesError)
+	}
+}
+
+func TestAReplayedForecastMarksItsSearchRecorded(t *testing.T) {
+	f, _, _, _ := freshForecaster(t)
+	if _, _, err := f.Forecast(t.Context(), jwtInput("")); err != nil {
+		t.Fatal(err)
+	}
+	srch := &fakeSearch{}
+	replay := Forecaster{Cache: f.Cache, Replay: true, Search: srch, Fresh: true}
+	got, _, err := replay.Forecast(t.Context(), jwtInput(""))
+	if err != nil || got.Search == nil || !got.Search.Recorded || srch.calls.Load() != 0 {
+		t.Fatalf("search %+v error %v, %d searches", got.Search, err, srch.calls.Load())
+	}
+	var stored recorded
+	key, _ := cacheKey(jwtInput(""))
+	if err := f.Cache.Load(CacheKind, key, &stored); err != nil || stored.Forecast.Search.Recorded {
+		t.Fatalf("replaying must not change the recording: %+v %v", stored.Forecast.Search, err)
+	}
+}
+
+func TestCachedReleasesAreReadOncePerDay(t *testing.T) {
+	inner := &fakeReleases{list: []Release{{Version: "v5.0.0", URL: "u"}}}
+	now := time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)
+	c := CachedReleases{Inner: inner, Cache: fixture.Dir{Path: t.TempDir()}, Now: func() time.Time { return now }}
+	for range 3 {
+		got, err := c.Between(t.Context(), "github.com/a/b", "v1.0.0", "v2.0.0")
+		if err != nil || len(got) != 1 || got[0].Version != "v5.0.0" {
+			t.Fatalf("got %+v %v", got, err)
+		}
+	}
+	if inner.calls.Load() != 1 {
+		t.Fatalf("GitHub was asked %d times within a day", inner.calls.Load())
+	}
+	if _, err := c.Between(t.Context(), "github.com/a/b", "v1.0.0", "v2.1.0"); err != nil || inner.calls.Load() != 2 {
+		t.Fatalf("another version is another lookup: %v, %d", err, inner.calls.Load())
+	}
+	now = now.Add(23 * time.Hour)
+	if _, err := c.Between(t.Context(), "github.com/a/b", "v1.0.0", "v2.0.0"); err != nil || inner.calls.Load() != 2 {
+		t.Fatalf("still fresh after 23 hours: %v, %d", err, inner.calls.Load())
+	}
+	now = now.Add(2 * time.Hour)
+	inner.err = errors.New("rate limited")
+	got, err := c.Between(t.Context(), "github.com/a/b", "v1.0.0", "v2.0.0")
+	if err != nil || len(got) != 1 || inner.calls.Load() != 3 {
+		t.Fatalf("a stale lookup is better than none when GitHub refuses: %+v %v, %d", got, err, inner.calls.Load())
+	}
+	if _, err := c.Between(t.Context(), "github.com/a/b", "v1.0.0", "v3.0.0"); err == nil {
+		t.Fatal("a refused lookup with nothing cached returned no error")
+	}
+	inner.err = nil
+	if _, err := c.Between(t.Context(), "github.com/a/b", "v1.0.0", "v2.0.0"); err != nil || inner.calls.Load() != 5 {
+		t.Fatalf("an expired lookup is fetched again: %v, %d", err, inner.calls.Load())
+	}
+	if _, err := c.Between(t.Context(), "github.com/a/b", "v1.0.0", "v2.0.0"); err != nil || inner.calls.Load() != 5 {
+		t.Fatalf("and saved again: %v, %d", err, inner.calls.Load())
 	}
 }
