@@ -146,6 +146,9 @@ export function useSession(): SessionApi {
       if (previous && previous !== next) {
         await api.deleteSession(previous).catch(() => undefined);
       }
+      if (next) {
+        await api.startRun(next).catch((err: unknown) => setError(explain(err)));
+      }
     } finally {
       setBusy(false);
     }

@@ -938,12 +938,33 @@ describe("App", () => {
     expect(server.calls.indexOf(creates[1]!)).toBeLessThan(deleted);
     await waitFor(() => expect(source().url).toBe("/api/sessions/abcdef123456-1/events"));
     expect(window.sessionStorage.getItem("upkeep.session")).toBe("abcdef123456-1");
+    await waitFor(() =>
+      expect(
+        server.calls.some(
+          (c) => c.method === "POST" && c.path === "/api/sessions/abcdef123456-1/run",
+        ),
+      ).toBe(true),
+    );
 
     await screen.findByRole("button", { name: "Work the queue" });
     emit("session.closed", undefined, {});
     expect(
       screen.getByText("This session ended. Press the button to start a new one."),
     ).toBeTruthy();
+  });
+
+  it("gives the finished pull requests the whole width of the board", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    const board = document.getElementById("board");
+    expect(board?.getAttribute("data-finished")).toBe("false");
+    startedEvent();
+    emit("pr.done", 1, { outcome: "mergeable" });
+    emit("pr.done", 2, { outcome: "merged" });
+    expect(board?.getAttribute("data-finished")).toBe("false");
+    emit("pr.done", 3, { outcome: "needs_human" });
+    await waitFor(() => expect(board?.getAttribute("data-finished")).toBe("true"));
   });
 
   it("shows notices from the server once", async () => {
