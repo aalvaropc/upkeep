@@ -51,9 +51,13 @@ func TestOverrides(t *testing.T) {
 		"UPKEEP_PRICE_ULTRA_OUTPUT=1.8",
 		"UPKEEP_PRICE_NANO_INPUT=0.06",
 		"UPKEEP_PRICE_NANO_OUTPUT=0.24",
+		"UPKEEP_PRICE_TAVILY_SEARCH=0.008",
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if c.SearchPrice != 0.008 {
+		t.Errorf("search price = %v", c.SearchPrice)
 	}
 	if c.NebiusAPIKey.Reveal() != fakeKey || c.TavilyAPIKey.Reveal() != "tvly" || c.GitHubToken.Reveal() != "gh" {
 		t.Error("secrets were not loaded")
@@ -95,6 +99,8 @@ func TestInvalid(t *testing.T) {
 		{"UPKEEP_DAILY_TOKENS=0", "UPKEEP_DAILY_TOKENS"},
 		{"UPKEEP_DAILY_TOKENS=many", "UPKEEP_DAILY_TOKENS"},
 		{"UPKEEP_SEARCH_DAILY_LIMIT=-1", "UPKEEP_SEARCH_DAILY_LIMIT"},
+		{"UPKEEP_PRICE_TAVILY_SEARCH=-0.01", "UPKEEP_PRICE_TAVILY_SEARCH"},
+		{"UPKEEP_PRICE_TAVILY_SEARCH=cheap", "UPKEEP_PRICE_TAVILY_SEARCH"},
 		{"NEBIUS_BASE_URL=ftp://example.test", "NEBIUS_BASE_URL"},
 		{"NEBIUS_BASE_URL=not a url", "NEBIUS_BASE_URL"},
 		{"UPKEEP_PRICE_SUPER_INPUT=1", "must be set together"},

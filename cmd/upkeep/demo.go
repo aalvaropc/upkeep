@@ -49,13 +49,16 @@ func demoCommand(ctx context.Context, args []string, stdout, stderr io.Writer, e
 	handler := web.New(web.Options{
 		Hub: st.hub, Version: buildinfo.Version(), Logger: st.logger, Done: done,
 		Demo: st.manager, TrustProxy: flags.trustProxy,
-		Info: func() map[string]any {
-			return map[string]any{
-				"mode": string(st.runtime.Mode()), "version": buildinfo.Version(), "public": st.cfg.Public,
-				"prs_per_run": engine.DefaultLimits.PRsPerRun, "runs_per_server": engine.DefaultLimits.RunsPerServer,
-				"daily_tokens": st.cfg.DailyTokens, "tokens_today": st.runtime.Budget.Spent(), "rules": st.policy.Rules(),
-			}
-		},
+		Info: func() map[string]any { return demoInfo(st) },
 	})
 	return serveHTTP(ctx, st.cfg.Addr, handler, done, st.logger, stdout, st.cfg)
+}
+
+func demoInfo(st *stack) map[string]any {
+	return map[string]any{
+		"mode": string(st.runtime.Mode()), "version": buildinfo.Version(), "public": st.cfg.Public,
+		"prs_per_run": engine.DefaultLimits.PRsPerRun, "runs_per_server": engine.DefaultLimits.RunsPerServer,
+		"daily_tokens": st.cfg.DailyTokens, "tokens_today": st.runtime.Budget.Spent(), "rules": st.policy.Rules(),
+		"search_daily_limit": st.cfg.SearchDailyLimit, "searches_today": st.runtime.Searches.Spent(),
+	}
 }

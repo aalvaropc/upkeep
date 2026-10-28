@@ -59,6 +59,29 @@ func TestMerge(t *testing.T) {
 	if len(a.Steps()) != 1 || a.Attempts() != 1 {
 		t.Fatalf("steps %v attempts %d", a.Steps(), a.Attempts())
 	}
+	b.AddSearch(Search{Provider: "tavily", Kept: 3})
+	c := New()
+	c.Merge(b)
+	if s := c.Searches(); len(s) != 1 || s[0].Kept != 3 {
+		t.Fatalf("searches = %+v", s)
+	}
+}
+
+func TestSearchesStayOutOfTheModelTotals(t *testing.T) {
+	r := New()
+	r.AddCall(model.Super, "super", model.Usage{PromptTokens: 100}, model.Charge{Micros: 30, BaselineMicros: 100, Known: true}, time.Second)
+	r.AddSearch(Search{Provider: "tavily", Query: "q", Results: 4, Kept: 3, Latency: time.Second, Micros: 8000})
+	if lines := r.Lines(); len(lines) != 1 || lines[0].Model != "super" {
+		t.Fatalf("a search is not a model line: %+v", lines)
+	}
+	if total := r.Totals(); total.Calls != 1 || total.Charge.Micros != 30 || total.Charge.BaselineMicros != 100 {
+		t.Fatalf("a search does not change the model cost comparison: %+v", total)
+	}
+	searches := r.Searches()
+	searches[0].Query = "changed"
+	if got := r.Searches(); len(got) != 1 || got[0].Query != "q" || got[0].Kept != 3 {
+		t.Fatalf("searches = %+v", got)
+	}
 }
 
 func TestConcurrentUse(t *testing.T) {

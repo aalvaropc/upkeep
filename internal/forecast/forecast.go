@@ -24,6 +24,8 @@ import (
 
 const (
 	CacheKind          = "forecast"
+	ReleasesKind       = "releases"
+	ReleasesTTL        = 24 * time.Hour
 	maxReleases        = 8
 	maxReleaseChars    = 1500
 	maxSourceChars     = 12000
@@ -66,18 +68,62 @@ type Change struct {
 	Description string `json:"description"`
 }
 
+type SearchHit struct {
+	Title string  `json:"title"`
+	URL   string  `json:"url"`
+	Score float64 `json:"score"`
+	Kept  bool    `json:"kept"`
+}
+
+type SearchTrace struct {
+	Provider  string      `json:"provider"`
+	Query     string      `json:"query"`
+	Results   []SearchHit `json:"results,omitempty"`
+	Kept      []string    `json:"kept,omitempty"`
+	LatencyMS int64       `json:"latency_ms,omitempty"`
+	Micros    int64       `json:"micros,omitempty"`
+	Error     string      `json:"error,omitempty"`
+	At        time.Time   `json:"at"`
+	Recorded  bool        `json:"recorded,omitempty"`
+	Reused    bool        `json:"reused,omitempty"`
+	Skipped   string      `json:"skipped,omitempty"`
+}
+
+type SkipError struct {
+	Reason string
+}
+
+func (e *SkipError) Error() string { return e.Reason }
+
+func ProviderOf(s Search) string {
+	if named, ok := s.(interface{ Provider() string }); ok {
+		return named.Provider()
+	}
+	return "search"
+}
+
+func ProviderLabel(provider string) string {
+	if provider == "" {
+		return "Search"
+	}
+	return strings.ToUpper(provider[:1]) + provider[1:]
+}
+
 type Forecast struct {
-	Module        string    `json:"module"`
-	From          string    `json:"from"`
-	To            string    `json:"to"`
-	Summary       string    `json:"summary"`
-	Breaking      []Change  `json:"breaking"`
-	Dropped       int       `json:"dropped"`
-	Excerpt       string    `json:"excerpt"`
-	ExcerptSource string    `json:"excerpt_source"`
-	Files         []string  `json:"files"`
-	Sources       []string  `json:"sources"`
-	FetchedAt     time.Time `json:"fetched_at"`
+	Module        string       `json:"module"`
+	From          string       `json:"from"`
+	To            string       `json:"to"`
+	Summary       string       `json:"summary"`
+	Breaking      []Change     `json:"breaking"`
+	Dropped       int          `json:"dropped"`
+	Excerpt       string       `json:"excerpt"`
+	ExcerptSource string       `json:"excerpt_source"`
+	Files         []string     `json:"files"`
+	Sources       []string     `json:"sources"`
+	FetchedAt     time.Time    `json:"fetched_at"`
+	Search        *SearchTrace `json:"search,omitempty"`
+	Releases      []string     `json:"releases,omitempty"`
+	ReleasesError string       `json:"releases_error,omitempty"`
 }
 
 type Cost struct {
@@ -97,16 +143,18 @@ type Input struct {
 }
 
 type Forecaster struct {
-	Releases  Releases
-	Search    Search
-	Model     model.Model
-	ModelName string
-	Role      model.Role
-	Meter     model.Meter
-	Cache     fixture.Store
-	Replay    bool
-	Pace      float64
-	Now       func() time.Time
+	Releases     Releases
+	Search       Search
+	Model        model.Model
+	ModelName    string
+	Role         model.Role
+	Meter        model.Meter
+	Cache        fixture.Store
+	Replay       bool
+	Fresh        bool
+	SearchMicros int64
+	Pace         float64
+	Now          func() time.Time
 }
 
 type recorded struct {
@@ -276,32 +324,100 @@ func (f Forecaster) Forecast(ctx context.Context, in Input) (Forecast, Cost, err
 	if err != nil {
 		return Forecast{}, Cost{}, err
 	}
+	var cached *Forecast
 	if f.Cache != nil {
-		var cached recorded
-		switch err := f.Cache.Load(CacheKind, key, &cached); {
+		var stored recorded
+		switch err := f.Cache.Load(CacheKind, key, &stored); {
 		case err == nil:
-			out := cached.Forecast
-			out.Files = importers(in.Dir, in.Module)
-			if !f.Replay {
-				return out, Cost{Cached: true}, nil
+			if f.Replay {
+				return f.replay(ctx, in, stored)
 			}
-			cost := cached.Cost
-			cost.Cached = false
-			if err := f.pause(ctx, cost.Latency); err != nil {
-				return Forecast{}, Cost{}, err
+			if !f.Fresh || f.Search == nil {
+				return keep(in, stored.Forecast, stored.Forecast.Search), Cost{Cached: true}, nil
 			}
-			return out, cost, nil
+			cached = &stored.Forecast
 		case !errors.Is(err, fixture.ErrMiss):
 			return Forecast{}, Cost{}, err
 		}
 	}
-	if f.Model == nil {
+	if cached == nil && f.Model == nil {
 		return Forecast{}, Cost{}, errors.New("no recorded forecast and no model to write one")
 	}
 
-	sources, urls, excerpt, excerptSource := f.gather(ctx, in)
+	pages, trace := f.search(ctx, in)
+	if cached != nil {
+		switch {
+		case trace.Error != "" || trace.Skipped != "":
+			return keep(in, *cached, trace), Cost{Cached: true}, nil
+		case covered(trace.Kept, cached.Sources):
+			trace.Reused = true
+			return keep(in, *cached, trace), Cost{Cached: true}, nil
+		}
+	}
+	out, cost, err := f.write(ctx, in, pages, trace)
+	if err != nil {
+		if cached == nil {
+			return out, cost, err
+		}
+		if cost.Model == "" {
+			cost.Cached = true
+		}
+		return keep(in, *cached, trace), cost, nil
+	}
+	if f.Cache != nil {
+		stored := recorded{Forecast: out, Cost: cost}
+		stored.Forecast.Files = nil
+		if err := f.Cache.Save(CacheKind, key, stored); err != nil {
+			return out, cost, fmt.Errorf("saving the forecast: %w", err)
+		}
+	}
+	return out, cost, nil
+}
+
+func keep(in Input, fc Forecast, trace *SearchTrace) Forecast {
+	fc.Files = importers(in.Dir, in.Module)
+	fc.Search = trace
+	return fc
+}
+
+func covered(kept, sources []string) bool {
+	for _, u := range kept {
+		if !slices.Contains(sources, u) {
+			return false
+		}
+	}
+	return true
+}
+
+func (f Forecaster) replay(ctx context.Context, in Input, stored recorded) (Forecast, Cost, error) {
+	out := stored.Forecast
+	out.Files = importers(in.Dir, in.Module)
+	if out.Search != nil {
+		trace := *out.Search
+		trace.Recorded = true
+		out.Search = &trace
+	}
+	cost := stored.Cost
+	cost.Cached = false
+	if err := f.pause(ctx, cost.Latency); err != nil {
+		return Forecast{}, Cost{}, err
+	}
+	return out, cost, nil
+}
+
+func (f Forecaster) write(ctx context.Context, in Input, pages []Result, trace *SearchTrace) (Forecast, Cost, error) {
+	partial := Forecast{Module: in.Module, From: in.From, To: in.To, Search: trace}
+	if f.Model == nil {
+		return partial, Cost{}, errors.New("no model to write a new forecast")
+	}
+	releases, relErr := f.releases(ctx, in)
+	if relErr != nil {
+		partial.ReleasesError = relErr.Error()
+	}
+	partial.Releases = releaseURLs(releases)
+	sources, urls, excerpt, excerptSource := assemble(pages, releases)
 	if sources == "" {
-		return Forecast{}, Cost{}, errors.New("no release notes or migration guide could be found")
+		return partial, Cost{}, nothingFound(trace, partial.ReleasesError)
 	}
 	files := importers(in.Dir, in.Module)
 	user := fmt.Sprintf("Module: %s\nUpgrading from %s to %s.\n", in.Module, in.From, in.To)
@@ -321,13 +437,13 @@ func (f Forecaster) Forecast(ctx context.Context, in Input) (Forecast, Cost, err
 		Messages:  []model.Message{{Role: "system", Content: systemInstructions}, {Role: "user", Content: user}},
 	})
 	if err != nil {
-		return Forecast{}, Cost{}, fmt.Errorf("writing the forecast: %w", err)
+		return partial, Cost{}, fmt.Errorf("writing the forecast: %w", err)
 	}
 	cost := Cost{Role: f.role(), Model: f.ModelName, Usage: resp.Usage, Charge: f.Meter.Charge(f.ModelName, resp.Usage), Latency: resp.Latency}
 
 	out, err := parse(resp.Message.Content)
 	if err != nil {
-		return Forecast{}, cost, err
+		return partial, cost, err
 	}
 	out.Breaking, out.Dropped = ground(out.Breaking, sources)
 	out.Excerpt, out.ExcerptSource = excerpt, excerptSource
@@ -335,49 +451,151 @@ func (f Forecaster) Forecast(ctx context.Context, in Input) (Forecast, Cost, err
 	out.Files = files
 	out.Sources = urls
 	out.FetchedAt = f.now().UTC()
-	if f.Cache != nil {
-		stored := recorded{Forecast: out, Cost: cost}
-		stored.Forecast.Files = nil
-		if err := f.Cache.Save(CacheKind, key, stored); err != nil {
-			return out, cost, fmt.Errorf("saving the forecast: %w", err)
-		}
-	}
+	out.Search, out.Releases, out.ReleasesError = trace, partial.Releases, partial.ReleasesError
 	return out, cost, nil
 }
 
-func (f Forecaster) gather(ctx context.Context, in Input) (text string, urls []string, excerpt, excerptSource string) {
-	var b strings.Builder
-	if f.Search != nil {
-		if results, err := f.Search.Search(ctx, Query(in.Module, in.From, in.To), maxSearchResults); err == nil {
-			results = slices.DeleteFunc(slices.Clone(results), func(r Result) bool { return !About(r.URL, in.Module) })
-			for i, r := range results {
-				text, limit := CleanPage(r.RawContent), maxSourceChars
-				if text == "" || i > 0 {
-					text, limit = strings.TrimSpace(r.Content), maxExtraChars
-				}
-				if text == "" {
-					continue
-				}
-				fmt.Fprintf(&b, "\nSearch result: %s (%s)\n%s\n", r.Title, r.URL, truncate(text, limit))
-				urls = append(urls, r.URL)
-				if excerpt == "" && i == 0 {
-					excerpt, excerptSource = truncate(text, maxExcerptChars), r.URL
-				}
-			}
+func nothingFound(trace *SearchTrace, releasesError string) error {
+	var why []string
+	if trace != nil && trace.Error != "" {
+		why = append(why, "the search failed: "+trace.Error)
+	}
+	if trace != nil && trace.Skipped != "" {
+		why = append(why, "the search was skipped: "+trace.Skipped)
+	}
+	if releasesError != "" {
+		why = append(why, "the releases could not be read: "+releasesError)
+	}
+	if len(why) == 0 {
+		return errors.New("no release notes or migration guide could be found")
+	}
+	return fmt.Errorf("no release notes or migration guide could be found (%s)", strings.Join(why, "; "))
+}
+
+func (f Forecaster) search(ctx context.Context, in Input) ([]Result, *SearchTrace) {
+	if f.Search == nil {
+		return nil, nil
+	}
+	trace := &SearchTrace{Provider: ProviderOf(f.Search), Query: Query(in.Module, in.From, in.To), At: f.now().UTC()}
+	began := time.Now()
+	results, err := f.Search.Search(ctx, trace.Query, maxSearchResults)
+	var skip *SkipError
+	if errors.As(err, &skip) {
+		trace.Skipped = skip.Reason
+		return nil, trace
+	}
+	trace.LatencyMS = time.Since(began).Milliseconds()
+	trace.Micros = f.SearchMicros
+	if err != nil {
+		trace.Error = err.Error()
+		return nil, trace
+	}
+	pages := slices.DeleteFunc(slices.Clone(results), func(r Result) bool { return !About(r.URL, in.Module) })
+	for i, r := range pages {
+		if text, _ := pageText(i, r); text != "" {
+			trace.Kept = append(trace.Kept, r.URL)
 		}
 	}
-	if f.Releases != nil {
-		if releases, err := f.Releases.Between(ctx, in.Module, in.From, in.To); err == nil && len(releases) > 0 {
-			b.WriteString("\nRelease notes, newest first:\n")
-			for _, r := range releases {
-				fmt.Fprintf(&b, "\n## %s\n%s\n", r.Version, truncate(strings.TrimSpace(r.Notes), maxReleaseChars))
-				if r.URL != "" {
-					urls = append(urls, r.URL)
-				}
+	trace.Kept = dedupe(trace.Kept)
+	for _, r := range results {
+		trace.Results = append(trace.Results, SearchHit{Title: r.Title, URL: r.URL, Score: r.Score, Kept: slices.Contains(trace.Kept, r.URL)})
+	}
+	return pages, trace
+}
+
+func (f Forecaster) releases(ctx context.Context, in Input) ([]Release, error) {
+	if f.Releases == nil {
+		return nil, nil
+	}
+	list, err := f.Releases.Between(ctx, in.Module, in.From, in.To)
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+func releaseURLs(releases []Release) []string {
+	urls := make([]string, 0, len(releases))
+	for _, r := range releases {
+		urls = append(urls, r.URL)
+	}
+	return dedupe(urls)
+}
+
+func pageText(i int, r Result) (string, int) {
+	text, limit := CleanPage(r.RawContent), maxSourceChars
+	if text == "" || i > 0 {
+		text, limit = strings.TrimSpace(r.Content), maxExtraChars
+	}
+	return text, limit
+}
+
+func assemble(pages []Result, releases []Release) (text string, urls []string, excerpt, excerptSource string) {
+	var b strings.Builder
+	for i, r := range pages {
+		page, limit := pageText(i, r)
+		if page == "" {
+			continue
+		}
+		fmt.Fprintf(&b, "\nSearch result: %s (%s)\n%s\n", r.Title, r.URL, truncate(page, limit))
+		urls = append(urls, r.URL)
+		if excerpt == "" && i == 0 {
+			excerpt, excerptSource = truncate(page, maxExcerptChars), r.URL
+		}
+	}
+	if len(releases) > 0 {
+		b.WriteString("\nRelease notes, newest first:\n")
+		for _, r := range releases {
+			fmt.Fprintf(&b, "\n## %s\n%s\n", r.Version, truncate(strings.TrimSpace(r.Notes), maxReleaseChars))
+			if r.URL != "" {
+				urls = append(urls, r.URL)
 			}
 		}
 	}
 	return b.String(), dedupe(urls), excerpt, excerptSource
+}
+
+type CachedReleases struct {
+	Inner Releases
+	Cache fixture.Store
+	TTL   time.Duration
+	Now   func() time.Time
+}
+
+type releasesEntry struct {
+	FetchedAt time.Time `json:"fetched_at"`
+	Releases  []Release `json:"releases"`
+}
+
+func (c CachedReleases) Between(ctx context.Context, module, from, to string) ([]Release, error) {
+	now := time.Now
+	if c.Now != nil {
+		now = c.Now
+	}
+	ttl := c.TTL
+	if ttl <= 0 {
+		ttl = ReleasesTTL
+	}
+	key, err := cacheKey(Input{Module: module, From: from, To: to})
+	if err != nil {
+		return nil, err
+	}
+	var hit releasesEntry
+	stored := c.Cache != nil && c.Cache.Load(ReleasesKind, key, &hit) == nil
+	if stored && now().Sub(hit.FetchedAt) < ttl {
+		return hit.Releases, nil
+	}
+	list, err := c.Inner.Between(ctx, module, from, to)
+	if err != nil {
+		if stored {
+			return hit.Releases, nil
+		}
+		return nil, err
+	}
+	if c.Cache != nil {
+		_ = c.Cache.Save(ReleasesKind, key, releasesEntry{FetchedAt: now().UTC(), Releases: list})
+	}
+	return list, nil
 }
 
 var (

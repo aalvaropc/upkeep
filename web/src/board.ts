@@ -54,6 +54,18 @@ export interface Totals {
   completionTokens: number;
 }
 
+export interface SearchTotals {
+  provider: string;
+  calls: number;
+  kept: number;
+  results: number;
+  failed: number;
+  skipped: number;
+  recorded: boolean;
+  lastQuery: string;
+  lastProblem: string;
+}
+
 export interface RunSummary {
   counts: Record<string, number>;
   micros: number;
@@ -80,6 +92,7 @@ export interface BoardState {
   order: number[];
   models: Record<string, ModelTotals>;
   totals: Totals;
+  search: SearchTotals;
   notices: string[];
   closed: boolean;
   gaps: number;
@@ -101,6 +114,17 @@ export const initialBoard: BoardState = {
   order: [],
   models: {},
   totals: { calls: 0, micros: 0, baselineMicros: 0, promptTokens: 0, completionTokens: 0 },
+  search: {
+    provider: "",
+    calls: 0,
+    kept: 0,
+    results: 0,
+    failed: 0,
+    skipped: 0,
+    recorded: false,
+    lastQuery: "",
+    lastProblem: "",
+  },
   notices: [],
   closed: false,
   gaps: 0,
@@ -176,6 +200,35 @@ export function seconds(ms: number): string {
   return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)} s`;
 }
 
+export function providerLabel(provider: string): string {
+  return provider ? `${provider.charAt(0).toUpperCase()}${provider.slice(1)}` : "Web search";
+}
+
+export function quantity(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function length(v: unknown): number {
+  return Array.isArray(v) ? v.length : 0;
+}
+
+function describeSearch(d: Record<string, unknown>): string {
+  const name = providerLabel(str(d.provider));
+  if (str(d.skipped)) {
+    return `${name} search skipped: ${str(d.skipped)}`;
+  }
+  if (str(d.error)) {
+    return `${name} search failed: ${str(d.error)}`;
+  }
+  const kept = length(d.kept);
+  const results = length(d.results);
+  const found =
+    results > 0
+      ? `kept ${kept} of ${quantity(results, "page", "pages")}`
+      : `kept ${quantity(kept, "page", "pages")}`;
+  return `${name} search${d.recorded === true ? " (recorded)" : ""}: ${found} for “${str(d.query)}”`;
+}
+
 export function dollars(micros: number): string {
   const usd = micros / 1_000_000;
   if (usd === 0) {
@@ -199,6 +252,8 @@ function describe(event: UpkeepEvent, card: Card | undefined): string {
     }
     case "model.call":
       return `${str(d.role) || "model"} call, ${seconds(num(d.latency_ms))}, ${dollars(num(d.micros))}`;
+    case "search.call":
+      return describeSearch(d);
     case "tool.call":
       return `tool ${str(d.tool)} ${d.ok === true ? "ok" : "failed"}: ${str(d.detail)}`;
     case "verify.result":
@@ -327,6 +382,26 @@ function applyEvent(state: BoardState, event: UpkeepEvent): BoardState {
           micros: c.micros + num(d.micros),
           baselineMicros: c.baselineMicros + num(d.baseline_micros),
         })),
+      };
+      break;
+    }
+    case "search.call": {
+      const prev = next.search;
+      const skipped = str(d.skipped);
+      const error = str(d.error);
+      next = {
+        ...next,
+        search: {
+          provider: str(d.provider) || prev.provider,
+          calls: skipped ? prev.calls : prev.calls + 1,
+          kept: prev.kept + length(d.kept),
+          results: prev.results + length(d.results),
+          failed: prev.failed + (error ? 1 : 0),
+          skipped: prev.skipped + (skipped ? 1 : 0),
+          recorded: d.recorded === true,
+          lastQuery: str(d.query) || prev.lastQuery,
+          lastProblem: skipped || error,
+        },
       };
       break;
     }

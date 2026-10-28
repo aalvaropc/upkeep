@@ -12,6 +12,7 @@ const TONES: Record<string, string> = {
   "pr.blocker": "danger",
   "pr.step": "warn",
   "model.call": "info",
+  "search.call": "info",
   "tool.call": "info",
   "verify.result": "info",
   receipt: "info",

@@ -24,10 +24,23 @@ type Step struct {
 	OK       bool          `json:"ok"`
 }
 
+type Search struct {
+	Provider string        `json:"provider"`
+	Query    string        `json:"query"`
+	Results  int           `json:"results"`
+	Kept     int           `json:"kept"`
+	Latency  time.Duration `json:"latency"`
+	Micros   int64         `json:"micros"`
+	Error    string        `json:"error,omitempty"`
+	Recorded bool          `json:"recorded"`
+	Reused   bool          `json:"reused"`
+}
+
 type Receipt struct {
 	mu       sync.Mutex
 	lines    map[string]*Line
 	steps    []Step
+	searches []Search
 	attempts int
 }
 
@@ -59,6 +72,18 @@ func (r *Receipt) AddStep(s Step) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.steps = append(r.steps, s)
+}
+
+func (r *Receipt) AddSearch(s Search) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.searches = append(r.searches, s)
+}
+
+func (r *Receipt) Searches() []Search {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.searches)
 }
 
 var roleOrder = map[model.Role]int{model.Ultra: 0, model.Super: 1, model.Nano: 2}
@@ -132,8 +157,10 @@ func (r *Receipt) Merge(other *Receipt) {
 		}
 		r.mu.Unlock()
 	}
+	steps, searches, attempts := other.Steps(), other.Searches(), other.Attempts()
 	r.mu.Lock()
-	r.steps = append(r.steps, other.Steps()...)
-	r.attempts += other.Attempts()
+	r.steps = append(r.steps, steps...)
+	r.searches = append(r.searches, searches...)
+	r.attempts += attempts
 	r.mu.Unlock()
 }

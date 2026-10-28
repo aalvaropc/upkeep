@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { dollars, outcomeLabel, seconds } from "../board";
+import { dollars, outcomeLabel, providerLabel, quantity, seconds } from "../board";
 import type { Detail, Forecast } from "../types";
 import { DiffView } from "./DiffView";
 import { Icon } from "./Icon";
@@ -37,13 +37,54 @@ function ForecastView({
   confirmed: string[];
   missed: string[];
 }) {
+  const search = forecast.search;
+  const provider = providerLabel(search?.provider || "tavily");
+  const releases =
+    forecast.releases ?? forecast.sources.filter((s) => s.includes("/releases/tag/"));
+  const pages = forecast.sources.filter((s) => isWebAddress(s) && !releases.includes(s));
+  const read = [
+    releases.length > 0 ? quantity(releases.length, "release note", "release notes") : "",
+    pages.length > 0 ? `${quantity(pages.length, "page", "pages")} ${provider} found` : "",
+  ]
+    .filter(Boolean)
+    .join(" and ");
+  const when = search?.recorded
+    ? "recorded"
+    : search?.at
+      ? `${search.at.slice(0, 16).replace("T", " ")} UTC`
+      : "";
+  const linked = [
+    ...pages.map((url) => ({ url, kind: "search" as const })),
+    ...releases
+      .filter(isWebAddress)
+      .slice(0, 4)
+      .map((url) => ({ url, kind: "release" as const })),
+  ];
+  const moreReleases = releases.filter(isWebAddress).length - 4;
   return (
     <>
       <p className={styles.lead}>
-        Super read the release notes and the migration guide for {forecast.module} {forecast.from}{" "}
-        to {forecast.to} before any fix, and predicted what would break. The compiler then said
-        whether it did.
+        Super read {read || "the release notes and the migration guide"} for {forecast.module}{" "}
+        {forecast.from} to {forecast.to} before any fix, and predicted what would break. The
+        compiler then said whether it did.
       </p>
+      {search ? (
+        <p className={styles.searchLine}>
+          <Icon name="search" />
+          <span>
+            {provider} searched <code>“{search.query}”</code>
+            {when ? ` · ${when}` : ""}
+            {search.latency_ms ? ` · ${seconds(search.latency_ms)}` : ""}
+            {search.skipped
+              ? ` · not asked this time: ${search.skipped}`
+              : search.error
+                ? ` · failed this time: ${search.error}`
+                : search.reused
+                  ? " · no new page, so the forecast was reused"
+                  : ""}
+          </span>
+        </p>
+      ) : null}
       {forecast.breaking.length === 0 ? (
         <p className={styles.muted}>
           It predicted nothing specific. The fix started from the build output alone.
@@ -75,19 +116,30 @@ function ForecastView({
           dropped because the name does not appear in the sources.
         </p>
       ) : null}
-      {forecast.sources.some(isWebAddress) ? (
+      {linked.length > 0 ? (
         <ul className={styles.sources}>
-          {forecast.sources
-            .filter(isWebAddress)
-            .slice(0, 4)
-            .map((s) => (
-              <li key={s}>
-                <a href={s} target="_blank" rel="noreferrer noopener">
-                  {s.replace(/^https?:\/\//, "")}
-                </a>
-              </li>
-            ))}
+          {linked.map(({ url, kind }) => (
+            <li key={url} className={styles.source}>
+              <span className={styles.sourceKind} data-kind={kind}>
+                <Icon name={kind === "search" ? "search" : "patch"} />
+                {kind === "search" ? "web search" : "release notes"}
+              </span>
+              <a href={url} target="_blank" rel="noreferrer noopener">
+                {url.replace(/^https?:\/\//, "")}
+              </a>
+            </li>
+          ))}
         </ul>
+      ) : null}
+      {moreReleases > 0 ? (
+        <p className={styles.muted}>
+          and {quantity(moreReleases, "more release note", "more release notes")}
+        </p>
+      ) : null}
+      {forecast.releases_error ? (
+        <p className={styles.muted}>
+          The release notes could not be read from GitHub: {forecast.releases_error}
+        </p>
       ) : null}
     </>
   );
