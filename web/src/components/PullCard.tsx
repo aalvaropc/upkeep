@@ -1,4 +1,5 @@
 import { dollars, outcomeLabel, seconds, type Card } from "../board";
+import { overlapLabel, overlapTone } from "../plan";
 import { Icon, type IconName } from "./Icon";
 import styles from "./PullCard.module.css";
 
@@ -101,6 +102,15 @@ export function PullCard({ card, now, onOpen }: Props) {
       <span className={styles.title}>{pr.title}</span>
       <span className={styles.chips}>
         {card.blocker ? <span className={styles.blocker}>{blockerLabel(card.blocker)}</span> : null}
+        {card.overlap ? (
+          <span className={styles.overlap} data-tone={overlapTone(card.overlap)}>
+            <Icon
+              name={overlapTone(card.overlap) === "conflict" ? "alert" : "merge"}
+              className={styles.overlapIcon}
+            />
+            {overlapLabel(card.overlap)}
+          </span>
+        ) : null}
         {(pr.labels ?? []).map((l) => (
           <span key={l} className={styles.label}>
             {l}
