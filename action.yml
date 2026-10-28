@@ -1,0 +1,141 @@
+name: Upkeep
+description: Keep pull requests mergeable. Finds what blocks each open pull request, fixes what the policy allows with NVIDIA Nemotron models on Nebius Token Factory, proves every fix with the build and the tests, and leaves a receipt.
+author: aalvaropc
+branding:
+  icon: git-pull-request
+  color: green
+
+inputs:
+  repo:
+    description: Repository to work, as owner/name.
+    required: false
+    default: ${{ github.repository }}
+  pull-requests:
+    description: Work only these pull requests, as numbers separated by commas. Empty works every open pull request.
+    required: false
+    default: ""
+  dry-run:
+    description: Detect and fix in scratch copies, but push, comment and merge nothing.
+    required: false
+    default: "false"
+  policy:
+    description: Path to a policy file in the workspace. Empty uses the built-in policy.
+    required: false
+    default: ""
+  version:
+    description: Upkeep version to install. Empty installs the ref this action was used at, or the latest release when that ref is unknown.
+    required: false
+    default: ""
+  nebius-api-key:
+    description: Nebius Token Factory API key.
+    required: true
+  github-token:
+    description: Token that pushes to pull request branches, comments and merges. Use a fine-grained personal access token or a GitHub App token, because commits pushed with the workflow's own token do not start the checks.
+    required: true
+  tavily-api-key:
+    description: Tavily API key, to search the web for migration guides.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v7.0.0
+      with:
+        go-version: "1.26.x"
+        cache: false
+
+    - name: Install Upkeep
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
+      run: |
+        set -euo pipefail
+        version="$INPUT_VERSION"
+        if [ -z "$version" ]; then
+          case "$GITHUB_ACTION_PATH" in
+            */_actions/*/*/*) version="${GITHUB_ACTION_PATH#*/_actions/*/*/}" ;;
+          esac
+        fi
+        version="${version:-${ACTION_REF:-latest}}"
+        if ! [[ "$version" =~ ^[A-Za-z0-9][A-Za-z0-9._/+-]*$ ]]; then
+          echo "::error::The version input must be a release, a branch or a commit."
+          exit 1
+        fi
+        mkdir -p "$RUNNER_TEMP/upkeep/bin" "$RUNNER_TEMP/upkeep/cache" "$RUNNER_TEMP/upkeep/learned"
+        GOBIN="$RUNNER_TEMP/upkeep/bin" go install "github.com/aalvaropc/upkeep/cmd/upkeep@$version"
+        "$RUNNER_TEMP/upkeep/bin/upkeep" version
+
+    - name: Restore the Upkeep cache
+      id: restore
+      uses: actions/cache/restore@v6.1.0
+      with:
+        path: |
+          ${{ runner.temp }}/upkeep/cache
+          ${{ runner.temp }}/upkeep/learned
+        key: upkeep-${{ inputs.repo }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          upkeep-${{ inputs.repo }}-
+
+    - name: Work the pull requests
+      shell: bash
+      env:
+        UPKEEP_MODE: live
+        UPKEEP_SANDBOX: docker
+        UPKEEP_DATA_DIR: ${{ runner.temp }}/upkeep
+        NEBIUS_API_KEY: ${{ inputs.nebius-api-key }}
+        TAVILY_API_KEY: ${{ inputs.tavily-api-key }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_REPO: ${{ inputs.repo }}
+        INPUT_PULL_REQUESTS: ${{ inputs.pull-requests }}
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_POLICY: ${{ inputs.policy }}
+      run: |
+        set +e -uo pipefail
+        args=(run -repo "$INPUT_REPO")
+        if [ -n "$INPUT_PULL_REQUESTS" ]; then
+          args+=(-pr "$INPUT_PULL_REQUESTS")
+        fi
+        mode=""
+        case "$INPUT_DRY_RUN" in
+          true)
+            args+=(-dry-run)
+            mode=" (dry run)"
+            ;;
+          false | "") ;;
+          *)
+            echo "::error::The dry-run input must be true or false."
+            exit 1
+            ;;
+        esac
+        if [ -n "$INPUT_POLICY" ]; then
+          args+=(-policy "$INPUT_POLICY")
+        fi
+        log="$RUNNER_TEMP/upkeep/run.log"
+        "$RUNNER_TEMP/upkeep/bin/upkeep" "${args[@]}" | tee "$log"
+        status=${PIPESTATUS[0]}
+        summary="$(awk '
+          /^$/ { prev = block; block = ""; next }
+          /^[0-9]+ model calls, / { found = 1; printf "%s\n%s\n", prev, $0; next }
+          found { print; next }
+          { block = block $0 "\n" }
+        ' "$log")"
+        {
+          printf '### Upkeep on %s%s\n\n' "$INPUT_REPO" "$mode"
+          if [ -n "$summary" ]; then
+            printf '~~~text\n%s\n~~~\n' "$summary"
+          else
+            printf 'The run stopped before its summary (exit status %s); the job log says why.\n' "$status"
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+        exit "$status"
+
+    - name: Save the Upkeep cache
+      if: always() && steps.restore.outcome == 'success'
+      uses: actions/cache/save@v6.1.0
+      with:
+        path: |
+          ${{ runner.temp }}/upkeep/cache
+          ${{ runner.temp }}/upkeep/learned
+        key: upkeep-${{ inputs.repo }}-${{ github.run_id }}-${{ github.run_attempt }}
