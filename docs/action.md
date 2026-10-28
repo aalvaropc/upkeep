@@ -82,7 +82,7 @@ jobs:
 
 The schedule works every open pull request once a day. Pick your own off-hour minute so your run does not start at the same moment as everyone else's. **Run workflow** in the Actions tab works all of them, or only the numbers you give, and can be a dry run. A comment that starts with `/upkeep` on a pull request works that pull request, but only when it comes from the repository's owner, a member of its organization or a collaborator. A comment from anyone else starts nothing. Both jobs share one concurrency group, so two runs never push to the same branch at once: a second run waits for the first.
 
-Pin the action to a release tag or a commit. The `version` input installs the same version of the binary as the ref the action is used at; set it only to try another one.
+Pin the action to a release tag or a commit. By default the binary is built at the same ref as the action: `go install github.com/aalvaropc/upkeep/cmd/upkeep@<ref>`, or a build of the action's own source when the ref is a branch with a slash in its name, which Go cannot install. Set the `version` input only to try another version.
 
 ## Inputs
 

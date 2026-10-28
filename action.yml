@@ -53,19 +53,26 @@ runs:
       run: |
         set -euo pipefail
         version="$INPUT_VERSION"
+        ref=""
         if [ -z "$version" ]; then
           case "$GITHUB_ACTION_PATH" in
-            */_actions/*/*/*) version="${GITHUB_ACTION_PATH#*/_actions/*/*/}" ;;
+            */_actions/*/*/*) ref="${GITHUB_ACTION_PATH#*/_actions/*/*/}" ;;
           esac
+          version="${ref:-${ACTION_REF:-latest}}"
         fi
-        version="${version:-${ACTION_REF:-latest}}"
         if ! [[ "$version" =~ ^[A-Za-z0-9][A-Za-z0-9._/+-]*$ ]]; then
           echo "::error::The version input must be a release, a branch or a commit."
           exit 1
         fi
         mkdir -p "$RUNNER_TEMP/upkeep/bin" "$RUNNER_TEMP/upkeep/cache" "$RUNNER_TEMP/upkeep/learned"
-        GOBIN="$RUNNER_TEMP/upkeep/bin" go install "github.com/aalvaropc/upkeep/cmd/upkeep@$version"
-        "$RUNNER_TEMP/upkeep/bin/upkeep" version
+        export GOBIN="$RUNNER_TEMP/upkeep/bin"
+        if [[ "$ref" == */* ]]; then
+          cd "$GITHUB_ACTION_PATH"
+          go install ./cmd/upkeep
+        else
+          go install "github.com/aalvaropc/upkeep/cmd/upkeep@$version"
+        fi
+        "$GOBIN/upkeep" version
 
     - name: Restore the Upkeep cache
       id: restore
