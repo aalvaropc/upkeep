@@ -109,6 +109,10 @@
   font-size: 14px;
 }
 
+.events li[data-kind="search"] .tool svg {
+  color: var(--search);
+}
+
 .target {
   color: var(--fg);
   font-size: 12px;

@@ -1,9 +1,18 @@
 import type { ReactNode } from "react";
-import { dollars, outcomeLabel, purposeLabel, seconds, type Card } from "../board";
+import {
+  dollars,
+  outcomeLabel,
+  providerLabel,
+  purposeLabel,
+  quantity,
+  seconds,
+  type Card,
+} from "../board";
 import {
   traceRows,
   traceSections,
   type ModelTrace,
+  type SearchCallTrace,
   type StepTrace,
   type ToolTrace,
   type TraceGroup,
@@ -93,6 +102,35 @@ function ModelBody({ e, named }: { e: ModelTrace; named: boolean }) {
   );
 }
 
+function SearchBody({ e }: { e: SearchCallTrace }) {
+  return (
+    <>
+      <span className={styles.tool}>
+        <Icon name="search" />
+        {providerLabel(e.provider)} search
+      </span>
+      {e.skipped ? (
+        <span className={styles.status} data-tone="warn">
+          <Icon name="wait" />
+          skipped
+        </span>
+      ) : e.error ? (
+        <span className={styles.status} data-tone="danger">
+          <Icon name="blocked" />
+          failed
+        </span>
+      ) : (
+        <span className={styles.detail}>
+          kept {e.results > 0 ? `${e.kept} of ` : ""}
+          {quantity(e.results > 0 ? e.results : e.kept, "page", "pages")}
+        </span>
+      )}
+      {e.query ? <q className={styles.said}>{e.query}</q> : null}
+      {e.skipped || e.error ? <span className={styles.result}>{e.skipped ?? e.error}</span> : null}
+    </>
+  );
+}
+
 function ToolBody({ e }: { e: ToolTrace }) {
   return (
     <>
@@ -162,6 +200,8 @@ function tone(row: TraceRow, live: boolean): string {
             : "muted";
     case "model":
       return "info";
+    case "search":
+      return e.error ? "danger" : e.skipped ? "warn" : "info";
     case "tool":
       return e.ok ? "info" : "danger";
     case "verify":
@@ -178,6 +218,13 @@ function meta(row: TraceRow): string {
   if (e.kind === "model") {
     return `${seconds(e.latencyMs)} · ${e.tokens.toLocaleString("en-US")} tokens · ${dollars(e.micros)}`;
   }
+  if (e.kind === "search") {
+    if (e.skipped) {
+      return "";
+    }
+    const when = e.recorded ? "recorded" : e.reused ? "reused" : seconds(e.latencyMs);
+    return e.micros > 0 ? `${when} · ${dollars(e.micros)}` : when;
+  }
   return row.durationMs !== undefined ? seconds(row.durationMs) : "";
 }
 
@@ -191,6 +238,9 @@ function Row({ row, live, named }: { row: TraceRow; live: boolean; named: boolea
       break;
     case "model":
       body = <ModelBody e={e} named={named} />;
+      break;
+    case "search":
+      body = <SearchBody e={e} />;
       break;
     case "tool":
       body = <ToolBody e={e} />;

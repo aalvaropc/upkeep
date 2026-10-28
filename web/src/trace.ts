@@ -52,6 +52,20 @@ export interface ToolTrace extends TraceBase {
   result: string;
 }
 
+export interface SearchCallTrace extends TraceBase {
+  kind: "search";
+  provider: string;
+  query: string;
+  kept: number;
+  results: number;
+  latencyMs: number;
+  micros: number;
+  recorded: boolean;
+  reused: boolean;
+  error?: string;
+  skipped?: string;
+}
+
 export interface VerifyTrace extends TraceBase {
   kind: "verify";
   passed: boolean;
@@ -63,7 +77,8 @@ export interface ActionTrace extends TraceBase {
   action: Action;
 }
 
-export type TraceEntry = StepTrace | ModelTrace | ToolTrace | VerifyTrace | ActionTrace;
+export type TraceEntry =
+  StepTrace | ModelTrace | SearchCallTrace | ToolTrace | VerifyTrace | ActionTrace;
 
 export interface TraceGroup {
   attempt?: number;
@@ -107,6 +122,10 @@ function num(v: unknown): number {
 
 function count(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+function size(v: unknown): number {
+  return Array.isArray(v) ? v.length : 0;
 }
 
 function word(v: unknown): string | undefined {
@@ -201,6 +220,22 @@ export function traceEntry(
         micros: num(d.micros),
       };
     }
+    case "search.call":
+      return {
+        ...base,
+        kind: "search",
+        phase: "forecast",
+        provider: str(d.provider),
+        query: str(d.query),
+        kept: size(d.kept),
+        results: size(d.results),
+        latencyMs: num(d.latency_ms),
+        micros: num(d.micros),
+        recorded: d.recorded === true,
+        reused: d.reused === true,
+        error: word(d.error),
+        skipped: word(d.skipped),
+      };
     case "tool.call":
       return {
         ...base,

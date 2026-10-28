@@ -520,6 +520,14 @@ describe("App", () => {
       status: "done",
       detail: "build fails: Super repairs it with 4 tools, up to 3 attempts, then 9 checks",
     } satisfies StepEvent);
+    emit("search.call", 2, {
+      provider: "tavily",
+      query: "example.com/lib v2 migration guide",
+      results: [{ title: "Guide", url: "https://example.com/guide", score: 0.9, kept: true }],
+      kept: ["https://example.com/guide"],
+      latency_ms: 700,
+      recorded: true,
+    });
     emit("pr.step", 2, {
       step: "repair",
       status: "running",
@@ -556,6 +564,10 @@ describe("App", () => {
       ),
     ).toBeTruthy();
     expect(within(panel).getByRole("heading", { name: /Attempt 1 of 3/ })).toBeTruthy();
+    expect(within(panel).getByRole("heading", { name: "Forecast" })).toBeTruthy();
+    expect(within(panel).getByText("Tavily search")).toBeTruthy();
+    expect(within(panel).getByText("example.com/lib v2 migration guide")).toBeTruthy();
+    expect(within(panel).getByText("kept 1 of 1 page")).toBeTruthy();
     expect(within(panel).getByText("The caller still uses Add.")).toBeTruthy();
     expect(within(panel).getByText("1.5 s · 2,100 tokens · $0.0003")).toBeTruthy();
 

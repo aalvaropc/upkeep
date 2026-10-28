@@ -524,6 +524,50 @@ describe("trace", () => {
     ]);
   });
 
+  it("puts the web search of a forecast in the forecast phase", () => {
+    const state = run([
+      started(5),
+      event("pr.step", 5, { step: "forecast", status: "running", detail: "jwt v4 to v5" }),
+      event("search.call", 5, {
+        provider: "tavily",
+        query: "golang-jwt v5 migration guide",
+        results: [
+          { title: "Migration guide", url: "https://example.com/a", score: 0.9, kept: true },
+          { title: "Blog", url: "https://example.com/b", score: 0.2, kept: false },
+        ],
+        kept: ["https://example.com/a"],
+        latency_ms: 800,
+        recorded: true,
+      }),
+      event("search.call", 5, { provider: "tavily", query: "x", skipped: "no key" }),
+      event("pr.step", 5, { step: "forecast", status: "done", detail: "2 breaking changes" }),
+    ]);
+    const trace = state.cards[5]?.trace ?? [];
+    expect(trace.map((e) => `${e.phase}:${e.kind}`)).toEqual([
+      "forecast:step",
+      "forecast:search",
+      "forecast:search",
+      "forecast:step",
+    ]);
+    expect(trace[1]).toMatchObject({
+      kind: "search",
+      provider: "tavily",
+      query: "golang-jwt v5 migration guide",
+      kept: 1,
+      results: 2,
+      latencyMs: 800,
+      recorded: true,
+    });
+    expect(trace[2]).toMatchObject({ kind: "search", skipped: "no key" });
+    const forecast = traceSections(trace)[0];
+    expect(forecast?.phase).toBe("forecast");
+    expect(forecast?.groups[0] && traceRows(forecast.groups[0]).map((r) => r.entry.kind)).toEqual([
+      "step",
+      "search",
+      "search",
+    ]);
+  });
+
   it("keeps only the newest entries of a long trace", () => {
     let state = run([started(1)]);
     for (let i = 0; i < MAX_TRACE + 50; i++) {
