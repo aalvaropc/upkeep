@@ -55,8 +55,18 @@ export const COLUMNS: readonly ColumnSpec[] = [
 
 export function Board({ board, now, onOpen }: Props) {
   const cols = columns(board);
+  const finished =
+    cols.done.length > 0 &&
+    cols.queued.length === 0 &&
+    cols.working.length === 0 &&
+    cols.verified.length === 0;
   return (
-    <section id="board" className={styles.board} aria-label="Pull requests">
+    <section
+      id="board"
+      className={styles.board}
+      data-finished={finished}
+      aria-label="Pull requests"
+    >
       {COLUMNS.map((column) => {
         const cards: Card[] = cols[column.id];
         return (

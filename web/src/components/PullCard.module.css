@@ -49,6 +49,13 @@
   white-space: nowrap;
 }
 
+.login {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .whoIcon {
   flex: none;
   font-size: 14px;

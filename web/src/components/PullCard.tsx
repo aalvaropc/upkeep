@@ -94,10 +94,12 @@ export function PullCard({ card, now, onOpen }: Props) {
         <span className={styles.number}>#{pr.number}</span>
         <span
           className={styles.who}
-          title={pr.author.kind === "bot" ? "Opened by a bot" : "Opened by a person"}
+          title={`${pr.author.login}: opened by ${pr.author.kind === "bot" ? "a bot" : "a person"}`}
         >
           <Icon name={pr.author.kind === "bot" ? "bot" : "person"} className={styles.whoIcon} />
-          {pr.author.login}
+          <span className={styles.login}>
+            {pr.author.kind === "bot" ? pr.author.login.replace(/\[bot\]$/, "") : pr.author.login}
+          </span>
         </span>
         {pr.bump ? <span className={styles.bump}>{pr.bump.level}</span> : null}
         <span className={styles.clock}>{clock(card, now)}</span>
