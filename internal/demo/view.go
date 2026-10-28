@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aalvaropc/upkeep/internal/confidence"
+	"github.com/aalvaropc/upkeep/internal/engine"
 	"github.com/aalvaropc/upkeep/internal/forecast"
 	"github.com/aalvaropc/upkeep/internal/forge"
 	"github.com/aalvaropc/upkeep/internal/gitx"
@@ -25,6 +26,7 @@ type PRView struct {
 	Actions    []queue.Action         `json:"actions,omitempty"`
 	DurationMS int64                  `json:"duration_ms,omitempty"`
 	Confidence *confidence.Assessment `json:"confidence,omitempty"`
+	Learned    *engine.Learned        `json:"learned,omitempty"`
 }
 
 type Snapshot struct {
@@ -115,7 +117,7 @@ func (s *Session) Snapshot(ctx context.Context) Snapshot {
 }
 
 func prView(v forge.View, it queue.Item) PRView {
-	view := PRView{View: v, Outcome: it.Outcome, Blocker: it.Result.Blocker, Actions: it.Actions, DurationMS: it.Duration.Milliseconds()}
+	view := PRView{View: v, Outcome: it.Outcome, Blocker: it.Result.Blocker, Actions: it.Actions, DurationMS: it.Duration.Milliseconds(), Learned: it.Result.Learned}
 	if c := it.Result.Confidence; c.Known() {
 		view.Confidence = &c
 	}

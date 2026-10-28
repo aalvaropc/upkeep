@@ -42,6 +42,8 @@ const STEPS: Record<string, string> = {
   verify: "Verifying",
   explain: "Writing the note",
   diagnose: "Diagnosing",
+  learned: "Reusing a learned fix",
+  learn: "Remembering the fix",
 };
 
 export function stepLabel(name: string, status: string, detail: string): string {
@@ -103,6 +105,15 @@ export function PullCard({ card, now, onOpen }: Props) {
       <span className={styles.title}>{pr.title}</span>
       <span className={styles.chips}>
         {card.blocker ? <span className={styles.blocker}>{blockerLabel(card.blocker)}</span> : null}
+        {card.learned?.status === "reused" ? (
+          <span
+            className={styles.learned}
+            title={`Reused the fix learned from #${card.learned.from}`}
+          >
+            <Icon name="learned" className={styles.learnedIcon} />
+            learned fix
+          </span>
+        ) : null}
         {card.overlap ? (
           <span className={styles.overlap} data-tone={overlapTone(card.overlap)}>
             <Icon

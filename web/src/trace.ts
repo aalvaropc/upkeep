@@ -66,6 +66,14 @@ export interface SearchCallTrace extends TraceBase {
   skipped?: string;
 }
 
+export interface LearnedTrace extends TraceBase {
+  kind: "learned";
+  status: string;
+  from: number;
+  savedMicros: number;
+  detail: string;
+}
+
 export interface VerifyTrace extends TraceBase {
   kind: "verify";
   passed: boolean;
@@ -78,7 +86,7 @@ export interface ActionTrace extends TraceBase {
 }
 
 export type TraceEntry =
-  StepTrace | ModelTrace | SearchCallTrace | ToolTrace | VerifyTrace | ActionTrace;
+  StepTrace | ModelTrace | SearchCallTrace | ToolTrace | LearnedTrace | VerifyTrace | ActionTrace;
 
 export interface TraceGroup {
   attempt?: number;
@@ -156,6 +164,7 @@ const STEP_PHASES: Record<string, TracePhase> = {
   repair: "fix",
   verify: "verify",
   explain: "act",
+  learn: "act",
   diagnose: "act",
   run: "act",
 };
@@ -186,6 +195,18 @@ export function traceEntry(
   switch (event.kind) {
     case "pr.step": {
       const name = str(d.step);
+      if (name === "learned") {
+        const previous = trace.findLast((e): e is LearnedTrace => e.kind === "learned");
+        return {
+          ...base,
+          kind: "learned",
+          phase: "fix",
+          status: str(d.status),
+          from: num(d.from) || (previous?.from ?? 0),
+          savedMicros: num(d.saved_micros) || (previous?.savedMicros ?? 0),
+          detail: str(d.detail),
+        };
+      }
       return {
         ...base,
         kind: "step",
@@ -317,23 +338,24 @@ export function traceRows(group: TraceGroup): TraceRow[] {
   const rows: TraceRow[] = [];
   const pending = new Map<string, number>();
   for (const entry of group.entries) {
-    if (entry.kind === "step") {
-      if (group.attempt && entry.name === "repair") {
+    if (entry.kind === "step" || entry.kind === "learned") {
+      if (entry.kind === "step" && group.attempt && entry.name === "repair") {
         continue;
       }
-      const at = pending.get(entry.name);
+      const name = entry.kind === "step" ? entry.name : "learned";
+      const at = pending.get(name);
       const started = at === undefined ? undefined : rows[at];
       if (entry.status === "running") {
         if (at !== undefined && started) {
           rows[at] = { ...started, open: false };
         }
-        pending.set(entry.name, rows.length);
+        pending.set(name, rows.length);
         rows.push({ entry, open: true });
         continue;
       }
       if (at !== undefined && started) {
         rows[at] = { entry, durationMs: entry.at - started.entry.at, open: false };
-        pending.delete(entry.name);
+        pending.delete(name);
         continue;
       }
     }

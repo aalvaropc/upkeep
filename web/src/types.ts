@@ -39,6 +39,12 @@ export interface Confidence {
   reasons: string[];
 }
 
+export interface Learned {
+  from: number;
+  saved_calls: number;
+  saved_micros: number;
+}
+
 export interface PullView extends PullRequest {
   state: "open" | "merged";
   merge_sha?: string;
@@ -48,6 +54,7 @@ export interface PullView extends PullRequest {
   actions?: Action[];
   duration_ms?: number;
   confidence?: Confidence;
+  learned?: Learned;
 }
 
 export interface Snapshot {

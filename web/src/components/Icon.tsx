@@ -19,6 +19,7 @@ export type IconName =
   | "rules"
   | "wait"
   | "tool"
+  | "learned"
   | "alert"
   | "search"
   | "gauge";
@@ -70,6 +71,7 @@ const PATHS: Record<IconName, string[]> = {
   tool: ["M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5L15 12l-3-3z"],
   alert: ["M12 3l9 16H3z", "M12 10v4", "M12 17h.01"],
   gauge: ["M3.34 19a10 10 0 1 1 17.32 0", "M12 14l4-4"],
+  learned: ["M6 3h12v18l-6-4-6 4z", "M9 9.5l2 2 4-4"],
   search: [
     "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0",
     "M3.6 9h16.8",

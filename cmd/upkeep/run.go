@@ -20,6 +20,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/forge"
 	"github.com/aalvaropc/upkeep/internal/github"
 	"github.com/aalvaropc/upkeep/internal/gitx"
+	"github.com/aalvaropc/upkeep/internal/learn"
 	"github.com/aalvaropc/upkeep/internal/plan"
 	"github.com/aalvaropc/upkeep/internal/policy"
 	"github.com/aalvaropc/upkeep/internal/pull"
@@ -33,6 +34,7 @@ type ownerFlags struct {
 	policy   string
 	parallel int
 	only     []int
+	learn    bool
 }
 
 func parseNumbers(list string) ([]int, error) {
@@ -61,6 +63,7 @@ func parseRunArgs(args []string, stderr io.Writer) (ownerFlags, string, string, 
 	fs.StringVar(&f.policy, "policy", "", "policy file; the built-in policy when empty")
 	fs.IntVar(&f.parallel, "parallel", queue.DefaultParallel, "pull requests worked at once")
 	fs.StringVar(&only, "pr", "", "work only these pull requests, as numbers separated by commas")
+	fs.BoolVar(&f.learn, "learn", true, "remember verified fixes and reuse them when the same failure returns")
 	if err := fs.Parse(args); err != nil {
 		return ownerFlags{}, "", "", err
 	}
@@ -137,7 +140,7 @@ func runCommand(ctx context.Context, args []string, stdout, stderr io.Writer, en
 	if err := os.MkdirAll(cfg.DataDir, 0o750); err != nil {
 		return err
 	}
-	rt, err := runtime.New(ctx, runtime.Options{Config: cfg, Policy: pol, Git: gitx.Git{}, CacheDir: filepath.Join(cfg.DataDir, "cache"), Logger: logger})
+	rt, err := runtime.New(ctx, runtime.Options{Config: cfg, Policy: pol, Repo: owner + "/" + name, Git: gitx.Git{}, CacheDir: filepath.Join(cfg.DataDir, "cache"), Logger: logger})
 	if err != nil {
 		return err
 	}
@@ -160,7 +163,11 @@ func runCommand(ctx context.Context, args []string, stdout, stderr io.Writer, en
 	if flags.dryRun {
 		f = dry
 	}
-	proc, err := rt.Processor(progress(stdout))
+	var learned learn.Book
+	if flags.learn {
+		learned = &learn.Dir{Path: filepath.Join(cfg.DataDir, "learned")}
+	}
+	proc, err := rt.Processor(progress(stdout), learned)
 	if err != nil {
 		return err
 	}

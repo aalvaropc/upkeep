@@ -97,7 +97,7 @@ Pin the action to a release tag or a commit. By default the binary is built at t
 | `github-token` | none, required | token that pushes, comments and merges |
 | `tavily-api-key` | none | web search for migration guides |
 
-The job needs a Linux runner with Docker: builds and tests run in a `golang` container without network access, and none of the secrets are passed into it. The `cache` and `learned` folders of Upkeep's data directory (build and forecast caches, the daily token count) are kept between runs with the Actions cache, keyed by repository.
+The job needs a Linux runner with Docker: builds and tests run in a `golang` container without network access, and none of the secrets are passed into it. The `cache` and `learned` folders of Upkeep's data directory (build and forecast caches, the daily token count, and the fixes Upkeep learned, which it reapplies without a model call when the same failure returns) are kept between runs with the Actions cache, keyed by repository.
 
 ## Which token
 

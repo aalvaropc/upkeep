@@ -52,6 +52,16 @@ func receiptComment(res engine.Result) string {
 		b.WriteString(s + "\n\n")
 	}
 	footer := confidenceLine(res.Confidence) + searchLine(res.Receipt.Searches())
+	if l := res.Learned; l != nil {
+		fmt.Fprintf(&b, "Learned fix: Upkeep reused the verified fix from #%d with 0 model calls; the first time cost %s.\n", l.From, usd(l.SavedMicros))
+		if len(lines) == 0 {
+			if footer != "" {
+				b.WriteString("\n" + footer)
+			}
+			return b.String()
+		}
+		b.WriteString("\n")
+	}
 	if len(lines) == 0 {
 		b.WriteString("No model was called; the checks were enough.\n")
 		if footer != "" {

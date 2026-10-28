@@ -89,7 +89,8 @@
 }
 
 .blocker,
-.label {
+.label,
+.learned {
   padding: 1px 8px;
   border-radius: 999px;
   font: 600 11px/1.6 var(--mono);
@@ -103,6 +104,19 @@
 .label {
   background: var(--tint-accent);
   color: var(--accent);
+}
+
+.learned {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--tint-info);
+  color: var(--info);
+}
+
+.learnedIcon {
+  flex: none;
+  font-size: 13px;
 }
 
 .overlap {

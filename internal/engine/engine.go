@@ -17,6 +17,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/forecast"
 	"github.com/aalvaropc/upkeep/internal/gitx"
 	"github.com/aalvaropc/upkeep/internal/gocomments"
+	"github.com/aalvaropc/upkeep/internal/learn"
 	"github.com/aalvaropc/upkeep/internal/model"
 	"github.com/aalvaropc/upkeep/internal/pull"
 	"github.com/aalvaropc/upkeep/internal/receipt"
@@ -75,11 +76,15 @@ type Result struct {
 	WantsPatch bool
 	WantsMerge bool
 	Confidence confidence.Assessment
+	Learned    *Learned
 	Err        error
+	fixes      []learn.Fix
 }
 
 type Processor struct {
-	Env strategy.Env
+	Env     strategy.Env
+	Learned learn.Book
+	Repo    string
 }
 
 func (p Processor) emit(res *Result, kind events.Kind, data any) {
@@ -102,7 +107,10 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 		return p.failed(&res, fmt.Errorf("reading the branch head: %w", err))
 	}
 	res.HeadBefore, res.FixBase = head, head
-	p.forecast(ctx, &res, job)
+	deferred := p.defersForecast(job)
+	if !deferred {
+		p.forecast(ctx, &res, job)
+	}
 	detector := detect.Detector{Git: env.Git, Runner: env.Runner, Policy: env.Policy}
 	ws := detect.Workspace{Dir: in.Dir, Base: in.Base}
 
@@ -129,6 +137,7 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 	p.step(&res, "plan", "done", approach(diag.Blocker, env.Policy, strings.TrimPrefix(in.Base, "origin/")))
 
 	seen := map[pull.Blocker]int{}
+	tried := map[string]bool{}
 	for round := 0; round < maxRounds; round++ {
 		seen[diag.Blocker]++
 		if seen[diag.Blocker] > 2 {
@@ -192,6 +201,22 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 				res.Failure = clip(strategy.FailureText(failure), maxFailureChars)
 			}
 			p.confirmForecast(&res, strategy.FailureText(failure))
+			key := p.key(job, strategy.FailureText(failure))
+			reused, err := p.reuse(ctx, &res, job, key, tried)
+			if err != nil {
+				return p.failed(&res, err)
+			}
+			if reused {
+				if diag, err = diagnose(); err != nil {
+					return p.failed(&res, err)
+				}
+				continue
+			}
+			if deferred {
+				deferred = false
+				p.forecast(ctx, &res, job)
+				p.confirmForecast(&res, strategy.FailureText(failure))
+			}
 			rep := env.Repair(ctx, job, strategy.FailureText(failure), res.FixBase)
 			res.Attempts = rep.Attempts
 			if rep.Err != nil {
@@ -204,6 +229,7 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 			if _, err := env.Git.Commit(ctx, in.Dir, fixMessage(in.PR, rep.Edits)); err != nil {
 				return p.failed(&res, fmt.Errorf("committing the fix: %w", err))
 			}
+			p.remember(&res, job, key, strategy.FailureText(failure), rep)
 			if diag, err = diagnose(); err != nil {
 				return p.failed(&res, err)
 			}
@@ -451,6 +477,7 @@ func (p Processor) finish(ctx context.Context, res *Result, job *strategy.Job, d
 	}
 	if res.Changed {
 		res.Summary = p.summarize(ctx, res, job)
+		p.learn(res)
 	}
 	res.Outcome = pull.Mergeable
 	res.WantsPush = res.Changed && env.Policy.MayPush(job.PR)
@@ -467,11 +494,16 @@ func assess(res *Result, job *strategy.Job, maxLines int) confidence.Assessment 
 	for _, c := range res.Changes {
 		lines += c.Added + c.Deleted
 	}
+	from := 0
+	if res.Learned != nil {
+		from = res.Learned.From
+	}
 	return confidence.Assess(confidence.Input{
 		Outcome:   res.Outcome,
 		Blocker:   res.Blocker,
 		Bump:      job.PR.Bump,
 		Attempts:  res.Attempts,
+		Learned:   from,
 		Files:     len(res.Changes),
 		Lines:     lines,
 		MaxLines:  maxLines,
@@ -529,6 +561,9 @@ func (p Processor) summarize(ctx context.Context, res *Result, job *strategy.Job
 	}
 	if res.Blocker == pull.ConflictSmall && len(paths) == 0 {
 		return "Resolved the conflict with " + strings.TrimPrefix(job.Base, "origin/") + " and merged it into the branch."
+	}
+	if note, ok := res.Learned.reusedNote(res.Patch); ok {
+		return note
 	}
 	if !env.CanExplain() {
 		return edited

@@ -17,6 +17,7 @@ A repository collects pull requests that need a small change before anyone can m
 3. **Fix.** Merges and formatting are mechanical. Small conflicts go to Ultra in one call. Broken builds and tests go to Super, which edits files through four tools (`read_file`, `apply_edit`, `go_doc`, `run_checks`) for up to three attempts, each starting clean.
 4. **Verify.** Outside the model, a checklist decides: build, vet and tests pass; at most 5 files and 80 lines changed; no test touched; Go files only; no comment added; formatted.
 5. **Act.** Push the fix when the pull request has the `upkeep` label or is a bot's, otherwise attach it as a patch; merge a bot's patch or minor bump when everything passes; otherwise post Ultra's diagnosis and leave the pull request to a person.
+6. **Learn.** A fix Super made that passed the verifier is remembered with its failure. When the same failure comes back for the same dependency jump, Upkeep reapplies those edits first, with no model call, and still runs every check and the verifier; if they fail, it repairs from the start. In the dashboard, Run again keeps what the last run learned.
 
 Upkeep never force-pushes, never merges a pull request opened by a person, and never lets a fix edit, delete or skip tests. Those are rules in code, not in a prompt.
 

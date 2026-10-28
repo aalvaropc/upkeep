@@ -68,20 +68,26 @@ export function useSession(): SessionApi {
     });
   }, []);
 
-  const create = useCallback(async () => {
-    if (creating.current) {
-      return;
-    }
-    creating.current = true;
-    try {
-      adopt(await api.createSession());
-      setError(null);
-    } catch (err) {
-      setError(explain(err));
-    } finally {
-      creating.current = false;
-    }
-  }, [adopt]);
+  const create = useCallback(
+    async (inherit?: string): Promise<string | null> => {
+      if (creating.current) {
+        return null;
+      }
+      creating.current = true;
+      try {
+        const snap = await api.createSession(inherit);
+        adopt(snap);
+        setError(null);
+        return snap.id;
+      } catch (err) {
+        setError(explain(err));
+        return null;
+      } finally {
+        creating.current = false;
+      }
+    },
+    [adopt],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -136,10 +142,10 @@ export function useSession(): SessionApi {
       dispatch({ type: "reset" });
       setSessionId(null);
       remember(null);
-      if (previous) {
+      const next = await create(previous ?? undefined);
+      if (previous && previous !== next) {
         await api.deleteSession(previous).catch(() => undefined);
       }
-      await create();
     } finally {
       setBusy(false);
     }

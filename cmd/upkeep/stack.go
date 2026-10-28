@@ -120,7 +120,7 @@ func openStack(ctx context.Context, stderr io.Writer, environ []string, f stackF
 		}
 	}
 	rt, err := runtime.New(ctx, runtime.Options{
-		Config: cfg, Policy: pol, Git: gitx.Git{}, Fixtures: read, Record: record,
+		Config: cfg, Policy: pol, Repo: s.Repository, Git: gitx.Git{}, Fixtures: read, Record: record,
 		CacheDir: filepath.Join(cfg.DataDir, "cache"), Pace: f.pace, Logger: logger,
 	})
 	if err != nil {

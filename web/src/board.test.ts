@@ -102,6 +102,60 @@ describe("board reducer", () => {
     expect(state.cards[1]?.steps).toHaveLength(3);
   });
 
+  it("keeps a learned fix on the card from its steps and the finished event", () => {
+    const tried = run([
+      started(5, 7),
+      event("pr.step", 5, {
+        step: "learned",
+        status: "running",
+        detail: "trying the fix learned from #5: 2 edits in auth/token.go",
+        from: 5,
+        saved_micros: 6400,
+      }),
+    ]);
+    expect(tried.cards[5]?.learned).toEqual({ from: 5, savedMicros: 6400, status: "trying" });
+    expect(tried.cards[5]?.attempts).toBe(0);
+    const reused = run(
+      [
+        event("pr.step", 5, { step: "learned", status: "done", detail: "reused", from: 5 }),
+        event("pr.done", 5, {
+          outcome: "merged",
+          blocker: "build",
+          attempts: 0,
+          learned: { from: 5, saved_calls: 4, saved_micros: 6400 },
+        }),
+      ],
+      tried,
+    );
+    expect(reused.cards[5]?.learned).toEqual({ from: 5, savedMicros: 6400, status: "reused" });
+
+    const stale = run(
+      [
+        event("pr.step", 7, { step: "learned", status: "running", detail: "", from: 3 }),
+        event("pr.step", 7, { step: "learned", status: "failed", detail: "no longer applies" }),
+        event("pr.done", 7, { outcome: "mergeable", blocker: "build", learned: null }),
+      ],
+      reused,
+    );
+    expect(stale.cards[7]?.learned).toEqual({ from: 3, savedMicros: 0, status: "stale" });
+    expect(stale.cards[5]?.learned?.status).toBe("reused");
+  });
+
+  it("seeds a learned fix from a reloaded session", () => {
+    const views: PullView[] = [
+      {
+        ...pr(5),
+        state: "open",
+        outcome: "mergeable",
+        learned: { from: 5, saved_calls: 4, saved_micros: 6400 },
+      },
+      { ...pr(6), state: "open", outcome: "mergeable" },
+    ];
+    const seeded = run([{ type: "seed", prs: views, run: "finished" }]);
+    expect(seeded.cards[5]?.learned).toEqual({ from: 5, savedMicros: 6400, status: "reused" });
+    expect(seeded.cards[6]?.learned).toBeUndefined();
+  });
+
   it("totals model calls per role, per card and overall", () => {
     const state = run([
       started(1, 2),
@@ -568,6 +622,55 @@ describe("trace", () => {
       "search",
       "search",
     ]);
+  });
+
+  it("traces a learned fix in the fix phase and pairs its start with its result", () => {
+    const state = run([
+      started(5, 7),
+      event("pr.step", 5, {
+        step: "learned",
+        status: "running",
+        detail: "trying the fix learned from #5: 1 edit in auth/token.go",
+        from: 5,
+        saved_micros: 6400,
+      }),
+      event("pr.step", 5, { step: "learned", status: "done", detail: "reused", from: 5 }),
+      event("pr.step", 5, { step: "learn", status: "done", detail: "remembered" }),
+      event("pr.step", 7, { step: "learned", status: "running", detail: "", from: 3 }),
+      event("pr.step", 7, {
+        step: "learned",
+        status: "failed",
+        detail: "the checks still fail with the fix learned from #3; repairing it from the start",
+      }),
+      event("pr.step", 7, {
+        step: "repair",
+        status: "running",
+        detail: "attempt 1 of 3",
+        attempt: 1,
+        of: 3,
+      }),
+    ]);
+    const reused = state.cards[5]?.trace ?? [];
+    expect(reused.map((e) => `${e.phase}:${e.kind}`)).toEqual([
+      "fix:learned",
+      "fix:learned",
+      "act:step",
+    ]);
+    expect(reused[1]).toMatchObject({
+      kind: "learned",
+      status: "done",
+      from: 5,
+      savedMicros: 6400,
+    });
+    const fix = traceSections(reused).find((s) => s.phase === "fix");
+    const rows = fix?.groups[0] ? traceRows(fix.groups[0]) : [];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ open: false, entry: { status: "done" } });
+
+    const stale = state.cards[7]?.trace ?? [];
+    expect(stale[1]).toMatchObject({ kind: "learned", status: "failed", from: 3 });
+    const groups = traceSections(stale).find((s) => s.phase === "fix")?.groups ?? [];
+    expect(groups.map((g) => g.attempt)).toEqual([undefined, 1]);
   });
 
   it("keeps only the newest entries of a long trace", () => {

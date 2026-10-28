@@ -178,6 +178,12 @@ function Body({ d }: { d: Detail }) {
       {d.summary ? (
         <Section title="What changed">
           <p className={styles.lead}>{d.summary}</p>
+          {d.learned ? (
+            <p className={styles.muted}>
+              Reused the fix learned from #{d.learned.from} in the previous run: 0 model calls (the
+              first time cost {dollars(d.learned.saved_micros)}).
+            </p>
+          ) : null}
         </Section>
       ) : null}
 

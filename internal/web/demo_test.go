@@ -16,6 +16,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/forge/forgetest"
 	"github.com/aalvaropc/upkeep/internal/gitx"
+	"github.com/aalvaropc/upkeep/internal/learn"
 	"github.com/aalvaropc/upkeep/internal/pull"
 	"github.com/aalvaropc/upkeep/internal/queue"
 )
@@ -42,7 +43,7 @@ func newDemoServer(t *testing.T, maxSessions int, trust bool) *httptest.Server {
 		Root:        filepath.Join(t.TempDir(), "sessions"),
 		Git:         gitx.Git{},
 		Hub:         hub,
-		Processor:   func(queue.Emitter) (queue.Processor, error) { return proc, nil },
+		Processor:   func(queue.Emitter, learn.Book) (queue.Processor, error) { return proc, nil },
 		Limits:      engine.Limits{PRsPerRun: 2, RunsPerServer: 2},
 		MaxSessions: maxSessions,
 	})
