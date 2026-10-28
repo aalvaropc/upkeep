@@ -1,4 +1,13 @@
-import type { Action, Check, Outcome, PullRequest, PullView, UpkeepEvent } from "./types";
+import { describePlan, overlapOf, readPlan, type CardOverlap } from "./plan";
+import type {
+  Action,
+  Check,
+  MergePlan,
+  Outcome,
+  PullRequest,
+  PullView,
+  UpkeepEvent,
+} from "./types";
 
 export type Phase = "queued" | "working" | "verified" | "done";
 export type Connection = "connecting" | "live" | "lost";
@@ -22,6 +31,7 @@ export interface Card {
   phase: Phase;
   blocker?: string;
   behind?: boolean;
+  overlap?: CardOverlap;
   step?: StepEntry;
   steps: StepEntry[];
   attempts: number;
@@ -106,6 +116,7 @@ export interface BoardState {
   lastSeq: number;
   log: LogEntry[];
   summary: RunSummary | null;
+  plan: MergePlan | null;
 }
 
 export const MAX_LOG = 120;
@@ -138,6 +149,7 @@ export const initialBoard: BoardState = {
   lastSeq: 0,
   log: [],
   summary: null,
+  plan: null,
 };
 
 export type BoardAction =
@@ -282,6 +294,8 @@ function describe(event: UpkeepEvent, card: Card | undefined): string {
       return `waiting for a free slot, position ${num(d.position)}`;
     case "run.started":
       return "run started";
+    case "run.plan":
+      return describePlan(readPlan(d, null));
     case "pr.blocker":
       return `blocked by ${str(d.blocker) || "nothing"}`;
     case "pr.step": {
@@ -347,6 +361,15 @@ function applyEvent(state: BoardState, event: UpkeepEvent): BoardState {
       }
       order.sort((a, b) => a - b);
       next = { ...next, run: "running", position: 0, cards, order, summary: null };
+      break;
+    }
+    case "run.plan": {
+      const plan = readPlan(d, next.plan);
+      const cards: Record<number, Card> = {};
+      for (const [key, card] of Object.entries(next.cards)) {
+        cards[Number(key)] = { ...card, overlap: overlapOf(plan, card.pr.number) };
+      }
+      next = { ...next, plan, cards };
       break;
     }
     case "pr.blocker":

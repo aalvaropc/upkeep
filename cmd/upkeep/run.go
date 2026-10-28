@@ -21,6 +21,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/github"
 	"github.com/aalvaropc/upkeep/internal/gitx"
 	"github.com/aalvaropc/upkeep/internal/learn"
+	"github.com/aalvaropc/upkeep/internal/plan"
 	"github.com/aalvaropc/upkeep/internal/policy"
 	"github.com/aalvaropc/upkeep/internal/pull"
 	"github.com/aalvaropc/upkeep/internal/queue"
@@ -172,6 +173,7 @@ func runCommand(ctx context.Context, args []string, stdout, stderr io.Writer, en
 	}
 	work := filepath.Join(cfg.DataDir, "run", fmt.Sprintf("%s-%s-%s", owner, name, time.Now().UTC().Format("20060102T150405Z")))
 	runner := queue.Runner{Forge: f, Processor: proc, Emit: progress(stdout), Work: work, Base: "origin/" + base, Parallel: flags.parallel}
+	runner.Planner = plan.Planner{Git: git}
 	fmt.Fprintf(stdout, "working the open pull requests of %s/%s into %s%s\n", owner, name, base, map[bool]string{true: " (dry run: nothing is pushed, commented or merged)", false: ""}[flags.dryRun])
 	summary, err := runner.Run(ctx)
 	if err != nil {
@@ -199,5 +201,6 @@ func printSummary(w io.Writer, s queue.Summary) {
 		}
 		fmt.Fprintf(w, "#%-4d %-12s %-14s %-24s %s\n", it.PR.Number, it.Outcome, it.Result.Blocker, strings.Join(actions, ","), reason)
 	}
+	printPlan(w, s.Plan)
 	fmt.Fprintf(w, "\n%d model calls, $%.4f (the same tokens at the largest model's price: $%.4f)\n", s.Totals.Calls, float64(s.Totals.Charge.Micros)/1e6, float64(s.Totals.Charge.BaselineMicros)/1e6)
 }

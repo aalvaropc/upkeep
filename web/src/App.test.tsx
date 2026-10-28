@@ -705,4 +705,84 @@ describe("App", () => {
     unmount();
     expect(opened.closed).toBe(true);
   });
+
+  it("suggests a merge order, names the shared files and warns about what went stale", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    const rail = screen.getByRole("region", { name: "Merge plan" });
+    expect(within(rail).getByText(/Once every pull request is cloned/)).toBeTruthy();
+
+    startedEvent();
+    emit("run.plan", undefined, {
+      order: [3, 1, 2],
+      overlaps: [{ a: 1, b: 2, files: ["notes/limits.go"], conflict: true }],
+      reasons: {
+        "1": "Conflicts with #2 in notes/limits.go: it was opened first, so it goes first and #2 updates its branch after.",
+        "2": "Conflicts with #1 in notes/limits.go: merge it after #1 and update its branch.",
+        "3": "A bot's patch version bump: small and low risk, so it goes first.",
+      },
+      stale: [],
+      checked: false,
+    });
+    const order = within(rail).getByRole("list", { name: "Suggested merge order" });
+    const steps = within(order).getAllByRole("listitem");
+    expect(steps.map((li) => li.textContent?.match(/#\d+/)?.[0])).toEqual(["#3", "#1", "#2"]);
+    expect(within(steps[2]!).getByText(/merge it after #1/)).toBeTruthy();
+    expect(within(steps[0]!).getByText("Waiting")).toBeTruthy();
+    expect(within(rail).getByText("#1 and #2 both change notes/limits.go")).toBeTruthy();
+    expect(within(rail).getByText("conflict")).toBeTruthy();
+    const card = screen.getByRole("button", { name: /Pull request 2/ });
+    expect(within(card).getByText("conflicts with #1")).toBeTruthy();
+
+    for (const n of [1, 2, 3]) {
+      emit("pr.done", n, {
+        outcome: n === 2 ? "mergeable" : "merged",
+        blocker: "clean",
+        reason: "",
+        attempts: 0,
+        summary: "",
+        duration_ms: 1000,
+        actions: [],
+      });
+    }
+    expect(within(steps[1]!).getByText("Merged")).toBeTruthy();
+    expect(within(steps[2]!).getByText("Ready to merge")).toBeTruthy();
+
+    emit("run.plan", undefined, {
+      order: [3, 1, 2],
+      overlaps: [{ a: 1, b: 2, files: ["notes/limits.go"], conflict: true }],
+      reasons: {},
+      stale: [{ pr: 2, because: "conflicts with main after #1 merged: notes/limits.go" }],
+      checked: true,
+    });
+    expect(within(rail).getByText("#2 is no longer ready to merge:")).toBeTruthy();
+    expect(
+      within(rail).getByText(/conflicts with main after #1 merged: notes\/limits\.go/),
+    ).toBeTruthy();
+    expect(within(rail).getByText("Went stale")).toBeTruthy();
+    const done = screen.getByRole("heading", { name: "Done" }).closest("div") as HTMLElement;
+    const finished = within(done).getByRole("button", { name: /Pull request 2/ });
+    expect(within(finished).getByText("conflicts with main")).toBeTruthy();
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+  });
+
+  it("says when every ready pull request still merges after the run", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    startedEvent();
+    emit("run.plan", undefined, {
+      order: [1, 2, 3],
+      overlaps: [],
+      reasons: {},
+      stale: [],
+      checked: true,
+    });
+    const rail = screen.getByRole("region", { name: "Merge plan" });
+    expect(
+      within(rail).getByText("Every pull request that is ready to merge still merges into main."),
+    ).toBeTruthy();
+    expect(within(rail).queryByText("Shared files")).toBeNull();
+  });
 });

@@ -39,6 +39,7 @@ The demo keeps the book per session; Run again creates the new session with `{"i
 | `cmd/upkeep` | the commands, the shared setup |
 | `internal/engine` | `Processor.Process`, the state of a pull request, the result with its receipt |
 | `internal/queue` | the worker pool and the actions: push, patch, merge, comment |
+| `internal/plan` | the merge plan: the files each pull request changes, the pairs that conflict, a suggested order, the check after the merges |
 | `internal/detect` | the order of checks that names the blocker |
 | `internal/strategy` | one file per kind of fix: merge, format, conflict (Ultra), repair (Super), explain (Nano) |
 | `internal/fixer` | Super's tool loop and the tools, with the rules enforced by code |
@@ -69,9 +70,15 @@ The demo keeps the book per session; Run again creates the new session with `{"i
 6. flaky tests were seen: flaky (never hides a real blocker)
 7. otherwise clean
 
+## Merge plan
+
+Fixing pull requests one at a time misses how they collide. Once every working tree is prepared, `plan.Planner` lists the files each pull request changes (`git diff --name-only` against the base), and for every pair that shares a file it asks `git merge-tree --write-tree` whether the two heads merge. Nothing is checked out and no model is called, so a replayed run stays the same. The plan orders small bot bumps first, then the pull requests that share no files, then the ones that share files cleanly, then the conflicting ones with the smaller change first, and gives each a reason in plain words. It is advice: the workers still take the pull requests in number order.
+
+After the workers finish, the base is fetched again into the working tree of every pull request that is ready to merge. If the base moved and `git merge-tree` now finds a conflict, the plan names the pull request as stale and which merge caused it. In the scenario, the jwt bump (#5) and the clockwork bump (#7) change adjacent lines of `go.mod` and `go.sum`; #7 merges during the run, so #5 is reported as no longer ready to merge. Both plans go out as `run.plan` events, and `upkeep run` prints them after the summary.
+
 ## Events and the dashboard
 
-Every step emits an event into a per-session ring buffer (`internal/events`): `run.queued`, `run.started`, `pr.blocker`, `pr.step`, `model.call`, `search.call`, `tool.call`, `verify.result`, `action`, `receipt`, `pr.done`, `notice`, `run.finished`, `session.closed`. The server streams them over Server-Sent Events with resume, a gap notice and keepalives. The dashboard's reducer (`web/src/board.ts`) is a pure function from events to board state, so reloading the page replays the run from the ring.
+Every step emits an event into a per-session ring buffer (`internal/events`): `run.queued`, `run.started`, `run.plan`, `pr.blocker`, `pr.step`, `model.call`, `search.call`, `tool.call`, `verify.result`, `action`, `receipt`, `pr.done`, `notice`, `run.finished`, `session.closed`. The server streams them over Server-Sent Events with resume, a gap notice and keepalives. The dashboard's reducer (`web/src/board.ts`) is a pure function from events to board state, so reloading the page replays the run from the ring.
 
 ## Record and replay
 

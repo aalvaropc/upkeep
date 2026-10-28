@@ -19,6 +19,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/forge"
 	"github.com/aalvaropc/upkeep/internal/gitx"
 	"github.com/aalvaropc/upkeep/internal/learn"
+	"github.com/aalvaropc/upkeep/internal/plan"
 	"github.com/aalvaropc/upkeep/internal/queue"
 	"github.com/aalvaropc/upkeep/internal/scenario"
 )
@@ -317,6 +318,7 @@ func (m *Manager) execute(s *Session) {
 		Parallel:  m.opts.Limits.PRsPerRun,
 		Done:      s.record,
 	}
+	runner.Planner = plan.Planner{Git: m.opts.Git}
 	if _, err := runner.Run(s.ctx); err != nil {
 		m.opts.Logger.Warn("a run ended early", "session", s.ID, "error", err)
 	}
