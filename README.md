@@ -70,6 +70,8 @@ Work a real repository (needs a model key; a dry run of a public repository need
 GITHUB_TOKEN=... ./bin/upkeep run -repo owner/name
 ```
 
+The same run works from GitHub Actions: `uses: aalvaropc/upkeep@v0.1.0` on a daily schedule, from the Actions tab or from a `/upkeep` comment on a pull request ([`docs/action.md`](docs/action.md)).
+
 | Command | What it does |
 |---|---|
 | `upkeep demo` | serves the dashboard with isolated sessions of the nine-pull-request scenario |
@@ -95,6 +97,7 @@ These are measurements, not assumptions: [`docs/models.md`](docs/models.md) has 
 - [`docs/policy.md`](docs/policy.md): every rule Upkeep follows and how to change the configurable ones.
 - [`docs/models.md`](docs/models.md): what each Nemotron model does, what was measured and what was dropped.
 - [`docs/limitations.md`](docs/limitations.md): what Upkeep does not do and where it can be wrong.
+- [`docs/action.md`](docs/action.md): the GitHub Action, its secrets, the token it needs and what a run costs.
 - [`web/DESIGN.md`](web/DESIGN.md): the dashboard's design system.
 
 ## Configuration
