@@ -11,6 +11,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/engine"
 	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/forge"
+	"github.com/aalvaropc/upkeep/internal/plan"
 	"github.com/aalvaropc/upkeep/internal/pull"
 	"github.com/aalvaropc/upkeep/internal/receipt"
 )
@@ -42,6 +43,7 @@ type Summary struct {
 	Items  []Item
 	Counts map[pull.Outcome]int
 	Totals receipt.Totals
+	Plan   *plan.Plan
 }
 
 type Runner struct {
@@ -52,6 +54,7 @@ type Runner struct {
 	Base      string
 	Parallel  int
 	Done      func(Item)
+	Planner   Planner
 }
 
 func (r Runner) emit(kind events.Kind, pr int, data any) {
@@ -77,6 +80,7 @@ func (r Runner) Run(ctx context.Context) (Summary, error) {
 		}
 		prepared[i] = true
 	}
+	advice := r.advise(ctx, items, prepared)
 
 	parallel := r.Parallel
 	if parallel <= 0 {
@@ -111,8 +115,10 @@ feed:
 	}
 	close(jobs)
 	wg.Wait()
+	r.recheck(ctx, items, advice)
 
 	summary := summarize(items)
+	summary.Plan = advice
 	r.emit(events.RunFinished, 0, map[string]any{
 		"counts": summary.Counts, "calls": summary.Totals.Calls, "micros": summary.Totals.Charge.Micros,
 		"baseline_micros": summary.Totals.Charge.BaselineMicros, "prompt": summary.Totals.Usage.PromptTokens,
