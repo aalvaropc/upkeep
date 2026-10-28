@@ -46,13 +46,14 @@ func (e Env) Repair(ctx context.Context, job *Job, failure string, start string)
 			out.Stop = fixer.StopTokens
 			return out
 		}
-		e.step(job, "repair", "running", fmt.Sprintf("attempt %d of %d", attempt, e.Policy.MaxAttempts))
+		e.stepWith(job, "repair", "running", fmt.Sprintf("attempt %d of %d", attempt, e.Policy.MaxAttempts), map[string]any{"attempt": attempt, "of": e.Policy.MaxAttempts})
 		f := fixer.Fixer{
 			Model:     m,
 			ModelName: name,
 			Meter:     e.Meter,
 			Runner:    e.Runner,
 			Executor:  e.Executor,
+			Attempt:   attempt,
 			MaxTokens: remaining,
 			Emit: func(kind events.Kind, data any) {
 				e.emit(job, kind, data)
@@ -67,7 +68,7 @@ func (e Env) Repair(ctx context.Context, job *Job, failure string, start string)
 		}
 		spent += a.Usage.Total()
 		out.Stop, out.Edits, out.Failure = a.Stop, a.Edits, a.Failure
-		e.step(job, "repair", status(a.Success), summary(attempt, a, since(began)))
+		e.stepWith(job, "repair", status(a.Success), summary(attempt, a, since(began)), outcome(attempt, e.Policy.MaxAttempts, a))
 		if a.Err != nil && ctx.Err() == nil {
 			out.Err = a.Err
 			return out
@@ -95,12 +96,24 @@ func status(ok bool) string {
 	return "failed"
 }
 
-func summary(attempt int, a fixer.Attempt, took time.Duration) string {
+func editedFiles(edits []fixer.Edit) int {
 	files := map[string]bool{}
-	for _, ed := range a.Edits {
+	for _, ed := range edits {
 		files[ed.Path] = true
 	}
-	return fmt.Sprintf("attempt %d: %s after %d turns, %d edits in %d files, %s", attempt, a.Stop, a.Turns, len(a.Edits), len(files), took.Round(100*time.Millisecond))
+	return len(files)
+}
+
+func summary(attempt int, a fixer.Attempt, took time.Duration) string {
+	return fmt.Sprintf("attempt %d: %s after %d turns, %d edits in %d files, %s", attempt, a.Stop, a.Turns, len(a.Edits), editedFiles(a.Edits), took.Round(100*time.Millisecond))
+}
+
+func outcome(attempt, of int, a fixer.Attempt) map[string]any {
+	fields := map[string]any{"attempt": attempt, "of": of, "stop": string(a.Stop), "turns": a.Turns, "edits": len(a.Edits), "files": editedFiles(a.Edits)}
+	if !a.Success && a.Failure != "" {
+		fields["failure"] = fixer.FirstError(a.Failure)
+	}
+	return fields
 }
 
 func FailureText(r sandbox.Result) string {

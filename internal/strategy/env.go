@@ -3,6 +3,7 @@ package strategy
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/aalvaropc/upkeep/internal/events"
@@ -45,10 +46,16 @@ func (e Env) emit(job *Job, kind events.Kind, data any) {
 }
 
 func (e Env) step(job *Job, name, status, detail string) {
-	e.emit(job, events.PRStep, map[string]any{"step": name, "status": status, "detail": detail})
+	e.stepWith(job, name, status, detail, nil)
 }
 
-func (e Env) complete(ctx context.Context, job *Job, role model.Role, system, user string, reasoning bool, maxTokens int) (string, error) {
+func (e Env) stepWith(job *Job, name, status, detail string, fields map[string]any) {
+	data := map[string]any{"step": name, "status": status, "detail": detail}
+	maps.Copy(data, fields)
+	e.emit(job, events.PRStep, data)
+}
+
+func (e Env) complete(ctx context.Context, job *Job, role model.Role, step, purpose, system, user string, reasoning bool, maxTokens int) (string, error) {
 	name, m, err := e.Models.For(role)
 	if err != nil {
 		return "", err
@@ -71,6 +78,7 @@ func (e Env) complete(ctx context.Context, job *Job, role model.Role, system, us
 	e.emit(job, events.ModelCall, map[string]any{
 		"model": name, "role": string(role), "latency_ms": resp.Latency.Milliseconds(), "prompt": resp.Usage.PromptTokens,
 		"completion": resp.Usage.CompletionTokens, "reasoning": resp.Usage.ReasoningTokens, "micros": charge.Micros, "baseline_micros": charge.BaselineMicros,
+		"step": step, "purpose": purpose,
 	})
 	return resp.Message.Content, nil
 }

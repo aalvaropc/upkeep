@@ -1,7 +1,16 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import type { Detail, EventKind, Info, PullView, Snapshot } from "./types";
+import type {
+  Detail,
+  EventKind,
+  Info,
+  ModelCallEvent,
+  PullView,
+  Snapshot,
+  StepEvent,
+  ToolCallEvent,
+} from "./types";
 
 type Listener = (e: MessageEvent<string>) => void;
 
@@ -478,6 +487,194 @@ describe("App", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(document.activeElement).toBe(card);
+  });
+
+  it("follows a running pull request in its trace and reloads the summary when it finishes", async () => {
+    const server = newServer();
+    installFetch(server);
+    render(<App />);
+    await ready();
+    const original = globalThis.fetch;
+    const running: Detail = { ...view(2), attempts: 0 };
+    let finish: (r: Response) => void = () => undefined;
+    let gets = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string, init?: RequestInit) => {
+        if (!path.includes("/prs/")) {
+          return original(path, init);
+        }
+        gets += 1;
+        if (gets === 1) {
+          return new Response(JSON.stringify(running), { status: 200 });
+        }
+        return new Promise<Response>((resolve) => {
+          finish = resolve;
+        });
+      }),
+    );
+    startedEvent();
+    emit("pr.step", 2, { step: "detect", status: "done", detail: "build" } satisfies StepEvent);
+    emit("pr.step", 2, {
+      step: "plan",
+      status: "done",
+      detail: "build fails: Super repairs it with 4 tools, up to 3 attempts, then 9 checks",
+    } satisfies StepEvent);
+    emit("search.call", 2, {
+      provider: "tavily",
+      query: "example.com/lib v2 migration guide",
+      results: [{ title: "Guide", url: "https://example.com/guide", score: 0.9, kept: true }],
+      kept: ["https://example.com/guide"],
+      latency_ms: 700,
+      recorded: true,
+    });
+    emit("pr.step", 2, {
+      step: "repair",
+      status: "running",
+      detail: "attempt 1 of 3",
+      attempt: 1,
+      of: 3,
+    } satisfies StepEvent);
+    emit("model.call", 2, {
+      model: "nvidia/super",
+      role: "super",
+      latency_ms: 1500,
+      prompt: 2000,
+      completion: 100,
+      micros: 300,
+      baseline_micros: 1000,
+      step: "repair",
+      purpose: "fix",
+      attempt: 1,
+      turn: 1,
+      said: "The caller still uses Add.",
+      tools: ["apply_edit", "run_checks"],
+    } satisfies ModelCallEvent);
+
+    fireEvent.click(screen.getByRole("button", { name: /Pull request 2/ }));
+    const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
+    expect(within(dialog).getByRole("tab", { name: "Trace" }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+    const panel = within(dialog).getByRole("tabpanel", { name: "Trace" });
+    expect(panel.closest("[aria-live]")).toBeNull();
+    expect(
+      within(panel).getByText(
+        "build fails: Super repairs it with 4 tools, up to 3 attempts, then 9 checks",
+      ),
+    ).toBeTruthy();
+    expect(within(panel).getByRole("heading", { name: /Attempt 1 of 3/ })).toBeTruthy();
+    expect(within(panel).getByRole("heading", { name: "Forecast" })).toBeTruthy();
+    expect(within(panel).getByText("Tavily search")).toBeTruthy();
+    expect(within(panel).getByText("example.com/lib v2 migration guide")).toBeTruthy();
+    expect(within(panel).getByText("kept 1 of 1 page")).toBeTruthy();
+    expect(within(panel).getByText("The caller still uses Add.")).toBeTruthy();
+    expect(within(panel).getByText("1.5 s · 2,100 tokens · $0.0003")).toBeTruthy();
+
+    emit("tool.call", 2, {
+      tool: "apply_edit",
+      ok: true,
+      detail: "apply_edit",
+      attempt: 1,
+      turn: 1,
+      path: "caller.go",
+      added: 1,
+      removed: 1,
+      result: "ok",
+    } satisfies ToolCallEvent);
+    expect(within(panel).getByText("caller.go")).toBeTruthy();
+    expect(within(panel).getByText("apply_edit")).toBeTruthy();
+    await waitFor(() => expect(gets).toBe(1));
+
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Summary" }));
+    await within(dialog).findByText("Not worked yet");
+
+    emit("tool.call", 2, {
+      tool: "run_checks",
+      ok: true,
+      detail: "PASS",
+      attempt: 1,
+      turn: 1,
+      result: "PASS",
+    } satisfies ToolCallEvent);
+    emit("pr.step", 2, {
+      step: "repair",
+      status: "done",
+      detail: "attempt 1: checks passed after 1 turns, 1 edits in 1 files, 2.0s",
+      attempt: 1,
+      of: 3,
+      stop: "checks passed",
+      turns: 1,
+      edits: 1,
+      files: 1,
+    } satisfies StepEvent);
+    emit("verify.result", 2, { passed: true, checks: detail.checklist });
+    emit("action", 2, { kind: "push", status: "done", detail: "pushed" });
+    emit("pr.done", 2, {
+      outcome: "mergeable",
+      blocker: "build",
+      reason: "",
+      attempts: 1,
+      summary: "Renames the call so the package builds again.",
+      duration_ms: 38000,
+      actions: [],
+    });
+    await waitFor(() => expect(gets).toBe(2));
+    expect(within(dialog).getByText("Not worked yet")).toBeTruthy();
+    expect(within(dialog).queryByText("Loading the details.")).toBeNull();
+
+    await act(async () => finish(new Response(JSON.stringify(detail), { status: 200 })));
+    await within(dialog).findByText("Renames the call so the package builds again.");
+    expect(within(dialog).getByText("go build passes")).toBeTruthy();
+    expect(within(dialog).queryByText("Not worked yet")).toBeNull();
+  });
+
+  it("moves between the trace and the summary with the keyboard", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    startedEvent();
+    emit("pr.step", 1, { step: "detect", status: "running", detail: "" });
+    fireEvent.click(screen.getByRole("button", { name: /Pull request 1/ }));
+    const dialog = await screen.findByRole("dialog", { name: "#1 Pull request 1" });
+    const trace = within(dialog).getByRole("tab", { name: "Trace" });
+    const summary = within(dialog).getByRole("tab", { name: "Summary" });
+    expect(within(dialog).getByRole("tablist", { name: "Pull request details" })).toBeTruthy();
+    expect([trace.tabIndex, summary.tabIndex]).toEqual([0, -1]);
+
+    trace.focus();
+    fireEvent.keyDown(trace, { key: "ArrowRight" });
+    expect(summary.getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(summary);
+    expect([trace.tabIndex, summary.tabIndex]).toEqual([-1, 0]);
+    await within(dialog).findByText("Renames the call so the package builds again.");
+
+    fireEvent.keyDown(summary, { key: "Home" });
+    expect(document.activeElement).toBe(trace);
+    fireEvent.keyDown(trace, { key: "End" });
+    expect(document.activeElement).toBe(summary);
+    fireEvent.keyDown(summary, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(trace);
+    fireEvent.keyDown(trace, { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(summary);
+    fireEvent.keyDown(summary, { key: "ArrowLeft" });
+    expect(trace.getAttribute("aria-selected")).toBe("true");
+
+    emit("pr.done", 1, {
+      outcome: "mergeable",
+      blocker: "behind",
+      reason: "",
+      attempts: 0,
+      summary: "",
+      duration_ms: 1000,
+      actions: [],
+    });
+    const more = within(dialog).getByRole("button", { name: "See the summary" });
+    expect(within(dialog).getByText(/Finished: Ready to merge/)).toBeTruthy();
+    more.focus();
+    fireEvent.click(more);
+    expect(summary.getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(summary);
   });
 
   it("links only web addresses from the sources of a forecast", async () => {

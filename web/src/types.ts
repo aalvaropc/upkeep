@@ -222,3 +222,47 @@ export interface UpkeepEvent {
   pr?: number;
   data?: unknown;
 }
+
+export interface StepEvent {
+  step: string;
+  status: string;
+  detail?: string;
+  attempt?: number;
+  of?: number;
+  stop?: string;
+  turns?: number;
+  edits?: number;
+  files?: number;
+  failure?: string;
+}
+
+export interface ModelCallEvent {
+  model: string;
+  role: string;
+  latency_ms: number;
+  prompt: number;
+  completion: number;
+  reasoning?: number;
+  micros: number;
+  baseline_micros: number;
+  step?: string;
+  purpose?: string;
+  attempt?: number;
+  turn?: number;
+  said?: string;
+  tools?: string[];
+}
+
+export interface ToolCallEvent {
+  tool: string;
+  ok: boolean;
+  detail: string;
+  attempt?: number;
+  turn?: number;
+  path?: string;
+  package?: string;
+  symbol?: string;
+  added?: number;
+  removed?: number;
+  result?: string;
+}

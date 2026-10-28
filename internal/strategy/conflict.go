@@ -85,10 +85,12 @@ func (e Env) ResolveConflict(ctx context.Context, job *Job, hunks []gitx.Hunk) (
 	var rejected error
 	for attempt := 1; attempt <= resolveAttempts; attempt++ {
 		prompt := user
+		purpose := "resolve"
 		if rejected != nil {
 			prompt += fmt.Sprintf("\n\nYour previous answer was rejected: %v. Answer again with exactly one resolution per conflict block, in the JSON format given.", rejected)
+			purpose = "resolve_retry"
 		}
-		out, err = e.tryResolve(ctx, job, hunks, prompt)
+		out, err = e.tryResolve(ctx, job, hunks, purpose, prompt)
 		if _, isBad := errors.AsType[*badAnswer](err); err == nil || !isBad {
 			return out, err
 		}
@@ -98,9 +100,9 @@ func (e Env) ResolveConflict(ctx context.Context, job *Job, hunks []gitx.Hunk) (
 	return out, rejected
 }
 
-func (e Env) tryResolve(ctx context.Context, job *Job, hunks []gitx.Hunk, user string) (Resolution, error) {
+func (e Env) tryResolve(ctx context.Context, job *Job, hunks []gitx.Hunk, purpose, user string) (Resolution, error) {
 	var out Resolution
-	answer, err := e.complete(ctx, job, model.Ultra, resolveSystem, user, false, 4000)
+	answer, err := e.complete(ctx, job, model.Ultra, "conflict", purpose, resolveSystem, user, false, 4000)
 	if err != nil {
 		return out, err
 	}
@@ -184,7 +186,7 @@ func (e Env) DiagnoseConflict(ctx context.Context, job *Job, hunks []gitx.Hunk) 
 	if err != nil {
 		return "", err
 	}
-	answer, err := e.complete(ctx, job, model.Ultra, diagnoseSystem, user, true, 3000)
+	answer, err := e.complete(ctx, job, model.Ultra, "diagnose", "diagnose", diagnoseSystem, user, true, 3000)
 	if err != nil {
 		return "", err
 	}
@@ -194,7 +196,7 @@ func (e Env) DiagnoseConflict(ctx context.Context, job *Job, hunks []gitx.Hunk) 
 func (e Env) DiagnoseFailure(ctx context.Context, job *Job, failure string, attempts int) (string, error) {
 	const system = `You are a senior engineer. An automated agent tried to fix a Go pull request whose checks fail and could not. In at most 120 words, in plain prose, explain what the failure means, what is likely needed to fix it and why it needs a person. Do not use headings or lists.`
 	user := fmt.Sprintf("The agent made %d attempts. The last failing step was:\n\n%s", attempts, strings.TrimSpace(failure))
-	answer, err := e.complete(ctx, job, model.Ultra, system, user, true, 3000)
+	answer, err := e.complete(ctx, job, model.Ultra, "diagnose", "diagnose", system, user, true, 3000)
 	if err != nil {
 		return "", err
 	}

@@ -1,4 +1,5 @@
 import { describePlan, overlapOf, readPlan, type CardOverlap } from "./plan";
+import { appendTrace, names, toolTarget, traceEntry, type TraceEntry } from "./trace";
 import type {
   Action,
   Check,
@@ -36,6 +37,7 @@ export interface Card {
   checks?: Check[];
   verified?: boolean;
   actions: Action[];
+  trace: TraceEntry[];
   outcome?: Outcome;
   reason?: string;
   summary?: string;
@@ -165,6 +167,7 @@ function freshCard(pr: PullRequest): Card {
     micros: 0,
     baselineMicros: 0,
     actions: [],
+    trace: [],
   };
 }
 
@@ -249,6 +252,82 @@ export function dollars(micros: number): string {
   return usd < 0.1 ? `$${usd.toFixed(4)}` : `$${usd.toFixed(3)}`;
 }
 
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+const PURPOSES: Record<string, string> = {
+  fix: "fix",
+  resolve: "conflict resolution",
+  resolve_retry: "conflict resolution, asked again",
+  diagnose: "diagnosis",
+  explain: "note",
+  forecast: "forecast",
+};
+
+export function purposeLabel(purpose: string): string {
+  return PURPOSES[purpose] ?? purpose;
+}
+
+function describeStep(d: Record<string, unknown>): string {
+  const name = str(d.step);
+  const status = str(d.status);
+  const detail = str(d.detail);
+  const attempt = num(d.attempt);
+  if (name === "plan") {
+    return `plan: ${detail}`;
+  }
+  if (name !== "repair" || attempt === 0) {
+    return `${name} ${status}${detail ? `: ${detail}` : ""}`;
+  }
+  const of = num(d.of);
+  if (status === "running") {
+    return `repair attempt ${attempt}${of ? ` of ${of}` : ""} started`;
+  }
+  const work = `${plural(num(d.turns), "turn")}, ${plural(num(d.edits), "edit")} in ${plural(num(d.files), "file")}`;
+  if (status === "done") {
+    return `repair attempt ${attempt} passed after ${work}`;
+  }
+  const failure = str(d.failure);
+  return `repair attempt ${attempt} failed: ${str(d.stop) || status} after ${work}${failure ? ` (${failure})` : ""}`;
+}
+
+function describeModel(d: Record<string, unknown>): string {
+  const purpose = str(d.purpose);
+  const turn = num(d.turn);
+  const attempt = num(d.attempt);
+  const tools = names(d.tools);
+  const where = turn > 0 ? ` (${attempt > 0 ? `attempt ${attempt}, ` : ""}turn ${turn})` : "";
+  const asked = tools.length > 0 ? `: asks for ${tools.join(", ")}` : "";
+  return `${str(d.role) || "model"} ${purpose ? purposeLabel(purpose) : "call"}${where}, ${seconds(num(d.latency_ms))}, ${dollars(num(d.micros))}${asked}`;
+}
+
+function describeTool(d: Record<string, unknown>): string {
+  const tool = str(d.tool);
+  const ok = d.ok === true;
+  const result = str(d.result);
+  const target = toolTarget(d);
+  if (!result && !target) {
+    return `tool ${tool} ${ok ? "ok" : "failed"}: ${str(d.detail)}`;
+  }
+  if (!ok) {
+    const verb = tool === "apply_edit" ? "refused" : "failed";
+    return `${tool} ${verb}${target ? ` on ${target}` : ""}: ${result || str(d.detail)}`;
+  }
+  switch (tool) {
+    case "apply_edit":
+      return `Super edited ${target} (+${num(d.added)} −${num(d.removed)})`;
+    case "read_file":
+      return `Super read ${target}${result ? ` (${result})` : ""}`;
+    case "go_doc":
+      return `Super looked up ${target}${result ? `: ${result}` : ""}`;
+    case "run_checks":
+      return `run_checks: ${result}`;
+    default:
+      return `${tool}${target ? ` ${target}` : ""}${result ? `: ${result}` : ""}`;
+  }
+}
+
 function describe(event: UpkeepEvent, card: Card | undefined): string {
   const d = record(event.data);
   switch (event.kind) {
@@ -260,16 +339,14 @@ function describe(event: UpkeepEvent, card: Card | undefined): string {
       return describePlan(readPlan(d, null));
     case "pr.blocker":
       return `blocked by ${str(d.blocker) || "nothing"}`;
-    case "pr.step": {
-      const detail = str(d.detail);
-      return `${str(d.step)} ${str(d.status)}${detail ? `: ${detail}` : ""}`;
-    }
+    case "pr.step":
+      return describeStep(d);
     case "model.call":
-      return `${str(d.role) || "model"} call, ${seconds(num(d.latency_ms))}, ${dollars(num(d.micros))}`;
+      return describeModel(d);
     case "search.call":
       return describeSearch(d);
     case "tool.call":
-      return `tool ${str(d.tool)} ${d.ok === true ? "ok" : "failed"}: ${str(d.detail)}`;
+      return describeTool(d);
     case "verify.result":
       return d.passed === true ? "every check passed" : "a check failed";
     case "action":
@@ -514,13 +591,16 @@ function applyEvent(state: BoardState, event: UpkeepEvent): BoardState {
       break;
   }
 
-  const entry: LogEntry = {
-    seq: event.seq,
-    kind: event.kind,
-    pr,
-    text: describe(event, next.cards[pr]),
-    at,
-  };
+  const text = describe(event, next.cards[pr]);
+  const entry: LogEntry = { seq: event.seq, kind: event.kind, pr, text, at };
+  const card = next.cards[pr];
+  const traced = card ? traceEntry(event, at, card.trace, text) : null;
+  if (card && traced) {
+    next = {
+      ...next,
+      cards: { ...next.cards, [pr]: { ...card, trace: appendTrace(card.trace, traced) } },
+    };
+  }
   return { ...next, log: [entry, ...next.log].slice(0, MAX_LOG) };
 }
 

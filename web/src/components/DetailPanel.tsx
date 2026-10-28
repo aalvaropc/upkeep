@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
-import { dollars, outcomeLabel, providerLabel, quantity, seconds } from "../board";
-import type { Detail, Forecast } from "../types";
+import { dollars, outcomeLabel, providerLabel, quantity, seconds, type Card } from "../board";
+import type { Detail, Forecast, PullRequest } from "../types";
 import { DiffView } from "./DiffView";
 import { Icon } from "./Icon";
 import { Overlay } from "./Overlay";
 import { blockerLabel } from "./PullCard";
+import { Tabs } from "./Tabs";
+import { TraceView } from "./TraceView";
 import styles from "./DetailPanel.module.css";
 
 interface Props {
   number: number;
+  card?: Card;
   load: (number: number) => Promise<Detail>;
   onClose: () => void;
 }
@@ -331,18 +334,31 @@ function Body({ d }: { d: Detail }) {
   );
 }
 
-export function DetailPanel({ number, load, onClose }: Props) {
-  const [detail, setDetail] = useState<Detail | null>(null);
+function byline(pr: PullRequest): string {
+  const bump = pr.bump
+    ? ` · ${pr.bump.module} ${pr.bump.from} to ${pr.bump.to} (${pr.bump.level})`
+    : "";
+  return `${pr.author.login} · ${pr.branch}${bump}`;
+}
+
+export function DetailPanel({ number, card, load, onClose }: Props) {
+  const [loaded, setLoaded] = useState<{ number: number; detail: Detail } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState(
+    card?.phase === "working" || card?.phase === "verified" ? "trace" : "summary",
+  );
+  const [finishedAt, setFinishedAt] = useState(card?.finishedAt);
+  if (card?.finishedAt !== undefined && card.finishedAt !== finishedAt) {
+    setFinishedAt(card.finishedAt);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setDetail(null);
     setError(null);
     load(number).then(
       (d) => {
         if (!cancelled) {
-          setDetail(d);
+          setLoaded({ number, detail: d });
         }
       },
       (err: unknown) => {
@@ -354,26 +370,50 @@ export function DetailPanel({ number, load, onClose }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [load, number]);
+  }, [load, number, finishedAt]);
 
-  const who = detail
-    ? `${detail.author.login} · ${detail.branch}${detail.bump ? ` · ${detail.bump.module} ${detail.bump.from} to ${detail.bump.to} (${detail.bump.level})` : ""}`
-    : undefined;
+  const detail = loaded?.number === number ? loaded.detail : null;
+  const pr: PullRequest | undefined = detail ?? card?.pr;
+  const summary =
+    error && !detail ? (
+      <p className={styles.error} role="alert">
+        {error}
+      </p>
+    ) : detail ? (
+      <>
+        {error ? (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        ) : null}
+        <Body d={detail} />
+      </>
+    ) : (
+      <p className={styles.muted}>Loading the details.</p>
+    );
   return (
     <Overlay
       side
-      title={detail ? `#${detail.number} ${detail.title}` : `Pull request #${number}`}
-      subtitle={who}
+      title={pr ? `#${pr.number} ${pr.title}` : `Pull request #${number}`}
+      subtitle={pr ? byline(pr) : undefined}
       onClose={onClose}
     >
-      {error ? (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      ) : detail ? (
-        <Body d={detail} />
+      {card ? (
+        <Tabs
+          label="Pull request details"
+          selected={tab}
+          onSelect={setTab}
+          tabs={[
+            {
+              id: "trace",
+              label: "Trace",
+              content: <TraceView card={card} onSummary={() => setTab("summary")} />,
+            },
+            { id: "summary", label: "Summary", content: summary },
+          ]}
+        />
       ) : (
-        <p className={styles.muted}>Loading the details.</p>
+        summary
       )}
     </Overlay>
   );
