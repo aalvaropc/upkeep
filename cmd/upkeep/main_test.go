@@ -11,7 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aalvaropc/upkeep/internal/config"
 	"github.com/aalvaropc/upkeep/internal/eval"
+	"github.com/aalvaropc/upkeep/internal/policy"
+	"github.com/aalvaropc/upkeep/internal/runtime"
 )
 
 func TestRun(t *testing.T) {
@@ -136,5 +139,22 @@ func TestWriteReportKeepsEachRunAndTheLatestSummary(t *testing.T) {
 	md, err := os.ReadFile(filepath.Join(dir, "latest.md"))
 	if err != nil || !strings.Contains(string(md), "1 of 1 cases ended as expected") {
 		t.Fatalf("latest.md: %v %s", err, md)
+	}
+}
+
+func TestTheDemoInfoCountsTodaysSearches(t *testing.T) {
+	cfg, err := config.Load([]string{"UPKEEP_MODE=replay", "UPKEEP_SANDBOX=exec", "UPKEEP_SEARCH_DAILY_LIMIT=40"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := runtime.New(t.Context(), runtime.Options{Config: cfg, Policy: policy.Default(), CacheDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt.Searches.Take(1)
+	rt.Searches.Take(1)
+	info := demoInfo(&stack{cfg: cfg, policy: policy.Default(), runtime: rt})
+	if info["searches_today"] != int64(2) || info["search_daily_limit"] != 40 || info["mode"] != "replay" {
+		t.Fatalf("info = %+v", info)
 	}
 }

@@ -69,6 +69,27 @@ export interface Breaking {
   description: string;
 }
 
+export interface SearchResult {
+  title: string;
+  url: string;
+  score: number;
+  kept: boolean;
+}
+
+export interface SearchTrace {
+  provider: string;
+  query: string;
+  results?: SearchResult[];
+  kept?: string[];
+  latency_ms?: number;
+  micros?: number;
+  error?: string;
+  at?: string;
+  recorded?: boolean;
+  reused?: boolean;
+  skipped?: string;
+}
+
 export interface Forecast {
   module: string;
   from: string;
@@ -80,6 +101,10 @@ export interface Forecast {
   excerpt_source: string;
   files: string[];
   sources: string[];
+  fetched_at?: string;
+  search?: SearchTrace;
+  releases?: string[];
+  releases_error?: string;
 }
 
 export interface ReceiptLine {
@@ -101,9 +126,22 @@ export interface ReceiptStep {
   ok: boolean;
 }
 
+export interface ReceiptSearch {
+  provider: string;
+  query: string;
+  results: number;
+  kept: number;
+  latency_ms: number;
+  micros: number;
+  error?: string;
+  recorded: boolean;
+  reused: boolean;
+}
+
 export interface Receipt {
   lines: ReceiptLine[] | null;
   steps: ReceiptStep[] | null;
+  searches?: ReceiptSearch[] | null;
   calls: number;
   attempts: number;
   micros: number;
@@ -134,6 +172,8 @@ export interface Info {
   runs_per_server: number;
   daily_tokens: number;
   tokens_today: number;
+  search_daily_limit?: number;
+  searches_today?: number;
   rules?: string[];
 }
 
@@ -143,6 +183,7 @@ export type EventKind =
   | "pr.blocker"
   | "pr.step"
   | "model.call"
+  | "search.call"
   | "tool.call"
   | "verify.result"
   | "action"

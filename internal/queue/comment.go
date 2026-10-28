@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/aalvaropc/upkeep/internal/engine"
+	"github.com/aalvaropc/upkeep/internal/forecast"
+	"github.com/aalvaropc/upkeep/internal/receipt"
 )
 
 func usd(micros int64) string {
@@ -48,8 +50,12 @@ func receiptComment(res engine.Result) string {
 	if s := strings.TrimSpace(res.Summary); s != "" {
 		b.WriteString(s + "\n\n")
 	}
+	search := searchLine(res.Receipt.Searches())
 	if len(lines) == 0 {
 		b.WriteString("No model was called; the checks were enough.\n")
+		if search != "" {
+			b.WriteString("\n" + search)
+		}
 		return b.String()
 	}
 	b.WriteString("| Model | Role | Calls | Prompt | Completion | Cost |\n|---|---|---|---|---|---|\n")
@@ -61,5 +67,43 @@ func receiptComment(res engine.Result) string {
 		fmt.Fprintf(&b, " The same tokens at the largest model's price would have cost %s; that is a price comparison, not a claim that it would have fixed it.", usd(totals.Charge.BaselineMicros))
 	}
 	b.WriteString("\n")
+	if search != "" {
+		b.WriteString("\n" + search)
+	}
 	return b.String()
+}
+
+func counted(n int, one, many string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+	return fmt.Sprintf("%d %s", n, many)
+}
+
+func searchLine(searches []receipt.Search) string {
+	if len(searches) == 0 {
+		return ""
+	}
+	kept, failed, recorded := 0, 0, true
+	var micros int64
+	for _, s := range searches {
+		kept += s.Kept
+		micros += s.Micros
+		recorded = recorded && s.Recorded
+		if s.Error != "" {
+			failed++
+		}
+	}
+	name := forecast.ProviderLabel(searches[0].Provider)
+	line := fmt.Sprintf("Web search: %s, %s kept", counted(len(searches), name+" search", name+" searches"), counted(kept, "page", "pages"))
+	if failed > 0 {
+		line += fmt.Sprintf(", %d failed", failed)
+	}
+	if micros > 0 {
+		line += ", " + usd(micros)
+	}
+	if recorded {
+		line += ", from the recorded run"
+	}
+	return line + ".\n"
 }

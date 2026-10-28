@@ -19,7 +19,8 @@ export type IconName =
   | "rules"
   | "wait"
   | "tool"
-  | "alert";
+  | "alert"
+  | "search";
 
 const PATHS: Record<IconName, string[]> = {
   mark: [
@@ -67,6 +68,13 @@ const PATHS: Record<IconName, string[]> = {
   wait: ["M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0", "M12 7v5l3 2"],
   tool: ["M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5L15 12l-3-3z"],
   alert: ["M12 3l9 16H3z", "M12 10v4", "M12 17h.01"],
+  search: [
+    "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0",
+    "M3.6 9h16.8",
+    "M3.6 15h16.8",
+    "M12 3c-2.5 2.6-3.6 5.6-3.6 9s1.1 6.4 3.6 9",
+    "M12 3c2.5 2.6 3.6 5.6 3.6 9s-1.1 6.4-3.6 9",
+  ],
 };
 
 interface Props {

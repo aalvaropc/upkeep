@@ -106,7 +106,9 @@ Settings come from the environment; `.env.example` lists them all.
 | `NEBIUS_API_KEY` | none | Token Factory key; required in `live` and `record` modes |
 | `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1` | Token Factory endpoint |
 | `UPKEEP_MODEL_ULTRA`, `_SUPER`, `_NANO` | the three Nemotron models | which model plays which role |
-| `TAVILY_API_KEY` | none | web search for migration guides |
+| `TAVILY_API_KEY` | none | web search for migration guides; in `live` mode it runs on every dependency forecast |
+| `UPKEEP_SEARCH_DAILY_LIMIT` | `100` | live Tavily searches per day; past it the cached forecast is used, and `0` turns the search off |
+| `UPKEEP_PRICE_TAVILY_SEARCH` | none | USD per Tavily search, shown on the receipt; without it the receipt counts searches |
 | `GITHUB_TOKEN` | none | needed to push to, comment on and merge pull requests |
 | `UPKEEP_MODE` | `replay` | `live` calls the models, `record` calls them and saves every exchange, `replay` answers from recorded exchanges |
 | `UPKEEP_ADDR` | `127.0.0.1:8080` | address of the dashboard |

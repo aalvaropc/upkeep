@@ -321,6 +321,33 @@ func TestAReceiptIsPostedWithEveryModelUsed(t *testing.T) {
 	}
 }
 
+func TestTheReceiptNamesTheWebSearch(t *testing.T) {
+	rec := receipt.New()
+	rec.AddCall(model.Super, "nvidia/super", model.Usage{PromptTokens: 1000, CompletionTokens: 200}, model.Charge{Micros: 7100, BaselineMicros: 26000, Known: true}, time.Second)
+	rec.AddSearch(receipt.Search{Provider: "tavily", Query: "q", Results: 4, Kept: 4, Latency: time.Second})
+	priced := receipt.New()
+	priced.AddSearch(receipt.Search{Provider: "tavily", Query: "q", Results: 4, Kept: 1, Micros: 8000})
+	priced.AddSearch(receipt.Search{Provider: "tavily", Query: "q", Error: "tavily returned HTTP 432"})
+	p := &scripted{t: t, results: map[int]engine.Result{
+		1: {Outcome: pull.Mergeable, Receipt: rec},
+		2: {Outcome: pull.Mergeable, Receipt: priced},
+	}}
+	r, f, _ := newRunner(t, p)
+	s, err := r.Run(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := comments(f, 1, "receipt"); len(c) != 1 || !strings.HasSuffix(c[0].Body, "\n\nWeb search: 1 Tavily search, 4 pages kept.\n") {
+		t.Fatalf("receipt comment = %+v", c)
+	}
+	if c := comments(f, 2, "receipt"); len(c) != 1 || !strings.Contains(c[0].Body, "No model was called") || !strings.HasSuffix(c[0].Body, "\n\nWeb search: 2 Tavily searches, 1 page kept, 1 failed, $0.0080.\n") {
+		t.Fatalf("receipt comment = %+v", c)
+	}
+	if s.Totals.Charge.Micros != 7100 || s.Totals.Calls != 1 {
+		t.Fatalf("a search does not change the model totals: %+v", s.Totals)
+	}
+}
+
 func TestCancellingTheRunMarksTheRestAsFailed(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	p := &scripted{t: t, results: map[int]engine.Result{}, gate: func(number int) {

@@ -32,7 +32,29 @@
       "https://github.com/golang-jwt/jwt/releases/tag/v5.1.0",
       "https://github.com/golang-jwt/jwt/releases/tag/v5.0.0"
     ],
-    "fetched_at": "2026-10-25T14:16:59.72442244Z"
+    "fetched_at": "2026-10-25T14:16:59.72442244Z",
+    "search": {
+      "provider": "tavily",
+      "query": "github.com/golang-jwt/jwt/v5 migration guide",
+      "kept": [
+        "https://github.com/golang-jwt/jwt/blob/main/MIGRATION_GUIDE.md",
+        "https://pkg.go.dev/github.com/golang-jwt/jwt/v5",
+        "https://github.com/golang-jwt/jwt",
+        "https://github.com/golang-jwt/jwt/releases"
+      ],
+      "at": "2026-10-25T14:16:59.72442244Z",
+      "recorded": true
+    },
+    "releases": [
+      "https://github.com/golang-jwt/jwt/releases/tag/v5.3.1",
+      "https://github.com/golang-jwt/jwt/releases/tag/v5.3.0",
+      "https://github.com/golang-jwt/jwt/releases/tag/v5.2.3",
+      "https://github.com/golang-jwt/jwt/releases/tag/v5.2.2",
+      "https://github.com/golang-jwt/jwt/releases/tag/v5.2.1",
+      "https://github.com/golang-jwt/jwt/releases/tag/v5.2.0",
+      "https://github.com/golang-jwt/jwt/releases/tag/v5.1.0",
+      "https://github.com/golang-jwt/jwt/releases/tag/v5.0.0"
+    ]
   },
   "cost": {
     "role": "super",

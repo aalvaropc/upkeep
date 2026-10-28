@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/aalvaropc/upkeep/internal/config"
+	"github.com/aalvaropc/upkeep/internal/forecast"
 )
 
 var testKey = config.Secret(strings.Repeat("t", 40))
@@ -114,5 +115,11 @@ func TestSearchBadResponseAndRedaction(t *testing.T) {
 	_, err := c.Search(t.Context(), "q", 1)
 	if err == nil || strings.Contains(err.Error(), testKey.Reveal()) {
 		t.Errorf("a transport error must not show the key: %v", err)
+	}
+}
+
+func TestTheClientNamesItsProvider(t *testing.T) {
+	if got := forecast.ProviderOf(New(testKey)); got != "tavily" {
+		t.Fatalf("provider = %q", got)
 	}
 }

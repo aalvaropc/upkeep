@@ -275,3 +275,47 @@
 .stepTime {
   font-variant-numeric: tabular-nums;
 }
+
+.searchLine {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  color: var(--fg-muted);
+  font: 12px/1.5 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.searchLine svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--search);
+}
+
+.searchLine code {
+  color: var(--fg);
+}
+
+.source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+}
+
+.sourceKind {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+  align-items: center;
+  color: var(--fg-muted);
+  font: 500 12px/1.5 var(--mono);
+}
+
+.sourceKind[data-kind="search"] svg {
+  color: var(--search);
+}
+
+.sourceKind[data-kind="release"] svg {
+  color: var(--super);
+}

@@ -77,6 +77,7 @@ type Config struct {
 	Sandbox          Sandbox
 	DailyTokens      int64
 	SearchDailyLimit int
+	SearchPrice      float64
 	Prices           Prices
 }
 
@@ -152,6 +153,11 @@ func Load(environ []string) (Config, error) {
 	}
 	if c.SearchDailyLimit, err = strconv.Atoi(get("UPKEEP_SEARCH_DAILY_LIMIT", strconv.Itoa(DefaultSearchLimit))); err != nil || c.SearchDailyLimit < 0 {
 		errs = append(errs, fmt.Errorf("UPKEEP_SEARCH_DAILY_LIMIT %q must be a non-negative integer", env["UPKEEP_SEARCH_DAILY_LIMIT"]))
+	}
+	if v := env["UPKEEP_PRICE_TAVILY_SEARCH"]; v != "" {
+		if c.SearchPrice, err = strconv.ParseFloat(v, 64); err != nil || c.SearchPrice < 0 {
+			errs = append(errs, fmt.Errorf("UPKEEP_PRICE_TAVILY_SEARCH %q must be a non-negative number of US dollars per search", v))
+		}
 	}
 
 	for _, p := range []struct {
