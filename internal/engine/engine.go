@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"slices"
@@ -67,9 +70,13 @@ type Result struct {
 	Changes    []gitx.FileChange
 	Checklist  verify.Checklist
 	Flaky      []string
+	FlakyKind  string
+	OwnTests   []string
 	Forecast   *forecast.Forecast
 	Confirmed  []string
 	Missed     []string
+	FixedToo   []string
+	BuildFine  bool
 	Receipt    *receipt.Receipt
 	Summary    string
 	Failure    string
@@ -445,6 +452,7 @@ func (p Processor) finish(ctx context.Context, res *Result, job *strategy.Job, d
 	}
 	res.HeadAfter = head
 	res.Flaky = diag.FlakyTests
+	res.FlakyKind = diag.FlakyKind
 	p.step(res, "verify", "running", "")
 
 	changes, err := env.Git.Diff(ctx, job.Dir, res.FixBase)
@@ -491,6 +499,15 @@ func (p Processor) finish(ctx context.Context, res *Result, job *strategy.Job, d
 			return p.failed(res, err)
 		}
 	}
+	if res.Forecast != nil {
+		switch {
+		case res.Confirmed == nil && res.Missed == nil:
+			res.Confirmed, res.Missed = res.Forecast.Confirm("")
+			res.BuildFine = len(res.Missed) > 0
+		case res.Patch != "" && len(res.Missed) > 0:
+			res.FixedToo, res.Missed = res.Forecast.Changed(res.Patch, res.Missed)
+		}
+	}
 	if res.Changed {
 		res.Summary = p.summarize(ctx, res, job)
 		p.learn(res)
@@ -500,6 +517,11 @@ func (p Processor) finish(ctx context.Context, res *Result, job *strategy.Job, d
 	res.WantsPatch = res.Changed && !res.WantsPush
 	res.WantsMerge = env.Policy.MayAutoMerge(job.PR.Author, job.PR.Bump)
 	p.step(res, "verify", "done", "every check passed")
+	for _, n := range p.ownTests(ctx, job, res.HeadBefore) {
+		if !slices.Contains(res.Flaky, n) {
+			res.OwnTests = append(res.OwnTests, n)
+		}
+	}
 	res.Confidence = assess(res, job, env.Policy.MaxLinesChanged)
 	p.emit(res, events.Receipt, receiptData(res.Receipt))
 	return *res
@@ -523,10 +545,61 @@ func assess(res *Result, job *strategy.Job, maxLines int) confidence.Assessment 
 		Files:     len(res.Changes),
 		Lines:     lines,
 		MaxLines:  maxLines,
-		Predicted: len(res.Confirmed) + len(res.Missed),
+		Predicted: len(res.Confirmed) + len(res.Missed) + len(res.FixedToo),
 		Confirmed: len(res.Confirmed),
+		FixedToo:  len(res.FixedToo),
+		BuildFine: res.BuildFine,
 		Flaky:     res.Flaky,
+		FlakyKind: res.FlakyKind,
+		OwnTests:  res.OwnTests,
+		Change:    job.PR.Kind == pull.Change,
 	})
+}
+
+func (p Processor) ownTests(ctx context.Context, job *strategy.Job, head string) []string {
+	if head == "" {
+		return nil
+	}
+	files, err := p.Env.Git.Touched(ctx, job.Dir, job.Base, head)
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, f := range files {
+		if !strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		now, err := p.Env.Git.Show(ctx, job.Dir, head, f)
+		if err != nil {
+			continue
+		}
+		before, _ := p.Env.Git.Show(ctx, job.Dir, job.Base, f)
+		old := testNames(before)
+		for _, n := range testNames(now) {
+			if !slices.Contains(old, n) && !slices.Contains(names, n) {
+				names = append(names, n)
+			}
+		}
+	}
+	slices.Sort(names)
+	return names
+}
+
+func testNames(src string) []string {
+	if strings.TrimSpace(src) == "" {
+		return nil
+	}
+	file, err := parser.ParseFile(token.NewFileSet(), "x_test.go", src, parser.SkipObjectResolution)
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, decl := range file.Decls {
+		if fn, ok := decl.(*ast.FuncDecl); ok && fn.Recv == nil && strings.HasPrefix(fn.Name.Name, "Test") {
+			names = append(names, fn.Name.Name)
+		}
+	}
+	return names
 }
 
 func (p Processor) addedComments(ctx context.Context, job *strategy.Job, changes []gitx.FileChange, base string) (int, error) {
