@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -21,6 +22,7 @@ func parseDemoFlags(args []string, stderr io.Writer) (demoFlags, error) {
 	fs := flag.NewFlagSet("demo", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	f.register(fs, 1)
+	fs.IntVar(&f.runsPerServer, "runs", engine.DefaultLimits.RunsPerServer, "most runs the server works on at once; later ones wait in line")
 	fs.BoolVar(&f.trustProxy, "trust-proxy", false, "believe X-Forwarded-For; only behind a proxy you control")
 	if err := fs.Parse(args); err != nil {
 		return demoFlags{}, err
@@ -30,6 +32,9 @@ func parseDemoFlags(args []string, stderr io.Writer) (demoFlags, error) {
 	}
 	if err := f.validate(); err != nil {
 		return demoFlags{}, fmt.Errorf("demo: %w", err)
+	}
+	if f.runsPerServer < 1 {
+		return demoFlags{}, errors.New("demo: -runs must be at least 1")
 	}
 	return f, nil
 }
@@ -55,9 +60,10 @@ func demoCommand(ctx context.Context, args []string, stdout, stderr io.Writer, e
 }
 
 func demoInfo(st *stack) map[string]any {
+	limits := st.manager.Limits()
 	return map[string]any{
 		"mode": string(st.runtime.Mode()), "version": buildinfo.Version(), "public": st.cfg.Public,
-		"prs_per_run": engine.DefaultLimits.PRsPerRun, "runs_per_server": engine.DefaultLimits.RunsPerServer,
+		"parallel_prs": limits.PRsPerRun, "runs_per_server": limits.RunsPerServer,
 		"daily_tokens": st.cfg.DailyTokens, "tokens_today": st.runtime.Budget.Spent(), "rules": st.policy.Rules(),
 		"search_daily_limit": st.cfg.SearchDailyLimit, "searches_today": st.runtime.Searches.Spent(),
 	}

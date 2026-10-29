@@ -184,7 +184,7 @@ export interface Info {
   mode: "live" | "record" | "replay";
   version: string;
   sessions: number;
-  prs_per_run: number;
+  parallel_prs: number;
   runs_per_server: number;
   daily_tokens: number;
   tokens_today: number;

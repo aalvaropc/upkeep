@@ -12,9 +12,12 @@ import (
 	"time"
 
 	"github.com/aalvaropc/upkeep/internal/config"
+	"github.com/aalvaropc/upkeep/internal/engine"
 	"github.com/aalvaropc/upkeep/internal/eval"
+	"github.com/aalvaropc/upkeep/internal/events"
 	"github.com/aalvaropc/upkeep/internal/policy"
 	"github.com/aalvaropc/upkeep/internal/runtime"
+	"github.com/aalvaropc/upkeep/scenarios"
 )
 
 func TestRun(t *testing.T) {
@@ -40,6 +43,7 @@ func TestRun(t *testing.T) {
 		{name: "run with no parallelism", args: []string{"run", "-repo", "o/r", "-parallel", "0"}, code: 1, stderr: "-parallel must be at least 1"},
 		{name: "demo with arguments", args: []string{"demo", "extra"}, code: 1, stderr: "demo takes no arguments"},
 		{name: "demo with a bad flag", args: []string{"demo", "-pace", "-1"}, code: 1, stderr: "-pace cannot be negative"},
+		{name: "demo with no runs", args: []string{"demo", "-runs", "0"}, code: 1, stderr: "demo: -runs must be at least 1"},
 		{name: "record without a directory", args: []string{"record"}, code: 1, stderr: "record: -fixtures DIR is required"},
 		{name: "record with arguments", args: []string{"record", "-fixtures", "x", "extra"}, code: 1, stderr: "record takes no arguments"},
 		{name: "eval with a bad run count", args: []string{"eval", "-runs", "0"}, code: 1, stderr: "-runs must be at least 1"},
@@ -142,8 +146,13 @@ func TestWriteReportKeepsEachRunAndTheLatestSummary(t *testing.T) {
 	}
 }
 
-func TestTheDemoInfoCountsTodaysSearches(t *testing.T) {
-	cfg, err := config.Load([]string{"UPKEEP_MODE=replay", "UPKEEP_SANDBOX=exec", "UPKEEP_SEARCH_DAILY_LIMIT=40"})
+func demoStack(t *testing.T, args []string, environ []string) *stack {
+	t.Helper()
+	flags, err := parseDemoFlags(args, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(environ)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,10 +160,46 @@ func TestTheDemoInfoCountsTodaysSearches(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt.Searches.Take(1)
-	rt.Searches.Take(1)
-	info := demoInfo(&stack{cfg: cfg, policy: policy.Default(), runtime: rt})
+	s, err := scenarios.Notes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := newManager(t.Context(), flags.stackFlags, s, filepath.Join(t.TempDir(), "forge.git"), t.TempDir(), events.NewHub(16), rt.Processor, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(m.Shutdown)
+	return &stack{cfg: cfg, policy: policy.Default(), runtime: rt, manager: m}
+}
+
+func TestTheDemoInfoCountsTodaysSearches(t *testing.T) {
+	st := demoStack(t, nil, []string{"UPKEEP_MODE=replay", "UPKEEP_SANDBOX=exec", "UPKEEP_SEARCH_DAILY_LIMIT=40"})
+	st.runtime.Searches.Take(1)
+	st.runtime.Searches.Take(1)
+	info := demoInfo(st)
 	if info["searches_today"] != int64(2) || info["search_daily_limit"] != 40 || info["mode"] != "replay" {
 		t.Fatalf("info = %+v", info)
+	}
+}
+
+func TestTheDemoRunsFlagReachesTheManager(t *testing.T) {
+	for _, tt := range []struct {
+		args []string
+		want engine.Limits
+	}{
+		{nil, engine.Limits{PRsPerRun: 4, RunsPerServer: 2}},
+		{[]string{"-runs", "5"}, engine.Limits{PRsPerRun: 4, RunsPerServer: 5}},
+	} {
+		st := demoStack(t, tt.args, []string{"UPKEEP_MODE=replay", "UPKEEP_SANDBOX=exec"})
+		if got := st.manager.Limits(); got != tt.want {
+			t.Errorf("%v: manager limits = %+v, want %+v", tt.args, got, tt.want)
+		}
+		info := demoInfo(st)
+		if info["parallel_prs"] != tt.want.PRsPerRun || info["runs_per_server"] != tt.want.RunsPerServer {
+			t.Errorf("%v: info = %+v", tt.args, info)
+		}
+		if _, ok := info["prs_per_run"]; ok {
+			t.Errorf("%v: info still has prs_per_run: %+v", tt.args, info)
+		}
 	}
 }
