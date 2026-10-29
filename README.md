@@ -2,24 +2,43 @@
 
 [![ci](https://github.com/aalvaropc/upkeep/actions/workflows/ci.yml/badge.svg)](https://github.com/aalvaropc/upkeep/actions/workflows/ci.yml)
 
-Upkeep keeps GitHub pull requests mergeable. It finds what blocks each open pull request, fixes what a bounded policy allows, proves every fix with the compiler and the tests, and hands the rest back with a diagnosis and a receipt that says what each model did and cost.
+Upkeep keeps GitHub pull requests mergeable. It looks at the whole queue of open pull requests, plans the order they can merge in, fixes what a bounded policy allows, proves every fix with the compiler and the tests, remembers the fixes that passed, and hands the rest back with a diagnosis and a receipt that says what each model did and cost.
 
-It runs on NVIDIA Nemotron models (Ultra, Super and Nano) served by Nebius Token Factory. It is written in Go and ships as one binary with its dashboard built in.
+It runs on NVIDIA Nemotron models (Ultra, Super and Nano) served by Nebius Token Factory, and reads migration guides found with Tavily. It is written in Go and ships as one binary with its dashboard built in.
 
-![The dashboard after a run: nine pull requests, each with its outcome, what Upkeep did and what it cost; the models rail on the right](docs/images/dashboard-done.png)
+![The dashboard after a run: nine pull requests with their outcome, merge confidence and cost; the models and the web search on the right](docs/images/dashboard-done.png)
 
 ## What it does
 
 A repository collects pull requests that need a small change before anyone can merge them: the branch is behind, a conflict touches one line, a rename on `main` broke the build, a Dependabot bump no longer compiles, `gofmt` complains, a flaky test fails. Upkeep works through them:
 
-1. **Detect.** It merges the base branch into a scratch copy and runs the build, vet and tests in a container without network access. The first thing that fails is the blocker: behind, a small or a large conflict, build, test, formatting or a flaky test.
-2. **Forecast** (dependency upgrades only). It reads the release notes and the migration guide, asks Super what will break in the identifiers this project uses, and later marks each prediction confirmed or not seen by the build.
-3. **Fix.** Merges and formatting are mechanical. Small conflicts go to Ultra in one call. Broken builds and tests go to Super, which edits files through four tools (`read_file`, `apply_edit`, `go_doc`, `run_checks`) for up to three attempts, each starting clean.
-4. **Verify.** Outside the model, a checklist decides: build, vet and tests pass; at most 5 files and 80 lines changed; no test touched; Go files only; no comment added; formatted.
-5. **Act.** Push the fix when the pull request has the `upkeep` label or is a bot's, otherwise attach it as a patch; merge a bot's patch or minor bump when everything passes; otherwise post Ultra's diagnosis and leave the pull request to a person.
-6. **Learn.** A fix Super made that passed the verifier is remembered with its failure. When the same failure comes back for the same dependency jump, Upkeep reapplies those edits first, with no model call, and still runs every check and the verifier; if they fail, it repairs from the start. In the dashboard, Run again keeps what the last run learned.
+1. **Plan.** Before touching any code it finds which open pull requests change the same files and which pairs would conflict (`git merge-tree`), and suggests a merge order. After the run it checks the ready ones again and flags any that the run's own merges made stale.
+2. **Detect.** It merges the base branch into a scratch copy and runs the build, vet and tests in a container without network access. The first thing that fails is the blocker: behind, a small or a large conflict, build, test, formatting or a flaky test.
+3. **Forecast** (dependency upgrades). It searches the web with Tavily for the migration guide, reads the release notes, asks Super what will break in the identifiers this project uses, and later marks each prediction confirmed or not seen by the build.
+4. **Fix.** Merges and formatting are mechanical. Small conflicts go to Ultra in one call. Broken builds and tests go to Super, which edits files through four tools (`read_file`, `apply_edit`, `go_doc`, `run_checks`) for up to three attempts, each starting clean.
+5. **Verify.** Outside the model, a checklist decides: build, vet and tests pass; at most 5 files and 80 lines changed; no test touched; Go files only; no comment added; formatted.
+6. **Act.** Push the fix when the pull request has the `upkeep` label or is a bot's, otherwise attach it as a patch; merge a bot's patch or minor bump when everything passes; otherwise post Ultra's diagnosis and leave the pull request to a person. Every ready pull request gets a merge confidence (high, medium or low) with the facts behind it.
+7. **Learn.** A fix Super made that passed the verifier is remembered with its failure. When the same failure comes back for the same dependency jump, Upkeep reapplies those edits first, with no model call, and still runs every check and the verifier; if they fail, it repairs from the start.
 
 Upkeep never force-pushes, never merges a pull request opened by a person, and never lets a fix edit, delete or skip tests. Those are rules in code, not in a prompt.
+
+## See the agent work
+
+Open a pull request while it runs and the Trace tab shows the plan, the Tavily search, every Super turn with the tool it asked for and the file it edited, each attempt with why it failed, the verifier and the action:
+
+![The trace of the jwt major upgrade: the plan, the forecast with the Tavily search, and Super's attempt turn by turn with its edits](docs/images/dashboard-trace.png)
+
+The Summary tab keeps what a reviewer needs: what changed, the merge confidence and its reasons, the forecast with each prediction confirmed or not seen by the build and where the sources came from, the diff, the verifier and the receipt.
+
+![The summary of the jwt upgrade: low merge confidence with its reasons, and the forecast built from release notes and pages Tavily found](docs/images/dashboard-detail.png)
+
+The merge plan sits next to the board. In the scenario the jwt and clockwork bumps both edit `go.mod`; Upkeep merges clockwork first and, after the run, says the jwt upgrade now needs its branch updated:
+
+![The merge plan: the suggested order with each outcome, the files pull requests share, and the warning that #5 went stale after #7 merged](docs/images/dashboard-plan.png)
+
+Press **Run again** and the next run keeps what this one learned: the three fixes Super made are reapplied with zero model calls and still go through every check, and the run costs $0.0055 instead of $0.0191.
+
+![The second run: #4, #5 and #7 carry a learned fix chip and the run cost drops](docs/images/dashboard-learned.png)
 
 ## The demo scenario
 
@@ -31,19 +50,15 @@ Upkeep never force-pushes, never merges a pull request opened by a person, and n
 | 2 | Longer titles (`upkeep` label) | one-line conflict | resolved by Ultra, pushed |
 | 3 | Tag counts | conflicting imports | resolved by Ultra, patch attached |
 | 4 | Notes export (`upkeep` label) | `main` renamed a method it calls | fixed by Super, pushed |
-| 5 | jwt v4 to v5 (bot, major) | build fails | fixed by Super, pushed, left for a person to merge |
+| 5 | jwt v4 to v5 (bot, major) | build fails | fixed by Super, pushed, left for a person; low merge confidence and flagged stale after #7 merged |
 | 6 | cors patch bump (bot) | none | merged, no model call |
-| 7 | clockwork minor bump (bot) | build fails | fixed by Super, pushed, merged |
+| 7 | clockwork minor bump (bot) | build fails | fixed by Super, pushed, merged first by the plan |
 | 8 | Note summary | formatting, and a test that depends on order | formatted, patch attached, the flaky test reported and left alone |
 | 9 | Auth rewrite | four overlapping conflict hunks | handed back with Ultra's diagnosis |
 
 The whole run costs about two cents: $0.0191 against $0.0502 for the same tokens at the largest model's price. That is a price comparison, not a claim that the largest model would have fixed them. CI replays the recording and fails if any pull request ends differently.
 
 The recording is one run, so it was also measured live: five runs against the real models (nothing replayed) ended with all 45 pull requests as the scenario expects, at $0.020 to $0.037 a run ([`docs/evals/live.md`](docs/evals/live.md)).
-
-Press a card and the side sheet shows what happened to that pull request. This one is the clockwork bump: the release note said `FakeClock` became a struct, Super predicted it before touching anything, the compiler confirmed it, and the fix was one line.
-
-![The detail of a dependency bump: the forecast with each prediction marked confirmed or not seen by the build, the change, the verifier and the receipt](docs/images/dashboard-detail.png)
 
 ## Run it
 
@@ -82,15 +97,26 @@ The same run works from GitHub Actions: `uses: aalvaropc/upkeep@v0.1.0` on a dai
 | `upkeep scenario build -out DIR` | builds the scenario's repository from its recipes |
 | `upkeep serve` | the bare dashboard and event stream |
 
-## Which model does what
+## Nebius Token Factory and NVIDIA Nemotron
+
+Every model call goes to Nebius Token Factory through its OpenAI-compatible API, and each step goes to the Nemotron model that measured best for it:
 
 | Model | Used for | Why |
 |---|---|---|
 | Nemotron Ultra (550B) | resolves small conflicts in one call; writes the diagnosis when a person is needed | one-shot reasoning over a short file; inside a tool loop it explored and rewrote too much (0 of 21 fixes) |
-| Nemotron Super (120B) | fixes builds and tests with tools; reads release notes for the forecast | gave the same forecast three times in a row and fixed the jwt major on the first attempt |
+| Nemotron Super (120B) | fixes builds and tests with tools; reads release notes and search results for the forecast | gave the same forecast three times in a row and fixed the jwt major on the first attempt |
 | Nemotron Nano (30B) | writes the one-sentence note for the reviewer | cheap and fast; its note is checked against the diff and dropped if it names anything that is not in the change |
 
-These are measurements, not assumptions: [`docs/models.md`](docs/models.md) has the details, including what did not work.
+Where Token Factory made the work faster:
+
+- **Routing by measurement.** Three model sizes behind one key and one API let us run 73 experiments (3.06 million tokens, about two dollars) in a day and route each step on evidence instead of guesses. [`docs/models.md`](docs/models.md) has the numbers, including what did not work.
+- **Live prices.** `GET /v1/models?verbose=true` returns each model's price, so every receipt is priced from the catalog, and the comparison with the largest model is computed, not assumed.
+- **No infrastructure to run.** Inference needs only a key: the demo machine runs the Go binary and the build sandbox, and four pull requests in parallel never came near the rate limits.
+- **Reasoning switch.** `chat_template_kwargs: {"enable_thinking": false}` turns reasoning off for the tool loop, where it measured slower and less accurate.
+
+## Tavily
+
+The forecast for a dependency upgrade calls Tavily at runtime to find the migration guide and release notes of the module's own project (other projects' pages are filtered out). In live mode every run searches again; the forecast is rewritten only when Tavily finds a page it has not read, so the fixer's input stays stable. The dashboard shows each search (query, pages kept, latency) in the models rail and in the trace, the receipt counts it, and `UPKEEP_SEARCH_DAILY_LIMIT` caps the searches per day. A failed search never fails a pull request: the last forecast is used and the error is shown.
 
 ## Documentation
 
