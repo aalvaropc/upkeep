@@ -8,24 +8,28 @@ One Go binary is the command line, the HTTP server and the dashboard. It uses th
 forge ──► Prepare (clone; check out the branch, or pull/N/head for a fork)
           │
           ▼
+        changed files ──► Go or module files in a module in a subdirectory ──► hand back, no model
+          │
+          ▼
         forecast (minor or major dependency bump) ──► release notes + Tavily ──► Super predicts what breaks
           │                                       └─► nothing found ──► compare the module's exported API
           ▼
         detect ──► no go.mod ──► hand back, no model
-          ├─► conflict (small) ──► Ultra resolves it in one call ────────────────────────┐
-          ├─► conflict (large) ──► Ultra diagnoses ──► hand back                          │
+          ├─► conflict (small) ──► Ultra resolves it in one call ─────────────────────────┐
+          │     └─► in a test or a non-Go file ──► Ultra diagnoses ──► hand back          │
+          ├─► conflict (large, or a file with no text) ──► Ultra diagnoses ──► hand back  │
           ├─► build / test fails ──► learned fix? ──► Super repairs, up to 3 attempts ────┤
           ├─► formatting ──► gofmt ───────────────────────────────────────────────────────┤
           ├─► behind ──► merge the base ──────────────────────────────────────────────────┤
           └─► clean or flaky ─────────────────────────────────────────────────────────────┤
-                                                                                           ▼
+                                                                                          ▼
                                    detect again ──► verify (outside the model) ──► Nano writes the note
-                                                                                           │
-                                                                                           ▼
+                                                                                          │
+                                                                                          ▼
              act: push (label or bot) │ patch comment │ merge (bot patch or minor) │ diagnosis comment
 ```
 
-- `engine.Processor.Process` is that loop. It re-detects after every fix. It hands the pull request back when the same blocker comes back a third time, or after six rounds.
+- `engine.Processor.Process` is that loop. Before the forecast, it lists the files the pull request changes: a Go file, `go.mod` or `go.sum` inside a module in a subdirectory sends it back to a person with no model call, because the checks build and test the module at the root. Paths under `testdata`, `vendor`, or a directory whose name starts with `.` or `_` are ignored, as the Go tool ignores them. It re-detects after every fix. It hands the pull request back when the same blocker comes back a third time, or after six rounds.
 - `queue.Runner` lists the open pull requests and announces the ones it skips, with the reason: drafts, other target branches, deleted forks, and forks without the docker sandbox. It prepares every working tree before the first merge can move the base, plans the merge order, and runs the loop with four workers by default. Then it applies each result through the forge.
 
 ### Delivery
@@ -41,7 +45,7 @@ forge ──► Prepare (clone; check out the branch, or pull/N/head for a fork)
 `detect.Detector` merges the base into the working tree without committing, then checks in this order:
 
 1. No `go.mod` at the root: unsupported. The pull request is handed back with a fixed reason, and no model is asked.
-2. A merge with conflicts: small (at most three hunks of twenty lines) or large.
+2. A merge with conflicts: small (at most three hunks of twenty lines) or large. A conflicting file with no text to resolve (deleted on one side, or binary) makes it large. A small conflict in a test file, or in a file other than Go source, `go.mod` and `go.sum`, is not resolved: the engine hands it back with Ultra's diagnosis.
 3. `go mod download`, `go build` or `go vet` fails: build.
 4. Tests fail: the failing tests run alone once.
    - If they pass alone, the whole suite runs twice more. Failing both times means they depend on the order tests run in (`order-dependent`); otherwise they are `flaky`.
