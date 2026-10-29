@@ -280,6 +280,9 @@ func TestBehindBranchGetsAMergeCommit(t *testing.T) {
 	if res.Patch != "" || len(res.Changes) != 0 {
 		t.Fatalf("a plain merge has no fix of its own: %q %v", res.Patch, res.Changes)
 	}
+	if !res.MergedBase || len(res.Resolved) != 0 {
+		t.Fatalf("a plain merge is delivered as a merge of the base: merged %v resolved %v", res.MergedBase, res.Resolved)
+	}
 }
 
 func TestPushOrPatchFollowsThePolicy(t *testing.T) {
@@ -347,6 +350,9 @@ func TestSmallConflictIsResolvedByUltra(t *testing.T) {
 	got := read(t, w.dir, "limits.go")
 	if !strings.Contains(got, "MaxNotesPerOwner = 1000") || !strings.Contains(got, "MaxAttachments") || !strings.Contains(got, "= 5") || gitx.HasMarkers(got) {
 		t.Fatalf("limits.go:\n%s", got)
+	}
+	if !res.MergedBase || len(res.Resolved) != 1 || res.Resolved[0].Path != "limits.go" || !strings.Contains(res.Resolved[0].Text, "MaxNotesPerOwner = 1000") {
+		t.Fatalf("the resolution is kept for the person: merged %v resolved %+v", res.MergedBase, res.Resolved)
 	}
 	if w.parents("HEAD") != 2 || !w.clean() {
 		t.Fatal("the resolution should be committed as a merge")

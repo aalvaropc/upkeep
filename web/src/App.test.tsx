@@ -154,6 +154,7 @@ interface Server {
   failCreate?: { status: number; message: string };
   missing?: boolean;
   created?: number;
+  detail?: Detail;
 }
 
 function installFetch(server: Server) {
@@ -192,7 +193,7 @@ function installFetch(server: Server) {
         return json({ position: 0 }, 202);
       }
       if (method === "GET" && path.includes("/prs/")) {
-        return json(detail);
+        return json(server.detail ?? detail);
       }
       if (method === "DELETE") {
         return new Response(null, { status: 204 });
@@ -537,6 +538,32 @@ describe("App", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(document.activeElement).toBe(opener);
+  });
+
+  it("shows how a conflict was resolved and says when only the base was merged", async () => {
+    installFetch(
+      newServer({
+        detail: {
+          ...detail,
+          outcome: "mergeable",
+          patch: undefined,
+          changes: undefined,
+          merged_base: true,
+          base: "main",
+          resolution: [{ path: "notes/limits.go", text: "\tMaxTitleLength = 140\n" }],
+        },
+      }),
+    );
+    render(<App />);
+    await ready();
+    openPull(2);
+    const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
+    expect(await within(dialog).findByText("How the conflict was resolved")).toBeTruthy();
+    expect(within(dialog).getByText("notes/limits.go")).toBeTruthy();
+    expect(within(dialog).getByText(/MaxTitleLength = 140/)).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Ultra resolved 1 conflicting region after merging main/),
+    ).toBeTruthy();
   });
 
   it("rates a finished pull request on its card", async () => {
