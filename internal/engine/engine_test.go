@@ -997,3 +997,27 @@ func TestARepositoryWithoutGoModIsHandedBackWithoutAModel(t *testing.T) {
 		t.Fatalf("no model may be asked: super %d ultra %d diagnosis %q", w.super.count(), w.ultra.count(), res.Diagnosis)
 	}
 }
+
+func TestThePullRequestsOwnTestsAreNamed(t *testing.T) {
+	w := newWorld(t, nil, nil)
+	w.branch("feature")
+	write(t, w.dir, "extra_test.go", "package m\n\nimport \"testing\"\n\nfunc TestExtra(t *testing.T) {}\n\nfunc helper() {}\n")
+	w.commit("test: add a test")
+	res := w.process(person())
+	if res.Outcome != pull.Mergeable || !slices.Equal(res.OwnTests, []string{"TestExtra"}) {
+		t.Fatalf("outcome %s own tests %v", res.Outcome, res.OwnTests)
+	}
+	if !slices.Contains(res.Confidence.Reasons, "the tests it adds pass: TestExtra") {
+		t.Fatalf("reasons = %q", res.Confidence.Reasons)
+	}
+}
+
+func TestTestNamesReadsOnlyTopLevelTests(t *testing.T) {
+	src := "package x\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\nfunc helper() {}\nfunc (s suite) TestB() {}\nfunc TestC(t *testing.T) {}\n"
+	if got := testNames(src); !slices.Equal(got, []string{"TestA", "TestC"}) {
+		t.Fatalf("testNames = %v", got)
+	}
+	if got := testNames("not go"); got != nil {
+		t.Fatalf("testNames of broken source = %v", got)
+	}
+}

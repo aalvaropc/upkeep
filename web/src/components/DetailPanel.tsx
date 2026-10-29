@@ -42,10 +42,14 @@ export function ForecastView({
   forecast,
   confirmed,
   missed,
+  fixed = [],
+  buildPassed = false,
 }: {
   forecast: Forecast;
   confirmed: string[];
   missed: string[];
+  fixed?: string[];
+  buildPassed?: boolean;
 }) {
   const search = forecast.search;
   const provider = providerLabel(search?.provider || "tavily");
@@ -116,6 +120,7 @@ export function ForecastView({
         <ul className={styles.predictions}>
           {forecast.breaking.map((b) => {
             const seen = confirmed.includes(b.symbol);
+            const changed = fixed.includes(b.symbol);
             const unseen = missed.includes(b.symbol);
             return (
               <li key={b.symbol} className={styles.prediction}>
@@ -125,8 +130,14 @@ export function ForecastView({
                   <span className={styles.seen}>
                     <Icon name="done" /> confirmed by the build
                   </span>
+                ) : changed ? (
+                  <span className={styles.seen}>
+                    <Icon name="done" /> changed by the fix
+                  </span>
                 ) : unseen ? (
-                  <span className={styles.unseen}>not seen in the build</span>
+                  <span className={styles.unseen}>
+                    {buildPassed ? "the build passed" : "not seen in the build"}
+                  </span>
                 ) : null}
               </li>
             );
@@ -262,6 +273,8 @@ function Body({ d }: { d: Detail }) {
             forecast={d.forecast}
             confirmed={d.confirmed ?? []}
             missed={d.missed ?? []}
+            fixed={d.changed_by_fix ?? []}
+            buildPassed={d.build_passed ?? false}
           />
         </Section>
       ) : null}
@@ -322,10 +335,15 @@ function Body({ d }: { d: Detail }) {
       ) : null}
 
       {d.flaky && d.flaky.length > 0 ? (
-        <Section title="Flaky tests">
+        <Section
+          title={d.flaky_kind === "order-dependent" ? "Order-dependent tests" : "Flaky tests"}
+        >
           <p className={styles.lead}>
-            {d.flaky.join(", ")} failed in the full run and passed when run alone. Upkeep reported{" "}
-            {d.flaky.length === 1 ? "it" : "them"} and did not touch{" "}
+            {d.flaky.join(", ")} failed in the full run and passed when run alone.
+            {d.flaky_kind === "order-dependent"
+              ? " They failed again in two more full runs, so they depend on the order tests run in or on state another test leaves behind."
+              : " A later full run passed, so the failure comes and goes."}{" "}
+            Upkeep reported {d.flaky.length === 1 ? "it" : "them"} and did not touch{" "}
             {d.flaky.length === 1 ? "it" : "them"}; a failure that can pass on a rerun is not a fix
             to hide.
           </p>

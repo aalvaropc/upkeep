@@ -194,6 +194,25 @@ func (f Forecast) Confirm(output string) (confirmed, missed []string) {
 	return confirmed, missed
 }
 
+func (f Forecast) Changed(patch string, missed []string) (changed, still []string) {
+	var removed strings.Builder
+	for _, line := range strings.Split(patch, "\n") {
+		if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---") {
+			removed.WriteString(line[1:] + "\n")
+		}
+	}
+	text := removed.String()
+	for _, symbol := range missed {
+		id := identifier(symbol)
+		if len(id) >= 3 && regexp.MustCompile(`\b`+regexp.QuoteMeta(id)+`\b`).MatchString(text) {
+			changed = append(changed, symbol)
+		} else {
+			still = append(still, symbol)
+		}
+	}
+	return changed, still
+}
+
 func (f Forecast) Notes() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Upgrade of %s from %s to %s.", f.Module, f.From, f.To)

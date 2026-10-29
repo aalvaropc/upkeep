@@ -52,4 +52,27 @@ describe("ForecastView", () => {
       "None of the identifiers the project uses changed in the module's exported API.",
     );
   });
+
+  it("marks a prediction the fix changed and a build that passed", () => {
+    const changed = render(
+      <ForecastView
+        forecast={forecast}
+        confirmed={[]}
+        missed={[]}
+        fixed={["clockwork.NewFakeClock"]}
+      />,
+    );
+    expect(changed.container.textContent).toContain("changed by the fix");
+    cleanup();
+    const passed = render(
+      <ForecastView
+        forecast={forecast}
+        confirmed={[]}
+        missed={["clockwork.NewFakeClock"]}
+        buildPassed
+      />,
+    );
+    expect(passed.container.textContent).toContain("the build passed");
+    expect(passed.container.textContent).not.toContain("not seen in the build");
+  });
 });

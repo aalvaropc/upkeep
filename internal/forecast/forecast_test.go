@@ -821,3 +821,12 @@ func TestCachedReleasesAreReadOncePerDay(t *testing.T) {
 		t.Fatalf("and saved again: %v, %d", err, inner.calls.Load())
 	}
 }
+
+func TestChangedFindsPredictionsTheFixHadToEdit(t *testing.T) {
+	f := Forecast{}
+	patch := "--- a/auth/token.go\n+++ b/auth/token.go\n-\tok := claims.VerifyIssuer(name, true)\n+\tok := claims.Issuer == name\n context\n"
+	changed, still := f.Changed(patch, []string{"jwt.MapClaims.VerifyIssuer", "jwt.Token.Signature", "x.Go"})
+	if !slices.Equal(changed, []string{"jwt.MapClaims.VerifyIssuer"}) || !slices.Equal(still, []string{"jwt.Token.Signature", "x.Go"}) {
+		t.Fatalf("changed %v still %v", changed, still)
+	}
+}

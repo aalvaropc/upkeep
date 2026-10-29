@@ -31,7 +31,13 @@ type Diagnosis struct {
 	Unformatted []string
 	FlakyTests  []string
 	FlakyRerun  sandbox.Result
+	FlakyKind   string
 }
+
+const (
+	FlakyRandom = "flaky"
+	FlakyOrder  = "order-dependent"
+)
 
 func (d Diagnosis) Failure() (sandbox.Result, bool) {
 	if !d.Download.OK() && len(d.Download.Args) > 0 {
@@ -153,6 +159,23 @@ func (d Detector) classifyTestFailure(ctx context.Context, ws Workspace, diag Di
 	if rerun.OK() {
 		diag.Blocker = pull.Flaky
 		diag.FlakyTests = names
+		diag.FlakyKind = d.flakyKind(ctx, ws, names)
 	}
 	return diag, nil
+}
+
+func (d Detector) flakyKind(ctx context.Context, ws Workspace, names []string) string {
+	for range 2 {
+		full, err := d.Runner.Tests(ctx, ws.Dir, ".")
+		if err != nil || full.OK() || full.TimedOut {
+			return FlakyRandom
+		}
+		again := FailedTests(full.Output)
+		for _, n := range names {
+			if !slices.Contains(again, n) {
+				return FlakyRandom
+			}
+		}
+	}
+	return FlakyOrder
 }

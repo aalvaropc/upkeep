@@ -27,7 +27,12 @@ type Input struct {
 	MaxLines  int
 	Predicted int
 	Confirmed int
+	FixedToo  int
+	BuildFine bool
 	Flaky     []string
+	FlakyKind string
+	OwnTests  []string
+	Change    bool
 }
 
 type Assessment struct {
@@ -65,11 +70,25 @@ func Assess(in Input) Assessment {
 	if in.Bump != nil && in.Bump.Level == pull.Major {
 		a.note(1, "a major upgrade")
 	}
-	if in.Predicted > 0 {
+	switch {
+	case in.Predicted > 0 && in.BuildFine:
+		a.note(0, fmt.Sprintf("the build passed, so none of the %s broke it", count(in.Predicted, "predicted change")))
+	case in.Predicted > 0 && in.FixedToo > 0:
+		a.note(0, fmt.Sprintf("the build confirmed %d of %d predicted changes, and the fix changed %d more", in.Confirmed, in.Predicted, in.FixedToo))
+	case in.Predicted > 0:
 		a.note(0, fmt.Sprintf("the build confirmed %d of %d predicted changes", in.Confirmed, in.Predicted))
 	}
+	if len(in.OwnTests) > 0 {
+		a.note(0, "the tests it adds pass: "+names(in.OwnTests, 3))
+	} else if written && in.Change {
+		a.note(0, "it adds no test of its own")
+	}
 	if len(in.Flaky) > 0 {
-		a.note(1, "a flaky test: "+strings.Join(in.Flaky, ", "))
+		kind := "a flaky test: "
+		if in.FlakyKind == "order-dependent" {
+			kind = "a test that depends on the order tests run in: "
+		}
+		a.note(1, kind+strings.Join(in.Flaky, ", "))
 	}
 	a.Level = level(a.Risk)
 	return a
@@ -106,4 +125,11 @@ func count(n int, noun string) string {
 		return "1 " + noun
 	}
 	return fmt.Sprintf("%d %ss", n, noun)
+}
+
+func names(list []string, most int) string {
+	if len(list) <= most {
+		return strings.Join(list, ", ")
+	}
+	return fmt.Sprintf("%s and %d more", strings.Join(list[:most], ", "), len(list)-most)
 }
