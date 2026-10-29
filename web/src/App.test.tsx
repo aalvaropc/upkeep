@@ -215,9 +215,12 @@ async function ready() {
 }
 
 function row(n: number): HTMLElement {
-  return screen
-    .getByRole("button", { name: new RegExp(`Pull request ${n}:`) })
-    .closest("tr") as HTMLElement;
+  return screen.getByRole("button", { name: new RegExp(`Pull request ${n}:`) });
+}
+
+function openPull(n: number) {
+  fireEvent.click(row(n));
+  fireEvent.click(screen.getByRole("button", { name: `Open the full detail of #${n}` }));
 }
 
 function startedEvent() {
@@ -249,7 +252,7 @@ describe("App", () => {
     expect(window.sessionStorage.getItem("upkeep.session")).toBe("abcdef123456");
     expect(screen.getByRole("status").textContent).toBe("live · v1.2.3");
     expect(
-      screen.getByText("3 pull requests are blocked. One click and Upkeep works through them."),
+      screen.getByRole("heading", { level: 1, name: "3 pull requests can't merge." }),
     ).toBeTruthy();
     expect(screen.getByRole("list", { name: "How it works" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Work the queue" }).hasAttribute("disabled")).toBe(
@@ -266,11 +269,9 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "Skip to the queue" }).getAttribute("href")).toBe(
       "#main",
     );
-    expect(screen.getByRole("heading", { level: 1, name: "Pull request queue" })).toBeTruthy();
-    expect(screen.getByRole("tablist", { name: "Pull requests by state" })).toBeTruthy();
-    for (const title of ["Pull request", "Blocker", "Progress", "Result", "Cost"]) {
-      expect(screen.getByRole("columnheader", { name: new RegExp(`^${title}`) })).toBeTruthy();
-    }
+    expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Pull requests" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Queue" })).toBeTruthy();
   });
 
   it("starts a run and follows the pull requests across the board", async () => {
@@ -316,8 +317,6 @@ describe("App", () => {
     const done = row(1);
     expect(done.getAttribute("data-phase")).toBe("done");
     expect(within(done).getByText("Ready to merge")).toBeTruthy();
-    expect(within(done).getByText("patch attached")).toBeTruthy();
-    expect(within(done).getByText("Merged main into the branch; nothing conflicted.")).toBeTruthy();
 
     for (const n of [2, 3]) {
       emit("pr.done", n, {
@@ -456,7 +455,7 @@ describe("App", () => {
           : original(path, init),
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: /Pull request 2/ }));
+    openPull(2);
     const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
     await within(dialog).findByText("confirmed by the build");
     expect(
@@ -483,9 +482,10 @@ describe("App", () => {
     installFetch(newServer());
     render(<App />);
     await ready();
-    const card = screen.getByRole("button", { name: /Pull request 2/ });
-    card.focus();
-    fireEvent.click(card);
+    fireEvent.click(row(2));
+    const opener = screen.getByRole("button", { name: "Open the full detail of #2" });
+    opener.focus();
+    fireEvent.click(opener);
     const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
     await within(dialog).findByText("Renames the call so the package builds again.");
     expect(within(dialog).getByText("Ready to merge")).toBeTruthy();
@@ -506,7 +506,7 @@ describe("App", () => {
 
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(document.activeElement).toBe(card);
+    expect(document.activeElement).toBe(opener);
   });
 
   it("rates a finished pull request on its card", async () => {
@@ -589,7 +589,7 @@ describe("App", () => {
       tools: ["apply_edit", "run_checks"],
     } satisfies ModelCallEvent);
 
-    fireEvent.click(screen.getByRole("button", { name: /Pull request 2/ }));
+    openPull(2);
     const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
     expect(within(dialog).getByRole("tab", { name: "Trace" }).getAttribute("aria-selected")).toBe(
       "true",
@@ -673,7 +673,7 @@ describe("App", () => {
     await ready();
     startedEvent();
     emit("pr.step", 1, { step: "detect", status: "running", detail: "" });
-    fireEvent.click(screen.getByRole("button", { name: /Pull request 1/ }));
+    openPull(1);
     const dialog = await screen.findByRole("dialog", { name: "#1 Pull request 1" });
     const trace = within(dialog).getByRole("tab", { name: "Trace" });
     const summary = within(dialog).getByRole("tab", { name: "Summary" });
@@ -768,7 +768,7 @@ describe("App", () => {
           : original(path, init),
       ),
     );
-    fireEvent.click(within(card).getByRole("button", { name: /Pull request 2/ }));
+    openPull(2);
     const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
     expect(
       await within(dialog).findByText(
@@ -806,7 +806,7 @@ describe("App", () => {
       attempt: 1,
       of: 3,
     } satisfies StepEvent);
-    fireEvent.click(screen.getByRole("button", { name: /Pull request 2/ }));
+    openPull(2);
     const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
     const panel = within(dialog).getByRole("tabpanel", { name: "Trace" });
     expect(
@@ -841,7 +841,7 @@ describe("App", () => {
           : original(path, init),
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: /Pull request 2/ }));
+    openPull(2);
     const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
     await within(dialog).findByText("confirmed by the build");
     const hrefs = within(dialog)
@@ -864,7 +864,7 @@ describe("App", () => {
           : original(path, init),
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: /Pull request 1/ }));
+    openPull(1);
     expect((await screen.findByRole("alert")).textContent).toBe("unknown pull request");
   });
 

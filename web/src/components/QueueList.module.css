@@ -1,0 +1,208 @@
+.queue {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.count {
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--fast) var(--ease),
+    background-color var(--fast) var(--ease);
+}
+
+.row:hover {
+  background: var(--card-hover);
+}
+
+.row[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--card-hover);
+}
+
+.row[data-phase="queued"] {
+  opacity: 0.72;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.number {
+  flex: none;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outcome {
+  flex: none;
+  color: var(--accent);
+  font-size: 15px;
+}
+
+.row[data-outcome="needs_human"] .outcome,
+.row[data-outcome="failed"] .outcome {
+  color: var(--warn);
+}
+
+.pulse {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--live);
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.bottom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dots {
+  display: inline-flex;
+  flex: none;
+  gap: 3px;
+}
+
+.dotStage {
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--muted);
+}
+
+.dotStage[data-state="done"] {
+  background: var(--accent);
+}
+
+.dotStage[data-state="running"] {
+  background: var(--live);
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+.dotStage[data-state="failed"] {
+  background: var(--danger);
+}
+
+.dotStage[data-state="handed"] {
+  background: var(--warn);
+}
+
+.dotStage[data-state="skipped"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.status {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlap,
+.learned,
+.confidence {
+  font-size: 12px;
+}
+
+.overlap {
+  color: var(--info);
+}
+
+.overlap[data-tone="conflict"] {
+  color: var(--warn);
+}
+
+.learned {
+  color: var(--info);
+}
+
+.confidence {
+  color: var(--accent);
+}
+
+.confidence[data-level="medium"] {
+  color: var(--warn);
+}
+
+.confidence[data-level="low"] {
+  color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse,
+  .dotStage[data-state="running"] {
+    animation: none;
+  }
+}
+
+.blocker {
+  flex: none;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.row[data-phase="working"] .status {
+  color: var(--live);
+}

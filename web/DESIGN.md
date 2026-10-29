@@ -1,83 +1,65 @@
 # Upkeep dashboard design
 
-The dashboard is a screen people work in, not a page they read: a queue of pull requests that an agent works while they watch. Its one question is **which pull requests can merge, and in what order**. Everything on the first screen answers that or the next question it raises (what did Upkeep do to this one, what did it cost, which models did the work).
+The dashboard tells one story in three moments: a queue that cannot merge, an agent working it live, and what the run left behind. The agent at work is the hero; everything else supports it.
+
+## The flow
+
+1. **Before the run.** A large title states the problem ("9 pull requests can't merge."), one sentence says what Upkeep does with NVIDIA Nemotron on Nebius Token Factory, and one primary action starts it. The queue waits on the left, the three steps of the method sit in the centre, the models on the right.
+2. **During the run.** The centre becomes the **live stage**: the pull request the agent touched last, its five stages (check, forecast, fix, verify, act), a "now" line with the latest thing that happened (a Nemotron turn and what it said, a tool and the file it edited, the Tavily search, a check), and the trace scrolling as it grows. The stage follows the agent by itself; a click on a pull request in the queue pins the stage to it, and "Follow the agent" returns.
+3. **After the run.** The centre shows the **results**: the run's figures, the merge order as a line of pull requests (merged in green, stale or handed back in amber, with the reason), and what Upkeep did grouped into merged, ready to merge and needs a person. "Run again" starts the next run and shows the learned fixes.
+
+The full detail of a pull request (trace and summary tabs) opens in a side sheet from the stage or the results.
 
 ## Principles
 
-- **Colour goes on data, not on chrome.** The frame, the navigation and the headings are ink and grey. Hue appears on the progress of each pull request, its outcome, its merge confidence, the models' usage and the one primary action. Every coloured state also has an icon and a word.
-- **Figures are type, not tiles.** The run's numbers sit in a row of labels and 28px figures, with no boxes, icons or sparklines.
-- **Surfaces are flat.** One tinted frame, one white sheet, 1px whisper rules. No shadows except on what truly floats (the side sheet), no gradients, no glass.
-- **The product's own things carry the screen.** The queue is shown in the merge order Upkeep planned; each row has a progress strip of Upkeep's own stages; the finding the plan made (a pull request that went stale after another merged) is the line under the title.
-- **Honest states.** Zeros print as zeros, missing values as a dash, an empty filter says so, and a replayed run says it is replayed.
-
-## Shell
-
-- A tinted L-frame (`--frame`, a green-grey: the colour of a passing check, low in chroma) holds the 228px sidebar and the 48px top bar with no rule between them.
-- The work sits on a white sheet inset 8px from the window's right and bottom edges, 16px corners, a 1px edge and no shadow.
-- The sidebar names the product (its mark on the accent) and the repository it works, then the navigation (the queue, the policy) and the documentation links.
-- The top bar carries the breadcrumb of the session, the mode (replay or live), the live token budget and the connection status.
-- On a phone the frame disappears: the sheet is the screen and the sidebar folds to the product and the navigation.
+- **Alive, not busy.** Only what is happening now moves: the live dot, the running stage, the newest trace line. Nothing performs an entrance.
+- **Colour means state.** NVIDIA green (`--accent`, `#76b900`) means done or the primary action; a brighter green (`--live`) means happening now; amber is waiting on a person or stale; red is a failure; each model keeps its own hue (Ultra violet, Super blue, Nano teal, Tavily pink). Every coloured state also has an icon or a word.
+- **The product's own things carry the screen:** the merge order, the five stages, the models' turns and tool calls, the receipts. No stock cards, no decorative charts.
+- **Honest states.** A replayed run says so; zero is zero; an empty group says "None".
 
 ## Tokens
 
 All colours and sizes are custom properties in `src/tokens.css`; components never use a literal colour.
 
-| Role                                  | Token                                                                            | Value                                      |
-| ------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------ |
-| Frame                                 | `--frame`                                                                        | `#f2f5f2`                                  |
-| Sheet, cards                          | `--sheet`, `--card`                                                              | `#ffffff`                                  |
-| Hover, quiet fill                     | `--card-hover`, `--muted`                                                        | `#f4f6f5`, `#ebedec`                       |
-| Ink, secondary ink                    | `--fg`, `--fg-muted`                                                             | `#131416`, `#5d5f60`                       |
-| Edges, rules                          | `--border`, `--rule`, `--border-strong`                                          | `#e6e9e7`, `#f0f2f1`, `#cdd1ce`            |
-| Accent (done, primary action, merged) | `--accent`                                                                       | `#17734a`                                  |
-| Danger, warning, info                 | `--danger`, `--warn`, `--info`                                                   | `#c4242a`, `#92400e`, `#2f70bb`            |
-| Models and search                     | `--ultra`, `--super`, `--nano`, `--search`                                       | `#7a4fb0`, `#2f70bb`, `#1b6c80`, `#a8366f` |
-| Pale tints for pills                  | `--tint-accent`, `--tint-warn`, `--tint-danger`, `--tint-info`, `--tint-neutral` |                                            |
+| Role                  | Token                                                                            | Value                                                 |
+| --------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Page, surfaces        | `--frame`, `--sheet`, `--card`, `--card-hover`, `--muted`                        | `#08090a`, `#0e1011`, `#131618`, `#191d20`, `#20252a` |
+| Ink                   | `--fg`, `--fg-muted`                                                             | `#f2f4f3`, `#9aa3a0`                                  |
+| Edges                 | `--rule`, `--border`, `--border-strong`                                          | `#1c2023`, `#23282c`, `#3a4247`                       |
+| Done, action          | `--accent` (`--accent-ink` on it)                                                | `#76b900` (`#0a0b0a`)                                 |
+| Happening now         | `--live`                                                                         | `#9be22d`                                             |
+| Danger, warning, info | `--danger`, `--warn`, `--info`                                                   | `#ff6b6b`, `#f5b041`, `#4fb3ff`                       |
+| Models and search     | `--ultra`, `--super`, `--nano`, `--search`                                       | `#b69cff`, `#4fb3ff`, `#2dd4bf`, `#ff7ab6`            |
+| Tints for pills       | `--tint-accent`, `--tint-warn`, `--tint-danger`, `--tint-info`, `--tint-neutral` | translucent versions of the above                     |
 
-Every hue reaches 3:1 or more on white; text colours reach 4.5:1.
+Text reaches 4.5:1 on every surface; hues reach 3:1.
 
 ## Type
 
-- IBM Plex Sans for everything, at 400, 500 and 600. Sizes: 22px for the title, 15–16px for section headings, 28px for the run's figures, 14px for body and rows, 12–13px for secondary text. Nothing under 11px.
-- JetBrains Mono only for identifiers that are code: pull request numbers, file paths, model names, the session id, tool names in the trace.
-- Tabular figures everywhere numbers update. Sentence case; no tracked capitals.
+- IBM Plex Sans for the interface: the title at 30px during a run and up to 64px before it, section headings at 15–22px, body at 13–15px, nothing under 11px.
+- JetBrains Mono for what is code or machine output: pull request numbers, file paths, model names, the live line, the mode and status labels.
+- Tabular figures on every number that updates.
 
-## The queue
+## Components
 
-- One table, no card around it, in the plan's merge order (number order until the plan exists), with underline tabs for its states and the count of each.
-- Columns: the pull request (number, title, author, bump, labels, and once done the sentence of what changed), the blocker and any overlap with another pull request, the progress, the result, the cost.
-- **The progress strip** is the screen's own element: five segments for check, forecast, fix, verify and act. Accent when done, blue and pulsing while running, red when failed, amber when handed to a person, a dashed outline when the stage was not needed. Its accessible name reads every stage in words.
-- The result is the outcome pill, the merge confidence (gauge icon, accent, warn or danger) and a learned-fix mark when a fix was reused.
-- Costs are right-aligned: the dollars, then calls and time in grey.
-- On a phone each row becomes a two-line item: the pull request across, then the progress, with the result and the cost side by side.
-
-## The rail and the detail
-
-- The rail holds the models (each with its job and its share of the run's cost), the Tavily search, the cost comparison with the largest model's price, and the merge plan (the constrained steps with their reasons, the pairs that share files, what went stale after the run). Sections are separated by rules, never nested in boxes.
-- The activity feed sits under the queue.
-- The detail is a side sheet with two tabs: Trace (the plan, the forecast and its search, every model turn and tool call grouped by attempt, the verifier, the action) and Summary (what changed, merge confidence, the forecast with its sources, the diff, the verifier, the receipt).
-
-## Motion
-
-Motion is feedback only: a press, a hover, the running stage's pulse, the sheet opening. Nothing performs an entrance. Everything moving has a `prefers-reduced-motion` fallback.
+- `ActionBar`: the title, the status line, the plan's finding and the two actions, with a `data-run` variant per moment.
+- `QueueList`: the queue in the planned merge order; each row has the number and title, five stage marks, the current step or outcome, overlaps, merge confidence and learned fixes; `aria-pressed` marks the row the stage follows.
+- `Stage`: the live stage described above, built on `TraceView`.
+- `Results`: the figures, the merge line and the three groups.
+- `Agents` and `MergePlan` in the rail; the plan leaves the rail when the results show it.
 
 ## Accessibility
 
-- Visible focus on every interactive element (`:focus-visible`, a 2px ring in `--ring`).
-- A skip link is the first focusable element and moves focus to `<main>`; the screen has one `h1`.
-- Each row opens its detail from a real button named "Pull request N: title".
-- Decorative icons are inline SVG with `aria-hidden="true"`; the progress strip is an image with a full text name.
-- Live updates stay out of `aria-live` regions except the connection status.
+- A skip link first, one `h1`, every pull request a real button named "Pull request N: title".
+- Visible focus (`--ring`, the accent green). The stage's live line is not an `aria-live` region; only the connection status is.
+- Motion has a `prefers-reduced-motion` fallback everywhere.
 
 ## Constraints that shape the code
 
-- The content security policy forbids inline styles, so components never use a `style` attribute. Variants are `data-*` attributes and custom properties; dynamic widths are SVG `rect` attributes.
+- The content security policy forbids inline styles: variants are `data-*` attributes and custom properties, dynamic widths are SVG `rect` attributes, fonts are self-hosted.
 - Styles are CSS modules next to their component.
 - No comments in any source file; this file is where the reasoning lives.
 
 ## Checking a change
 
-1. Reuse the tokens; add a token before adding a colour.
-2. Pair every new status with an icon from `components/Icon.tsx` and a word.
-3. Run the dashboard at 1440, 768 and 390 pixels and look at it idle, running, finished and with the detail open.
-4. Measure it with an app-screen inspector (contrast, text size, colour share, rules, ragged rows, blank bands); the redesign of 2026-10-28 went from 3 failures and 3 warnings to none.
+Run the dashboard at 1440, 768 and 390 pixels before, during and after a run, with the detail open and after Run again, and measure it with an app-screen inspector (contrast, text size, rules, blank bands). This version measures no failures; its one warning is the 64px title of the first screen, kept on purpose.
