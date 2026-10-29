@@ -13,6 +13,7 @@ import styles from "./Agents.module.css";
 
 interface Props {
   board: BoardState;
+  showCost?: boolean;
 }
 
 const TIERS = {
@@ -95,7 +96,7 @@ function WebSearch({ search }: { search: SearchTotals }) {
   );
 }
 
-export function Agents({ board }: Props) {
+export function Agents({ board, showCost = true }: Props) {
   const totals = board.totals;
   const maxMicros = Math.max(...ROLE_ORDER.map((r) => board.models[r]?.micros ?? 0), 1);
   const compare = Math.max(totals.micros, totals.baselineMicros, 1);
@@ -133,25 +134,27 @@ export function Agents({ board }: Props) {
         })}
       </ul>
       <WebSearch search={board.search} />
-      <div className={styles.compare}>
-        <p className={styles.compareTitle}>Cost of this run</p>
-        <div className={styles.line}>
-          <span>Upkeep</span>
-          <Bar value={totals.micros} max={compare} tone="cost" />
-          <span className={styles.amount}>{dollars(totals.micros)}</span>
+      {showCost ? (
+        <div className={styles.compare}>
+          <p className={styles.compareTitle}>Cost of this run</p>
+          <div className={styles.line}>
+            <span>Upkeep</span>
+            <Bar value={totals.micros} max={compare} tone="cost" />
+            <span className={styles.amount}>{dollars(totals.micros)}</span>
+          </div>
+          <div className={styles.line}>
+            <span>At the largest model&rsquo;s price</span>
+            <Bar value={totals.baselineMicros} max={compare} tone="baseline" />
+            <span className={styles.amount}>{dollars(totals.baselineMicros)}</span>
+          </div>
+          <p className={styles.footnote}>
+            A price comparison, not a claim that the largest model would have fixed these.{" "}
+            {totals.micros > 0 && totals.baselineMicros > totals.micros
+              ? `${(totals.baselineMicros / totals.micros).toFixed(1)} times less.`
+              : ""}
+          </p>
         </div>
-        <div className={styles.line}>
-          <span>At the largest model&rsquo;s price</span>
-          <Bar value={totals.baselineMicros} max={compare} tone="baseline" />
-          <span className={styles.amount}>{dollars(totals.baselineMicros)}</span>
-        </div>
-        <p className={styles.footnote}>
-          A price comparison, not a claim that the largest model would have fixed these.{" "}
-          {totals.micros > 0 && totals.baselineMicros > totals.micros
-            ? `${(totals.baselineMicros / totals.micros).toFixed(1)} times less.`
-            : ""}
-        </p>
-      </div>
+      ) : null}
     </section>
   );
 }

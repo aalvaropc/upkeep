@@ -6,7 +6,7 @@ The dashboard tells one story in three moments: a queue that cannot merge, an ag
 
 1. **Before the run.** A large title states the problem ("9 pull requests can't merge.") on one line, one sentence says what Upkeep does with NVIDIA Nemotron on Nebius Token Factory, and the primary action sits right under it. The queue waits on the left, the five stages every pull request goes through sit in the centre as a panel the live stage later lights up, the models on the right.
 2. **During the run.** The centre becomes the **live stage**: the pull request the agent touched last, its five stages (check, forecast, fix, verify, act), a "now" line with the latest thing that happened (a Nemotron turn and what it said, a tool and the file it edited, the Tavily search, a check), and the trace scrolling as it grows. The stage stays pinned in view while the page scrolls and follows the agent by itself; a click on a pull request in the queue pins the stage to it, and "Follow the agent" returns.
-3. **After the run.** The centre shows the **results**: the run's figures, the merge order as a line of pull requests (merged in green, stale or handed back in amber, with the reason), and what Upkeep did grouped into merged, ready to merge and needs a person. "Run again" starts the next run and shows the learned fixes.
+3. **After the run.** The centre shows the **results**: the run's figures and what Upkeep did grouped into merged, ready to merge and needs a person. "Run again" starts the next run and shows the learned fixes.
 
 The full detail of a pull request (trace and summary tabs) opens in a side sheet from the stage or the results.
 
@@ -51,8 +51,8 @@ Every effect is tied to a real event or state and is CSS only (no inline styles,
 | Several workers run                | The "In parallel" lanes enter as workers start, their step text re-fades on change, the followed lane's ring transitions; the stage slides in when it moves to another pull request                                                                                                                                                 |
 | A pull request finishes            | Its queue row flashes in the outcome colour and the outcome icon pops in; the finished count and the cost flash when they change; the run step fills with the share finished                                                                                                                                                        |
 | A model answers or Tavily searches | The model's totals flash, its bar grows, the web search block flashes pink                                                                                                                                                                                                                                                          |
-| The plan arrives                   | The merge order and the shared files stagger in                                                                                                                                                                                                                                                                                     |
-| The run ends                       | The figures rise in with a short blur-to-sharp; the merge order draws itself chip by chip, connector first; the stale warning pulses once; the groups stagger in                                                                                                                                                                    |
+| The plan arrives                   | The graph's nodes reorder into the merge order and the arcs for shared files appear                                                                                                                                                                                                                                                 |
+| The run ends                       | The figures rise in with a short blur-to-sharp; the groups stagger in; the merge graph's nodes pop to their outcome and its connectors fill                                                                                                                                                                                         |
 | First paint                        | The title, lead and actions rise in sequence; the five stages stagger in, then light one by one in a slow loop that stops when the run starts                                                                                                                                                                                       |
 | Overlays                           | The policy modal scales in and its groups stagger; tab panels rise in                                                                                                                                                                                                                                                               |
 | The landing                        | The hero rises in sequence and its screenshot sharpens in under a faint beam; sections fade up and the step lines draw as they scroll into view (`animation-timeline: view()`, visible by default where unsupported)                                                                                                                |
@@ -66,11 +66,12 @@ Rules that keep it honest and light:
 
 ## Components
 
-- `ActionBar`: the title, the status line, the plan's finding and the two actions, with a `data-run` variant per moment.
-- `QueueList`: the queue in the planned merge order; each row has the number and title, five stage marks, the current step or outcome, overlaps, merge confidence and learned fixes; `aria-pressed` marks the row the stage follows.
+- `ActionBar`: one row with the title, the status line and the two actions, a thin progress line under it while a run exists, and a larger variant before the run.
+- `MergeGraph`: the merge order drawn across the centre. One node per pull request in merge order, joined by a line that fills as they finish; an arc joins two pull requests that change the same files (amber when they conflict); a node shows merged, ready, person, stale or failed; a click follows that pull request, and a line under it gives the reason, the shared files and anything that went stale.
+- `QueueList`: the queue in the planned merge order; each row has the number and title, five stage marks and the current step or outcome, with small indicators on the right for overlaps, learned fixes and merge confidence (their text is kept for assistive technology); `aria-pressed` marks the row the stage follows.
 - `Stage`: the live stage described above, built on `TraceView`.
 - `Results`: the figures, the merge line and the three groups.
-- `Agents` and `MergePlan` in the rail; the plan leaves the rail when the results show it.
+- `Agents` in the rail: the models and the web search, plus the cost comparison while the run is going (the results carry the cost after it).
 
 ## Accessibility
 
