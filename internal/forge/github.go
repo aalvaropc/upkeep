@@ -15,12 +15,13 @@ import (
 )
 
 type GitHub struct {
-	Client   *github.Client
-	Git      gitx.Git
-	Owner    string
-	Repo     string
-	CloneURL string
-	Bots     []string
+	Client     *github.Client
+	Git        gitx.Git
+	Owner      string
+	Repo       string
+	CloneURL   string
+	Bots       []string
+	AllowForks bool
 
 	base    string
 	heads   map[int]string
@@ -31,7 +32,7 @@ func (g *GitHub) Skipped() []pull.Skipped {
 	return g.skipped
 }
 
-func skipReason(draft bool, target, base string, headExists, sameRepo bool) string {
+func skipReason(draft bool, target, base string, headExists, sameRepo, allowForks bool) string {
 	switch {
 	case draft:
 		return "it is a draft"
@@ -39,8 +40,8 @@ func skipReason(draft bool, target, base string, headExists, sameRepo bool) stri
 		return fmt.Sprintf("it targets %s, not %s", target, base)
 	case !headExists:
 		return "the repository it came from was deleted"
-	case !sameRepo:
-		return "it comes from a fork"
+	case !sameRepo && !allowForks:
+		return "it comes from a fork, and forks are only worked in the docker sandbox"
 	}
 	return ""
 }
@@ -83,7 +84,8 @@ func (g *GitHub) Pulls(ctx context.Context) ([]pull.Request, error) {
 	var out []pull.Request
 	g.skipped = nil
 	for _, p := range list {
-		if reason := skipReason(p.Draft, p.Base.Ref, base, p.Head.Repo != nil, p.Head.Repo != nil && strings.EqualFold(p.Head.Repo.FullName, g.fullName())); reason != "" {
+		same := p.Head.Repo != nil && strings.EqualFold(p.Head.Repo.FullName, g.fullName())
+		if reason := skipReason(p.Draft, p.Base.Ref, base, p.Head.Repo != nil, same, g.AllowForks); reason != "" {
 			g.skipped = append(g.skipped, pull.Skipped{Number: p.Number, Title: p.Title, Reason: reason})
 			continue
 		}
@@ -96,6 +98,7 @@ func (g *GitHub) Pulls(ctx context.Context) ([]pull.Request, error) {
 			HeadSHA: p.Head.SHA,
 			Kind:    pull.Change,
 			Bump:    BumpFromPull(p.Title, p.Head.Ref, p.Body),
+			Fork:    !same,
 		}
 		for _, l := range p.Labels {
 			req.Labels = append(req.Labels, l.Name)
@@ -114,6 +117,13 @@ func (g *GitHub) Prepare(ctx context.Context, pr pull.Request, dir string) error
 	if err := g.Git.Clone(ctx, g.CloneURL, dir); err != nil {
 		return err
 	}
+	if pr.Fork {
+		local := fmt.Sprintf("upkeep/pr-%d", pr.Number)
+		if err := g.Git.Fetch(ctx, dir, "origin", fmt.Sprintf("pull/%d/head:%s", pr.Number, local)); err != nil {
+			return err
+		}
+		return g.Git.Checkout(ctx, dir, local, false)
+	}
 	if err := g.Git.Checkout(ctx, dir, "origin/"+pr.Branch, false); err != nil {
 		return err
 	}
@@ -121,6 +131,9 @@ func (g *GitHub) Prepare(ctx context.Context, pr pull.Request, dir string) error
 }
 
 func (g *GitHub) Push(ctx context.Context, dir string, pr pull.Request) error {
+	if pr.Fork {
+		return errors.New("upkeep does not push to a branch in a fork")
+	}
 	return g.Git.Push(ctx, dir, "origin", pr.Branch)
 }
 
@@ -206,6 +219,13 @@ func (d *DryRun) Comment(_ context.Context, pr pull.Request, c Comment) error {
 type Only struct {
 	Forge
 	Numbers []int
+}
+
+func (o Only) Skipped() []pull.Skipped {
+	if s, ok := o.Forge.(interface{ Skipped() []pull.Skipped }); ok {
+		return s.Skipped()
+	}
+	return nil
 }
 
 func (o Only) Pulls(ctx context.Context) ([]pull.Request, error) {

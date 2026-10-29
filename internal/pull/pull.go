@@ -80,6 +80,7 @@ type Request struct {
 	HeadSHA string   `json:"head_sha,omitempty"`
 	Kind    Kind     `json:"kind"`
 	Bump    *Bump    `json:"bump,omitempty"`
+	Fork    bool     `json:"fork,omitempty"`
 }
 
 func (r Request) HasLabel(name string) bool {

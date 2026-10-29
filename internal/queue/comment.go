@@ -20,7 +20,11 @@ func patchComment(res engine.Result) string {
 	if s := strings.TrimSpace(res.Summary); s != "" {
 		b.WriteString(" " + s)
 	}
-	b.WriteString(" It does not push to a person's branch without the `upkeep` label, so here is how to apply it.\n")
+	if res.PR.Fork {
+		b.WriteString(" It cannot push to a branch in a fork, so here is how to apply it.\n")
+	} else {
+		b.WriteString(" It does not push to a person's branch without the `upkeep` label, so here is how to apply it.\n")
+	}
 	base := strings.TrimPrefix(res.PR.Base, "origin/")
 	if base == "" {
 		base = "main"

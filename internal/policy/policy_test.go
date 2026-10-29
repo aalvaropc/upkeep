@@ -224,6 +224,9 @@ func TestMayPush(t *testing.T) {
 	if !p.MayPush(pull.Request{Author: pull.Author{Kind: pull.Person}, Labels: []string{"Upkeep"}}) {
 		t.Error("a person's branch with the label should accept fixes")
 	}
+	if p.MayPush(pull.Request{Author: pull.Author{Kind: pull.Person}, Labels: []string{"upkeep"}, Fork: true}) {
+		t.Error("a branch in a fork never accepts pushes, even with the label")
+	}
 }
 
 func TestRules(t *testing.T) {

@@ -150,6 +150,7 @@ func runCommand(ctx context.Context, args []string, stdout, stderr io.Writer, en
 		git = git.WithToken(cfg.GitHubToken.Reveal())
 	}
 	hub := forge.NewGitHub(client, git, owner, name, pol.Bots)
+	hub.AllowForks = cfg.Sandbox == config.Docker
 	base, err := hub.Base(ctx)
 	if err != nil {
 		return err
