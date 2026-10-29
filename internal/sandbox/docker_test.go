@@ -93,6 +93,22 @@ func TestDockerArgsChooseTheRuntimeOnlyWhenSet(t *testing.T) {
 	}
 }
 
+func TestDockerHostPathMapsTheCacheMount(t *testing.T) {
+	d := Docker{CacheDir: "/var/cache/upkeep/go"}
+	for in, want := range map[string]string{
+		"/cache/gopath/pkg/mod/github.com/x/y@v1.0.0": "/var/cache/upkeep/go/gopath/pkg/mod/github.com/x/y@v1.0.0",
+		"/cache":                     "/var/cache/upkeep/go",
+		"/cache/../etc/passwd":       "/cache/../etc/passwd",
+		"/cachex/gopath":             "/cachex/gopath",
+		"/work/main.go":              "/work/main.go",
+		"/home/me/go/pkg/mod/x@v1.0": "/home/me/go/pkg/mod/x@v1.0",
+	} {
+		if got := d.HostPath(in); got != want {
+			t.Errorf("HostPath(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestDockerNeverRunsAsRoot(t *testing.T) {
 	d := Docker{CacheDir: "/c", UID: 0, GID: 0}
 	uid, gid := d.ids()

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -126,6 +127,18 @@ func (d Docker) cacheDir() string {
 		return d.CacheDir
 	}
 	return filepath.Join(os.TempDir(), "upkeep-cache")
+}
+
+func (d Docker) HostPath(p string) string {
+	rel, ok := strings.CutPrefix(path.Clean(p), cacheDir)
+	if !ok || (rel != "" && !strings.HasPrefix(rel, "/")) {
+		return p
+	}
+	cache, err := filepath.Abs(d.cacheDir())
+	if err != nil {
+		return p
+	}
+	return filepath.Join(cache, filepath.FromSlash(rel))
 }
 
 func (d Docker) prepare() error {

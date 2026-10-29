@@ -197,6 +197,7 @@ func (r *Runtime) networked(ctx context.Context, mode config.Mode, cache fixture
 		Cache:        cache,
 		Fresh:        mode == config.Live,
 		SearchMicros: int64(math.Round(cfg.SearchPrice * 1_000_000)),
+		Executor:     r.executor,
 	}
 	if cfg.TavilyAPIKey.IsSet() && cfg.SearchDailyLimit > 0 {
 		f.Search = limitedSearch{inner: tavily.New(cfg.TavilyAPIKey, "github.com", "pkg.go.dev"), budget: r.Searches}

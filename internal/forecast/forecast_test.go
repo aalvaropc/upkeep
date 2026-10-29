@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -383,6 +384,42 @@ func TestNotes(t *testing.T) {
 	}
 	if got := (Forecast{Module: "m", From: "v1", To: "v2", Excerpt: "text"}).Notes(); !strings.Contains(got, "Excerpt from the migration guide:") {
 		t.Fatalf("an excerpt without a source: %q", got)
+	}
+	api := Forecast{Module: "m", From: "v1.0.0", To: "v2.0.0", Source: SourceAPI, Breaking: []Change{{Symbol: "m.Old", Description: "removed in v2.0.0"}}}
+	if got := api.Notes(); got != "Upgrade of m from v1.0.0 to v2.0.0.\n\nExported API changes between v1.0.0 and v2.0.0, computed from the module source:\n- m.Old: removed in v2.0.0" {
+		t.Fatalf("an API forecast: %q", got)
+	}
+	api.Source = ""
+	if got := api.Notes(); got != "Upgrade of m from v1.0.0 to v2.0.0.\n\nBreaking changes found in the release notes and the migration guide:\n- m.Old: removed in v2.0.0" {
+		t.Fatalf("a forecast without a source keeps the release notes header: %q", got)
+	}
+}
+
+func TestStoredForecastsRenderTheSameNotes(t *testing.T) {
+	want := map[string]string{
+		"github.com/golang-jwt/jwt/v5":   "832cf47ae3e1c5668fad5ae185a86fd32fc52ef6f49680348dce766eaae8f38b",
+		"github.com/jonboulle/clockwork": "6fe1f52ad9e655e9bca593352876f6bd474aee9adb58d4ad6e6029de3ca0bd8c",
+	}
+	files, err := filepath.Glob(filepath.Join("..", "..", "scenarios", "notes", "fixtures", CacheKind, "*.json"))
+	if err != nil || len(files) != len(want) {
+		t.Fatalf("stored forecasts %v: %v", files, err)
+	}
+	for _, path := range files {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var stored recorded
+		if err := json.Unmarshal(raw, &stored); err != nil {
+			t.Fatal(err)
+		}
+		if stored.Forecast.Source != "" {
+			t.Fatalf("%s: a stored forecast has no source", path)
+		}
+		sum := sha256.Sum256([]byte(stored.Forecast.Notes()))
+		if got := hex.EncodeToString(sum[:]); got != want[stored.Forecast.Module] {
+			t.Errorf("%s: notes hash %s, want %s", stored.Forecast.Module, got, want[stored.Forecast.Module])
+		}
 	}
 }
 

@@ -27,11 +27,14 @@ func packageName(importPath string) string {
 	return gopkgSuffix.ReplaceAllString(last, "")
 }
 
-func uses(dir, module string) []string {
+func within(importPath, module string) bool {
+	return importPath == module || strings.HasPrefix(importPath, module+"/")
+}
+
+func selectors(dir string, match func(importPath string) bool, visit func(name, importPath, sel string)) {
 	if dir == "" {
-		return nil
+		return
 	}
-	seen := map[string]bool{}
 	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -49,18 +52,19 @@ func uses(dir, module string) []string {
 		if err != nil {
 			return nil
 		}
-		names := map[string]bool{}
+		names := map[string]string{}
 		for _, imp := range file.Imports {
 			ip, err := strconv.Unquote(imp.Path.Value)
-			if err != nil || (ip != module && !strings.HasPrefix(ip, module+"/")) {
+			if err != nil || !match(ip) {
 				continue
 			}
-			name := packageName(path.Clean(ip))
+			ip = path.Clean(ip)
+			name := packageName(ip)
 			if imp.Name != nil {
 				name = imp.Name.Name
 			}
 			if name != "_" && name != "." {
-				names[name] = true
+				names[name] = ip
 			}
 		}
 		if len(names) == 0 {
@@ -71,12 +75,19 @@ func uses(dir, module string) []string {
 			if !ok {
 				return true
 			}
-			if id, ok := sel.X.(*ast.Ident); ok && names[id.Name] && id.Obj == nil {
-				seen[id.Name+"."+sel.Sel.Name] = true
+			if id, ok := sel.X.(*ast.Ident); ok && names[id.Name] != "" && id.Obj == nil {
+				visit(id.Name, names[id.Name], sel.Sel.Name)
 			}
 			return true
 		})
 		return nil
+	})
+}
+
+func uses(dir, module string) []string {
+	seen := map[string]bool{}
+	selectors(dir, func(ip string) bool { return within(ip, module) }, func(name, _, sel string) {
+		seen[name+"."+sel] = true
 	})
 	if len(seen) == 0 {
 		return nil

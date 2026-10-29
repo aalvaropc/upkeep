@@ -20,6 +20,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/jsonfix"
 	"github.com/aalvaropc/upkeep/internal/model"
 	"github.com/aalvaropc/upkeep/internal/pull"
+	"github.com/aalvaropc/upkeep/internal/sandbox"
 )
 
 const (
@@ -125,6 +126,7 @@ type Forecast struct {
 	Search        *SearchTrace `json:"search,omitempty"`
 	Releases      []string     `json:"releases,omitempty"`
 	ReleasesError string       `json:"releases_error,omitempty"`
+	Source        string       `json:"source,omitempty"`
 }
 
 type Cost struct {
@@ -156,6 +158,7 @@ type Forecaster struct {
 	SearchMicros int64
 	Pace         float64
 	Now          func() time.Time
+	Executor     sandbox.Executor
 }
 
 type recorded struct {
@@ -195,7 +198,11 @@ func (f Forecast) Notes() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Upgrade of %s from %s to %s.", f.Module, f.From, f.To)
 	if len(f.Breaking) > 0 {
-		b.WriteString("\n\nBreaking changes found in the release notes and the migration guide:")
+		if f.Source == SourceAPI {
+			fmt.Fprintf(&b, "\n\nExported API changes between %s and %s, computed from the module source:", f.From, f.To)
+		} else {
+			b.WriteString("\n\nBreaking changes found in the release notes and the migration guide:")
+		}
 		for _, c := range f.Breaking {
 			fmt.Fprintf(&b, "\n- %s: %s", c.Symbol, c.Description)
 		}
@@ -417,7 +424,14 @@ func (f Forecaster) write(ctx context.Context, in Input, pages []Result, trace *
 	partial.Releases = releaseURLs(releases)
 	sources, urls, excerpt, excerptSource := assemble(pages, releases)
 	if sources == "" {
-		return partial, Cost{}, nothingFound(trace, partial.ReleasesError)
+		if f.Executor == nil {
+			return partial, Cost{}, nothingFound(trace, partial.ReleasesError)
+		}
+		out, err := f.fromAPI(ctx, in, partial)
+		if err != nil {
+			return partial, Cost{}, nothingFound(trace, partial.ReleasesError, "the module source could not be compared: "+err.Error())
+		}
+		return out, Cost{}, nil
 	}
 	files := importers(in.Dir, in.Module)
 	user := fmt.Sprintf("Module: %s\nUpgrading from %s to %s.\n", in.Module, in.From, in.To)
@@ -455,7 +469,7 @@ func (f Forecaster) write(ctx context.Context, in Input, pages []Result, trace *
 	return out, cost, nil
 }
 
-func nothingFound(trace *SearchTrace, releasesError string) error {
+func nothingFound(trace *SearchTrace, releasesError string, more ...string) error {
 	var why []string
 	if trace != nil && trace.Error != "" {
 		why = append(why, "the search failed: "+trace.Error)
@@ -466,6 +480,7 @@ func nothingFound(trace *SearchTrace, releasesError string) error {
 	if releasesError != "" {
 		why = append(why, "the releases could not be read: "+releasesError)
 	}
+	why = append(why, more...)
 	if len(why) == 0 {
 		return errors.New("no release notes or migration guide could be found")
 	}

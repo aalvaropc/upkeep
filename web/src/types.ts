@@ -121,6 +121,7 @@ export interface Forecast {
   search?: SearchTrace;
   releases?: string[];
   releases_error?: string;
+  source?: "api";
 }
 
 export interface ReceiptLine {
