@@ -92,7 +92,7 @@ On a real repository (live by default):
 GITHUB_TOKEN=... ./bin/upkeep run -repo owner/name
 ```
 
-From GitHub Actions: `uses: aalvaropc/upkeep@v0.2.0` ([`docs/action.md`](docs/action.md)).
+From GitHub Actions: `uses: aalvaropc/upkeep@v0.2.1` ([`docs/action.md`](docs/action.md)).
 
 | Command | What it does |
 |---|---|
