@@ -425,3 +425,33 @@ func TestADryRunReportsWhatItWouldDoWithoutClaimingIt(t *testing.T) {
 		}
 	}
 }
+
+type skippingForge struct {
+	*forge.Local
+}
+
+func (skippingForge) Skipped() []pull.Skipped {
+	return []pull.Skipped{{Number: 12, Title: "Try a new idea", Reason: "it is a draft"}}
+}
+
+func TestSkippedPullRequestsAreAnnounced(t *testing.T) {
+	p := &scripted{t: t, results: map[int]engine.Result{}}
+	r, f, l := newRunner(t, p)
+	r.Forge = skippingForge{Local: f}
+	s, err := r.Run(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Skipped) != 1 || s.Skipped[0].Number != 12 {
+		t.Fatalf("skipped = %+v", s.Skipped)
+	}
+	found := false
+	for _, e := range l.kinds(events.Notice) {
+		if strings.Contains(string(e.Data), "#12") && strings.Contains(string(e.Data), "it is a draft") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("no notice names the skipped pull request")
+	}
+}

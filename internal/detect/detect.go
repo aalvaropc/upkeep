@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -68,6 +71,10 @@ func (d Detector) Detect(ctx context.Context, ws Workspace) (Diagnosis, error) {
 		return Diagnosis{}, errors.New("detect: no runner")
 	}
 	var diag Diagnosis
+	if _, err := os.Stat(filepath.Join(ws.Dir, "go.mod")); errors.Is(err, fs.ErrNotExist) {
+		diag.Blocker = pull.Unsupported
+		return diag, nil
+	}
 	ancestor, err := d.Git.IsAncestor(ctx, ws.Dir, ws.Base, "HEAD")
 	if err != nil {
 		return diag, fmt.Errorf("checking whether the branch is behind %s: %w", ws.Base, err)

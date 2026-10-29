@@ -361,3 +361,14 @@ func TestDetectPropagatesRunnerErrors(t *testing.T) {
 		t.Fatal("an unknown base returned no error")
 	}
 }
+
+func TestDetectStopsWithoutAGoModule(t *testing.T) {
+	d := Detector{Runner: &fakeRunner{err: errors.New("the runner must not be called")}, Policy: policy.Default()}
+	diag, err := d.Detect(t.Context(), Workspace{Dir: t.TempDir(), Base: "main"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diag.Blocker != pull.Unsupported {
+		t.Fatalf("blocker = %q, want %q", diag.Blocker, pull.Unsupported)
+	}
+}
