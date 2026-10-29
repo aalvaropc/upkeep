@@ -2,78 +2,80 @@
 
 [![ci](https://github.com/aalvaropc/upkeep/actions/workflows/ci.yml/badge.svg)](https://github.com/aalvaropc/upkeep/actions/workflows/ci.yml)
 
-Upkeep keeps GitHub pull requests mergeable. It looks at the whole queue of open pull requests, plans the order they can merge in, fixes what a bounded policy allows, proves every fix with the compiler and the tests, remembers the fixes that passed, and hands the rest back with a diagnosis and a receipt that says what each model did and cost.
+Upkeep keeps GitHub pull requests mergeable. It works the whole queue of open pull requests:
+- plans the order they can merge in;
+- fixes what a bounded policy allows, with NVIDIA Nemotron models on Nebius Token Factory;
+- proves every fix with the compiler and the tests;
+- remembers the fixes that passed;
+- hands the rest to a person with a diagnosis.
 
-It runs on NVIDIA Nemotron models (Ultra, Super and Nano) served by Nebius Token Factory, and reads migration guides found with Tavily. It is written in Go and ships as one binary with its dashboard built in.
+Every pull request ends with a receipt that says what each model did and what it cost.
+
+It is one Go binary with its dashboard built in, and it ships as a GitHub Action.
+
+**Live demo:** https://3-146-121-173.sslip.io (the overview). The dashboard is at [`/demo`](https://3-146-121-173.sslip.io/demo).
 
 ![The dashboard after a run: the queue on the left, the merge order drawn as a graph above the results in the centre, the models and the web search on the right](docs/images/dashboard-done.png)
 
-## What it does
+## How it works
 
-A repository collects pull requests that need a small change before anyone can merge them: the branch is behind, a conflict touches one line, a rename on `main` broke the build, a Dependabot bump no longer compiles, `gofmt` complains, a flaky test fails. Upkeep works through them:
+For each open pull request Upkeep finds the first thing that blocks it:
+- the branch is behind;
+- a conflict;
+- a broken build or test;
+- formatting;
+- a flaky test.
 
-1. **Plan.** Before touching any code it finds which open pull requests change the same files and which pairs would conflict (`git merge-tree`), and suggests a merge order. After the run it checks the ready ones again and flags any that the run's own merges made stale.
-2. **Detect.** It merges the base branch into a scratch copy and runs the build, vet and tests in a container without network access. The first thing that fails is the blocker: behind, a small or a large conflict, build, test, formatting or a flaky test.
-3. **Forecast** (dependency upgrades). It searches the web with Tavily for the migration guide, reads the release notes, asks Super what will break in the identifiers this project uses, and later marks each prediction confirmed or not seen by the build.
-4. **Fix.** Merges and formatting are mechanical. Small conflicts go to Ultra in one call. Broken builds and tests go to Super, which edits files through four tools (`read_file`, `apply_edit`, `go_doc`, `run_checks`) for up to three attempts, each starting clean.
-5. **Verify.** Outside the model, a checklist decides: build, vet and tests pass; at most 5 files and 80 lines changed; no test touched; Go files only; no comment added; formatted.
-6. **Act.** Push the fix when the pull request has the `upkeep` label or is a bot's, otherwise attach it as a patch; merge a bot's patch or minor bump when everything passes; otherwise post Ultra's diagnosis and leave the pull request to a person. Every ready pull request gets a merge confidence (high, medium or low) with the facts behind it.
-7. **Learn.** A fix Super made that passed the verifier is remembered with its failure. When the same failure comes back for the same dependency jump, Upkeep reapplies those edits first, with no model call, and still runs every check and the verifier; if they fail, it repairs from the start.
+It then takes the cheapest fix that can work:
 
-Upkeep never force-pushes, never merges a pull request opened by a person, and never lets a fix edit, delete or skip tests. Those are rules in code, not in a prompt.
+| Blocker | Fix |
+|---|---|
+| Behind or formatting | Mechanical; no model |
+| Small conflict | Nemotron Ultra, in one call |
+| Broken build or test | Nemotron Super, editing files through four tools for up to three attempts |
+| Dependency upgrade | Tavily finds the migration guide and Super predicts what will break before the fix starts |
 
-## See the agent work
+Nothing is pushed until a checklist outside the model passes: build, vet and tests, at most 5 files and 80 lines, no test touched, no comment added. Before any fix it plans the merge order from the files the pull requests share, and after the run it flags the ready ones that the run's own merges made stale. [`docs/architecture.md`](docs/architecture.md) has the pipeline; [`docs/policy.md`](docs/policy.md) has every rule.
 
-While the queue runs, the centre of the screen is a live stage: the pull request the agent is working, its five stages, the latest thing that happened, and the trace as it grows: the plan, the Tavily search, every Super turn with the tool it asked for and the file it edited, each attempt with why it failed, the verifier and the action. Click a pull request in the queue to follow it instead:
+While a run goes, the centre of the dashboard follows the agent at work, one pull request at a time: its five stages, every Nemotron turn and tool call, the Tavily search and the verifier.
 
 ![The live stage following the jwt major upgrade: its stages, the other workers in parallel, and Super's attempt turn by turn with its edits](docs/images/dashboard-trace.png)
 
-The full detail of a pull request opens in a side sheet; its Summary tab keeps what a reviewer needs: what changed, the merge confidence and its reasons, the forecast with each prediction confirmed or not seen by the build and where the sources came from, the diff, the verifier and the receipt.
-
-![The summary of the jwt upgrade: low merge confidence with its reasons, and the forecast built from release notes and pages Tavily found](docs/images/dashboard-detail.png)
-
-When the run ends, the centre shows the results: the run's figures, the merge order Upkeep planned, and what it did grouped into merged, ready and needs a person. In the scenario the jwt and clockwork bumps both edit `go.mod`; Upkeep merges clockwork first and, after the run, says the jwt upgrade now needs its branch updated:
-
-![The results: the figures, the merge order with #5 marked stale after #7 merged, and the pull requests grouped by outcome](docs/images/dashboard-plan.png)
-
-Press **Run again** and the next run keeps what this one learned: the three fixes Super made are reapplied with zero model calls and still go through every check, and the run costs $0.0055 instead of $0.0191.
-
-![The second run: #4, #5 and #7 carry a learned fix and the run costs $0.0055](docs/images/dashboard-learned.png)
-
 ## The demo scenario
 
-`upkeep-sample` is a small Go service with nine open pull requests built to show one blocker each. The result of replaying the recorded run (see [`docs/evals/latest.md`](docs/evals/latest.md)):
+[`upkeep-sample`](https://github.com/aalvaropc/upkeep-sample) is a small Go service. The demo builds nine pull requests on it from recipes, one blocker each, in a private git repository per session:
 
 | # | Pull request | Blocker | Result |
 |---|---|---|---|
-| 1 | Search notes | behind `main` | patch attached |
+| 1 | Search notes | behind `main` | the clean merge of `main`, delivered in a patch comment |
 | 2 | Longer titles (`upkeep` label) | one-line conflict | resolved by Ultra, pushed |
-| 3 | Tag counts | conflicting imports | resolved by Ultra, patch attached |
+| 3 | Tag counts | conflicting imports | resolved by Ultra; the resolution is delivered in a patch comment |
 | 4 | Notes export (`upkeep` label) | `main` renamed a method it calls | fixed by Super, pushed |
-| 5 | jwt v4 to v5 (bot, major) | build fails | fixed by Super, pushed, left for a person; low merge confidence and flagged stale after #7 merged |
+| 5 | jwt v4 to v5 (bot, major) | build fails | fixed by Super and pushed; ready to merge with low confidence, and flagged stale after #7 merged |
 | 6 | cors patch bump (bot) | none | merged, no model call |
-| 7 | clockwork minor bump (bot) | build fails | fixed by Super, pushed, merged first by the plan |
-| 8 | Note summary | formatting, and a test that depends on order | formatted, patch attached, the flaky test reported and left alone |
+| 7 | clockwork minor bump (bot) | build fails | fixed by Super, pushed and merged |
+| 8 | Note summary | formatting, and a test that depends on order | formatted, patch attached; the order-dependent test reported and left alone |
 | 9 | Auth rewrite | four overlapping conflict hunks | handed back with Ultra's diagnosis |
 
-The whole run costs about two cents: $0.0191 against $0.0502 for the same tokens at the largest model's price. That is a price comparison, not a claim that the largest model would have fixed them. CI replays the recording and fails if any pull request ends differently.
+## Evidence
 
-The recording is one run, so it was also measured live: five runs against the real models (nothing replayed) ended with all 45 pull requests as the scenario expects, at $0.020 to $0.037 a run ([`docs/evals/live.md`](docs/evals/live.md)). Three more live runs on 2026-10-29, with the plan, the fresh Tavily searches and the learned fixes in place, ended 27 of 27 at $0.0230 a run.
-
-It also runs on real pull requests: as a GitHub Action on the sample repository it brought the two pull requests Dependabot had opened up to date, saw that they conflict with each other, let GitHub merge one, then had Ultra resolve the other's conflict for $0.0006 ([`docs/evals/action.md`](docs/evals/action.md)).
+- **Replay**, run by CI on every change: 9 of 9 for $0.0191 and 29 model calls. [`docs/evals/latest.md`](docs/evals/latest.md)
+- **Live:** 8 runs against the real models, 72 of 72 pull requests as expected, two to four cents a run. [`docs/evals/live.md`](docs/evals/live.md)
+- **Learned fixes:** "Run again" reapplies the three fixes Super made with zero model calls, and the run costs $0.0055.
+- **Real pull requests:** the Action brought the two pull requests Dependabot opened on `upkeep-sample` up to date and saw they conflict. Ultra resolved the second one's conflict for $0.0006, and both merged. [`docs/evals/action.md`](docs/evals/action.md)
 
 ## Run it
 
-Replay needs no key and no network to the models. You need Go 1.26, Node.js 22.12 (pinned in `web/.tool-versions`) and Docker.
+You need Go 1.26, Node.js 22 (the exact version is in `web/.tool-versions`) and Docker. Replay needs no key:
 
 ```sh
 make build
-UPKEEP_MODE=replay UPKEEP_DATA_DIR=data ./bin/upkeep demo
+./bin/upkeep demo
 ```
 
-Open http://127.0.0.1:8080 and press **Work the queue**. The recording built into the binary answers every model call, so the nine pull requests finish with the same outcomes and costs as when they were recorded. `-pace 0` skips the recorded latencies.
+Open http://127.0.0.1:8080/demo and press **Work the queue**. The recording built into the binary answers every model call; git, the sandbox, the compiler and the tests run for real.
 
-With a Token Factory key the same page runs live:
+With keys, the same page runs live:
 
 ```sh
 export NEBIUS_API_KEY=...        # https://tokenfactory.nebius.com
@@ -81,84 +83,76 @@ export TAVILY_API_KEY=...        # optional: web search for migration guides
 UPKEEP_MODE=live ./bin/upkeep demo
 ```
 
-Work a real repository (needs a model key; a dry run of a public repository needs no GitHub token):
+On a real repository (live by default):
 
 ```sh
-./bin/upkeep run -repo owner/name -dry-run      # detect and fix locally, change nothing
+./bin/upkeep run -repo owner/name -dry-run      # detect and fix in scratch copies, change nothing
 GITHUB_TOKEN=... ./bin/upkeep run -repo owner/name
 ```
 
-The same run works from GitHub Actions: `uses: aalvaropc/upkeep@v0.1.0` on a daily schedule, from the Actions tab or from a `/upkeep` comment on a pull request ([`docs/action.md`](docs/action.md)).
+From GitHub Actions: `uses: aalvaropc/upkeep@v0.1.0` ([`docs/action.md`](docs/action.md)).
 
 | Command | What it does |
 |---|---|
-| `upkeep demo` | serves the dashboard with isolated sessions of the nine-pull-request scenario |
+| `upkeep demo` | the overview at `/` and the dashboard at `/demo`, with a private session of the scenario per visitor |
 | `upkeep run -repo owner/name` | works the open pull requests of a GitHub repository (`-dry-run` changes nothing, `-pr 9,11` picks pull requests) |
+| `upkeep eval [-runs N]` | runs the scenario and writes the outcomes and costs under `docs/evals` |
 | `upkeep record -fixtures DIR` | runs the scenario with the real models and saves every exchange |
-| `upkeep eval [-runs N]` | runs the scenario (replay by default) and writes the outcomes and costs under `docs/evals` |
 | `upkeep scenario build -out DIR` | builds the scenario's repository from its recipes |
 | `upkeep serve` | the bare dashboard and event stream |
 
-## Nebius Token Factory and NVIDIA Nemotron
+## Nemotron, Token Factory and Tavily
 
-Every model call goes to Nebius Token Factory through its OpenAI-compatible API, and each step goes to the Nemotron model that measured best for it:
+| Model | Job |
+|---|---|
+| Ultra 550B | small conflicts in one call, and the diagnosis for a person |
+| Super 120B | the tool loop that fixes builds and tests, and the forecast of an upgrade |
+| Nano 30B | the one-sentence note for the reviewer, checked against the diff |
 
-| Model | Used for | Why |
-|---|---|---|
-| Nemotron Ultra (550B) | resolves small conflicts in one call; writes the diagnosis when a person is needed | one-shot reasoning over a short file; inside a tool loop it explored and rewrote too much (0 of 21 fixes) |
-| Nemotron Super (120B) | fixes builds and tests with tools; reads release notes and search results for the forecast | gave the same forecast three times in a row and fixed the jwt major on the first attempt |
-| Nemotron Nano (30B) | writes the one-sentence note for the reviewer | cheap and fast; its note is checked against the diff and dropped if it names anything that is not in the change |
+The routing comes from 73 measured runs. [`docs/models.md`](docs/models.md) has the numbers, the prices and what did not work. Token Factory serves all three behind one key and one OpenAI-compatible API, with live prices that price every receipt.
 
-Where Token Factory made the work faster:
-
-- **Routing by measurement.** Three model sizes behind one key and one API let us run 73 experiments (3.06 million tokens, about two dollars) in a day and route each step on evidence instead of guesses. [`docs/models.md`](docs/models.md) has the numbers, including what did not work.
-- **Live prices.** `GET /v1/models?verbose=true` returns each model's price, so every receipt is priced from the catalog, and the comparison with the largest model is computed, not assumed.
-- **No infrastructure to run.** Inference needs only a key: the demo machine runs the Go binary and the build sandbox, and four pull requests in parallel never came near the rate limits.
-- **Reasoning switch.** `chat_template_kwargs: {"enable_thinking": false}` turns reasoning off for the tool loop, where it measured slower and less accurate.
-
-## Tavily
-
-The forecast for a dependency upgrade calls Tavily at runtime to find the migration guide and release notes of the module's own project (other projects' pages are filtered out). The first time a dependency jump is seen, Super writes the forecast from those pages. After that, every live run searches again and shows what it found, including pages that are new, but keeps the forecast a build has already checked: in one live test a fresh search returned weaker pages, the rewritten forecast missed the removed `StandardClaims`, and the fix failed. A forecast is only as good as its pages, so Upkeep does not trade a verified one for an unverified one. The demo starts from the forecasts of its recorded run. The dashboard shows each search (query, pages kept, latency) in the models rail and in the trace, the receipt counts it, and `UPKEEP_SEARCH_DAILY_LIMIT` caps the searches per day. A failed search never fails a pull request: the last forecast is used and the error is shown.
+Tavily runs on every live forecast of a minor or major upgrade. When neither the release notes nor the search have anything, the forecast compares the module's exported API between the two versions instead, with no model.
 
 ## Documentation
 
-- [`docs/architecture.md`](docs/architecture.md): the pipeline, the packages, the events, record and replay.
-- [`docs/policy.md`](docs/policy.md): every rule Upkeep follows and how to change the configurable ones.
-- [`docs/models.md`](docs/models.md): what each Nemotron model does, what was measured and what was dropped.
+- [`docs/architecture.md`](docs/architecture.md): the pipeline, the merge plan, learned fixes, the forecast, the sandbox, events, record and replay.
+- [`docs/policy.md`](docs/policy.md): the rules, the verifier and the settings.
+- [`docs/models.md`](docs/models.md): which model does what, and the measurements behind it.
 - [`docs/limitations.md`](docs/limitations.md): what Upkeep does not do and where it can be wrong.
-- [`docs/action.md`](docs/action.md): the GitHub Action, its secrets, the token it needs and what a run costs.
-- [`docs/evals`](docs/evals): the replayed recording, the live runs and the Action on real Dependabot pull requests.
+- [`docs/action.md`](docs/action.md): the GitHub Action.
+- [`docs/evals`](docs/evals): the replay, the live runs and the Action on real pull requests.
 - [`web/DESIGN.md`](web/DESIGN.md): the dashboard's design system.
+- [`deploy/README.md`](deploy/README.md): running the public demo on one machine.
 
 ## Configuration
 
-Settings come from the environment; `.env.example` lists them all.
+Settings come from the environment; [`.env.example`](.env.example) lists them all.
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `NEBIUS_API_KEY` | none | Token Factory key; required in `live` and `record` modes |
 | `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1` | Token Factory endpoint |
-| `UPKEEP_MODEL_ULTRA`, `_SUPER`, `_NANO` | the three Nemotron models | which model plays which role |
-| `TAVILY_API_KEY` | none | web search for migration guides; in `live` mode it runs on every dependency forecast |
-| `UPKEEP_SEARCH_DAILY_LIMIT` | `100` | live Tavily searches per day; past it the cached forecast is used, and `0` turns the search off |
-| `UPKEEP_PRICE_TAVILY_SEARCH` | none | USD per Tavily search, shown on the receipt; without it the receipt counts searches |
+| `UPKEEP_MODEL_ULTRA`, `_SUPER`, `_NANO` | the three Nemotron 3 models | which model plays which role |
+| `TAVILY_API_KEY` | none | web search for migration guides |
+| `UPKEEP_SEARCH_DAILY_LIMIT` | `100` | live searches per day; `0` turns the search off |
+| `UPKEEP_PRICE_TAVILY_SEARCH` | none | USD per search, for the receipt |
 | `GITHUB_TOKEN` | none | needed to push to, comment on and merge pull requests |
-| `UPKEEP_MODE` | `replay` | `live` calls the models, `record` calls them and saves every exchange, `replay` answers from recorded exchanges |
-| `UPKEEP_ADDR` | `127.0.0.1:8080` | address of the dashboard |
-| `UPKEEP_DATA_DIR` | `data` | working copies, the build cache and the scenario repository |
+| `UPKEEP_MODE` | `replay` (`live` for `upkeep run`) | `live` calls the models, `record` also saves every exchange, `replay` answers from recorded ones |
+| `UPKEEP_DAILY_TOKENS` | `1000000` | model tokens per day. Once spent, the demo replays its recording and says so; `upkeep run` and the Action stop with an error |
+| `UPKEEP_ADDR` | `127.0.0.1:8080` | address of the server |
+| `UPKEEP_DATA_DIR` | `data` | working copies, caches, learned fixes and the scenario repository |
 | `UPKEEP_SANDBOX` | `docker` | where builds and tests run; `exec` runs them on the host and is for development only |
-| `UPKEEP_DAILY_TOKENS` | `1000000` | live tokens per day before runs fall back to replay |
+| `UPKEEP_SANDBOX_RUNTIME` | Docker's default | `runsc` runs the sandbox under gVisor |
+| `UPKEEP_PUBLIC` | `false` | marks a public deployment in `/api/info` and the log; it changes nothing else |
 | `UPKEEP_PRICE_<MODEL>_INPUT`, `_OUTPUT` | from the Token Factory catalog | USD per million tokens, to override the catalog |
 
 ## Development
 
-`make check` runs what CI runs: formatting, `go mod tidy`, the dependency allowlist, the no-comments rule, `go vet`, golangci-lint, the tests with the race detector, the dashboard's formatting, types and tests, and the build. `make eval` replays the recorded scenario and checks every outcome.
+`make check` runs formatting, `go mod tidy`, the dependency allowlist, the no-comments rule, `go vet`, golangci-lint, the tests with the race detector, and the dashboard's formatting, types and tests, then builds. `make eval` replays the scenario and fails if any pull request ends differently. CI runs both, plus a smoke test and secret scanning.
 
-Tests that call Token Factory or GitHub are skipped unless you opt in with `UPKEEP_LIVE_TESTS=1`; they cost a fraction of a cent. Tests that run containers need `UPKEEP_DOCKER_TESTS=1`.
+Tests that call Token Factory or GitHub need `UPKEEP_LIVE_TESTS=1`, and tests that run containers need `UPKEEP_DOCKER_TESTS=1`.
 
-The code has no comments. Names and tests carry the meaning; the only exception is the `//go:embed` directive. `go run ./internal/tools/nocomments .` enforces it for Go and `npm run nocomments` in `web` for the dashboard.
-
-Every pull request targets `main` and is merged with a merge commit once the `pr-targets-main`, `gitleaks`, `test`, `web` and `build` checks pass.
+The code has no comments; only `//go:embed` is allowed. Every pull request targets `main` and is merged with a merge commit once every check passes.
 
 ## License
 

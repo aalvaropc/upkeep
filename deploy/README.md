@@ -1,6 +1,6 @@
 # Deploying the demo
 
-The demo is one binary behind Caddy on a single Ubuntu VM. Builds and tests of the sample pull requests run in Docker on the same machine, so the VM needs Docker and about 8 GB of memory: four pull requests are worked at once, each in a container limited to one CPU and 768 MB.
+The demo is one binary behind Caddy on a single Ubuntu VM. Builds and tests of the sample pull requests run in Docker on the same machine, so the VM needs Docker and about 8 GB of memory. Two runs can go at once (`-runs`), each working four pull requests at a time, and each container is limited to one CPU and 768 MB.
 
 Any provider works. The demo only needs Token Factory for its models, which it reaches over the network.
 
@@ -8,7 +8,9 @@ Any provider works. The demo only needs Token Factory for its models, which it r
 
 - Ubuntu 24.04, 2 vCPU, 8 GB of memory, 30 GB of disk, a public IPv4 address.
 - Inbound TCP 22, 80 and 443 open.
-- `cloud-init.yaml` as the instance's user data. It installs Docker and Caddy, creates the `upkeep` service user, pulls the sandbox image and writes `/etc/upkeep/upkeep.env` in replay mode. Add your SSH key to a sudo-capable user as your provider does it. Some providers let custom user data replace the login user they would otherwise create, and this file has a `users` list of its own: there, add your login user to that list (a name, `sudo: ALL=(ALL) NOPASSWD:ALL`, `shell: /bin/bash` and your public key under `ssh_authorized_keys`), or put `default` first to keep the image's default user.
+- `cloud-init.yaml` as the instance's user data.
+  - It installs Docker and Caddy, creates the `upkeep` service user, pulls the sandbox image and writes `/etc/upkeep/upkeep.env` in replay mode.
+  - It has its own `users` list, so on providers where custom user data replaces the default login user, add yours there (or put `default` first).
 
 ## Deploy
 
@@ -28,7 +30,13 @@ deploy/deploy.sh --rollback admin@203.0.113.7
 
 ## Switch to live models
 
-Edit `/etc/upkeep/upkeep.env` on the VM, set `UPKEEP_MODE=live` and `NEBIUS_API_KEY` (and `TAVILY_API_KEY` for migration guides), then `sudo systemctl restart upkeep`. `deploy/upkeep.env.example` lists the variables. `UPKEEP_DAILY_TOKENS` caps live spending per day; past it runs replay the recording and say so. Before each live run the server makes a one-token check call to Token Factory, and if that fails the run replays the recording too, so a spent credit or a revoked key shows a notice instead of failed pull requests.
+Edit `/etc/upkeep/upkeep.env` on the VM:
+1. Set `UPKEEP_MODE=live` and `NEBIUS_API_KEY`, and `TAVILY_API_KEY` for migration guides.
+2. Restart with `sudo systemctl restart upkeep`.
+
+- `deploy/upkeep.env.example` has the variables a server usually sets; `.env.example` at the root lists them all.
+- `UPKEEP_DAILY_TOKENS` caps live spending per day. When it is spent, or the one-token check before a run fails (a spent credit, a revoked key), the run replays the recording and shows a notice.
+- `UPKEEP_PUBLIC=1` only marks the deployment as public in `/api/info` and the log.
 
 ## Warm the build cache
 
@@ -45,7 +53,7 @@ curl -fsS https://203-0-113-7.sslip.io/healthz
 curl -N https://203-0-113-7.sslip.io/api/sessions/none/events
 ```
 
-The second call answers 404 for an unknown session, which shows the API is reachable; open the page and press the button to see the event stream through Caddy.
+The second call answers 404 for an unknown session, which shows the API is reachable. Open `/demo` and press **Work the queue** to see the event stream through Caddy.
 
 ## What the service may touch
 

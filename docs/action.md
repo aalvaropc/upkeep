@@ -80,9 +80,22 @@ jobs:
           github-token: ${{ secrets.UPKEEP_GITHUB_TOKEN }}
 ```
 
-The schedule works every open pull request once a day. Pick your own off-hour minute so your run does not start at the same moment as everyone else's. **Run workflow** in the Actions tab works all of them, or only the numbers you give, and can be a dry run. A comment that starts with `/upkeep` on a pull request works that pull request, but only when it comes from the repository's owner, a member of its organization or a collaborator. A comment from anyone else starts nothing. Both jobs share one concurrency group, so two runs never push to the same branch at once: a second run waits for the first.
+How a run starts:
 
-Pin the action to a release tag or a commit. By default the binary is built at the same ref as the action: `go install github.com/aalvaropc/upkeep/cmd/upkeep@<ref>`, or a build of the action's own source when the ref is a branch with a slash in its name, which Go cannot install. Set the `version` input only to try another version.
+| Trigger | What it works |
+|---|---|
+| The daily schedule | every open pull request. Pick your own off-hour minute |
+| **Run workflow** in the Actions tab | all of them or the numbers you give; it can be a dry run |
+| A comment starting with `/upkeep` | that pull request, only when the author is the owner, a member or a collaborator |
+
+Both jobs share one concurrency group, so two runs never push to the same branch at once.
+
+Pin the action to a release tag or a commit. `v0.1.0` (28 October 2026) is the first release. These later changes are on `main` and come with the next release:
+- the patch comment that carries merges and conflict resolutions;
+- forks;
+- the notices for skipped pull requests;
+- the forecast from the module's API;
+- the order-dependent test check. By default the binary is built at the same ref as the action: `go install github.com/aalvaropc/upkeep/cmd/upkeep@<ref>`, or a build of the action's own source when the ref is a branch with a slash in its name, which Go cannot install. Set the `version` input only to try another version.
 
 ## Inputs
 
@@ -97,7 +110,7 @@ Pin the action to a release tag or a commit. By default the binary is built at t
 | `github-token` | none, required | token that pushes, comments and merges |
 | `tavily-api-key` | none | web search for migration guides |
 
-The job needs a Linux runner with Docker: builds and tests run in a `golang` container without network access, and none of the secrets are passed into it. The `cache` and `learned` folders of Upkeep's data directory (build and forecast caches, the daily token count, and the fixes Upkeep learned, which it reapplies without a model call when the same failure returns) are kept between runs with the Actions cache, keyed by repository.
+The job needs a Linux runner with Docker: builds and tests run in a `golang` container without network access, and none of the secrets are passed into it. The `cache` and `learned` folders of Upkeep's data directory are kept between runs with the Actions cache, keyed by repository. They hold the build and forecast caches, the daily token and search counts, and the fixes Upkeep learned.
 
 ## Which token
 
@@ -117,10 +130,16 @@ Do not trigger the workflow from `pull_request` or `push` events that Dependabot
 
 ## What it does and does not do
 
-Upkeep follows the same [policy](policy.md) as on the command line. It never force-pushes: pushes are fast-forward only. It never merges a pull request opened by a person, and never merges a major bump. It pushes a fix only to a bot's branch or to a branch with the `upkeep` label. Everything else gets a patch comment or a diagnosis. It keeps one receipt, patch and diagnosis comment per pull request and edits them on later runs. It does not post new ones each time.
+Upkeep follows the same [policy](policy.md) as on the command line:
+- it pushes only to a bot's branch or a branch with the `upkeep` label;
+- it never pushes to a fork;
+- it merges only a bot's patch or minor bump.
+
+Everything else gets a patch comment or a diagnosis, and each pull request keeps one comment of each kind, edited on later runs. Pull requests it does not work (drafts, other target branches) are listed in the job log with the reason.
 
 ## Costs
 
-- **Models**: cents per run. Five live runs of the nine-pull-request sample scenario cost between $0.020 and $0.037 each ([`evals/live.md`](evals/live.md)). A pull request that only needs a merge or `gofmt` costs nothing, and each receipt comment shows what its run cost.
-- **Search**: at most one Tavily search per minor or major dependency bump, only when `TAVILY_API_KEY` is set. A forecast is cached, so a bump is searched once.
+- **Models**: cents per run. Eight live runs of the nine-pull-request sample scenario cost two to four cents each ([`evals/live.md`](evals/live.md)). A pull request that only needs a merge or `gofmt` costs nothing, and each receipt comment shows what its run cost.
+- **Limits**: `UPKEEP_DAILY_TOKENS` (1,000,000) and `UPKEEP_SEARCH_DAILY_LIMIT` (100) apply per repository and day, counted through the Actions cache. When the token budget is spent, the job fails: the Action has no recording to fall back on.
+- **Search**: one Tavily search per minor or major dependency bump on each run, only when `TAVILY_API_KEY` is set. The forecast itself is written once and cached.
 - **Runner minutes**: free on public repositories. On private ones the job takes the time of the builds and tests of each pull request worked, plus a minute or two to build Upkeep.
