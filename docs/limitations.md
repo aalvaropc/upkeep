@@ -10,6 +10,8 @@ What Upkeep does not do, and where it can be wrong. Each item shows somewhere: i
   - Drafts and pull requests against another branch are skipped, and the run's notices say so.
   - Forks are worked only with the docker sandbox, because their code is untrusted. Upkeep never pushes to them: the fix goes in a patch comment.
 - **Bumps are recognized from their branch and title.** These are a Dependabot `go_modules` branch or a Renovate branch, one module per pull request. Patch bumps are not forecast.
+  - A Dependabot bump of a module in a subdirectory is skipped, because the checks run on the module at the root.
+  - A grouped update of several modules is worked as a bot's change: no forecast, and never merged.
 - **A forecast needs something to read.** It uses the release notes, a Tavily search, or, failing both, a comparison of the module's exported API that the sandbox must be able to download. A private module that the proxy cannot serve gets no forecast, and the fix starts from the build output.
 
 ## What can be wrong
@@ -17,7 +19,7 @@ What Upkeep does not do, and where it can be wrong. Each item shows somewhere: i
 - **A fix that compiles can still be wrong.** The checks are the compiler, vet and the repository's own tests. A major bump is never merged on its own, and the merge confidence says what backs each fix.
   - It names the tests the pull request adds, which passed in the full run.
   - It does not measure whether the lines Upkeep wrote are covered by any test.
-- **Conflict resolutions are judged by tests, not by intent.** Where no test covers the disagreement, the resolution is a guess. The patch comment and the detail view show each resolved region so a person can read it.
+- **Conflict resolutions are judged by tests, not by intent.** Where no test covers the disagreement, the resolution is a guess. The patch comment and the detail view show each resolved region so a person can read it. Conflicts in tests or in files other than Go source, `go.mod` and `go.sum` are never resolved.
 - **Flaky and order-dependent are heuristics.**
   - A test that fails in the full run and passes alone is run twice more in the full suite: it is "order-dependent" when it fails both times, "flaky" otherwise.
   - A test that fails rarely can look order-dependent, and a real bug that only shows in the full run looks the same.

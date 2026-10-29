@@ -1,6 +1,18 @@
-# Upkeep as a GitHub Action on real Dependabot pull requests
+# Upkeep on real Dependabot pull requests
 
-On 2026-10-29 the Upkeep Action (`aalvaropc/upkeep@v0.1.0`) was installed in [`upkeep-sample`](https://github.com/aalvaropc/upkeep-sample) ([workflow](https://github.com/aalvaropc/upkeep-sample/blob/main/.github/workflows/upkeep.yml)) and dispatched on the two pull requests Dependabot had opened there: [#8](https://github.com/aalvaropc/upkeep-sample/pull/8) (rs/cors 1.11.0 to 1.11.1) and [#11](https://github.com/aalvaropc/upkeep-sample/pull/11) (oklog/ulid 2.1.0 to 2.1.2). Nothing about them was staged: both were behind `main`.
+Dependabot opened three pull requests on [`upkeep-sample`](https://github.com/aalvaropc/upkeep-sample). Upkeep worked all three, and all three merged.
+
+## A bump that broke the build: #9, from the command line
+
+[#9](https://github.com/aalvaropc/upkeep-sample/pull/9) moved `jonboulle/clockwork` from 0.4.0 to 0.5.0, whose `FakeClock` became a struct, so `clock/clock.go` no longer compiled. On 2026-10-27, `upkeep run -repo aalvaropc/upkeep-sample` worked it:
+
+- Super fixed `clock/clock.go` in one attempt, with 4 calls, and Nano wrote the note: $0.0017 in all ($0.0058 at the largest model's price).
+- Every check passed, so Upkeep pushed [`427b5b0`](https://github.com/aalvaropc/upkeep-sample/commit/427b5b0) ("fix: adapt the code to github.com/jonboulle/clockwork v0.5.0"), posted its receipt and armed auto-merge.
+- GitHub merged it when the repository's checks passed.
+
+## The Action on the other two
+
+On 2026-10-29 the Upkeep Action (`aalvaropc/upkeep@v0.1.0`) was installed in [`upkeep-sample`](https://github.com/aalvaropc/upkeep-sample) ([workflow](https://github.com/aalvaropc/upkeep-sample/blob/main/.github/workflows/upkeep.yml)) and dispatched on the two pull requests Dependabot still had open: [#8](https://github.com/aalvaropc/upkeep-sample/pull/8) (rs/cors 1.11.0 to 1.11.1) and [#11](https://github.com/aalvaropc/upkeep-sample/pull/11) (oklog/ulid 2.1.0 to 2.1.2). Nothing about them was staged: both were behind `main`.
 
 | Run | What Upkeep did | Model calls | Cost |
 |---|---|---|---|
