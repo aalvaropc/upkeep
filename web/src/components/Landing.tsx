@@ -185,47 +185,6 @@ const STATS: Stat[] = [
   },
 ];
 
-interface Tier {
-  name: string;
-  status: string;
-  planned: boolean;
-  points: string[];
-}
-
-const TIERS: Tier[] = [
-  {
-    name: "Open source core",
-    status: "Available now · MIT",
-    planned: false,
-    points: [
-      "The CLI and the GitHub Action.",
-      "Bring your own Token Factory key.",
-      "A queue of nine pull requests costs about two cents in model calls.",
-    ],
-  },
-  {
-    name: "Team",
-    status: "Planned",
-    planned: true,
-    points: [
-      "A managed app per organization.",
-      "Learned fixes shared across repositories.",
-      "The dashboard and the history of receipts.",
-      "Priced per active repository.",
-    ],
-  },
-  {
-    name: "Enterprise",
-    status: "Planned",
-    planned: true,
-    points: [
-      "Policy as code across an organization.",
-      "An audit trail of receipts.",
-      "Private model endpoints.",
-    ],
-  },
-];
-
 const NEXT = [
   "Webhooks, so Upkeep reacts the moment a bot opens a pull request.",
   "A GitHub App with scoped permissions.",
@@ -268,7 +227,7 @@ export function Landing() {
           <nav className={styles.navLinks} aria-label="Sections">
             <a href="#how">How it works</a>
             <a href="#evidence">Evidence</a>
-            <a href="#business">Business</a>
+            <a href="#cost">Cost</a>
             <a href={REPO}>GitHub</a>
           </nav>
           <a className={styles.navCta} href="/demo">
@@ -530,32 +489,19 @@ export function Landing() {
           </div>
         </section>
 
-        <section className={styles.section} id="business" aria-labelledby="business-title">
+        <section className={styles.section} id="cost" aria-labelledby="cost-title">
           <div className={styles.wrap}>
             <div className={styles.intro}>
-              <h2 id="business-title" className={styles.title}>
-                The business model
+              <h2 id="cost-title" className={styles.title}>
+                Open source and cheap to run
               </h2>
               <p>
-                This is the plan, not a track record. The open source core exists today. The Team
-                and Enterprise plans are planned.
+                MIT licensed: the CLI and the GitHub Action, with your own Token Factory key. The
+                recorded run of nine pull requests cost $0.0191 in model calls.
               </p>
             </div>
-            <ul className={styles.tiers}>
-              {TIERS.map((t) => (
-                <li key={t.name} data-planned={t.planned}>
-                  <h3>{t.name}</h3>
-                  <p className={styles.status}>{t.status}</p>
-                  <ul>
-                    {t.points.map((p) => (
-                      <li key={p}>{p}</li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ul>
             <div className={styles.payback}>
-              <h3>How it pays for itself</h3>
+              <h3>What it saves, as an example</h3>
               <div className={styles.sum}>
                 <p>
                   <strong>15 min</strong>
