@@ -21,10 +21,12 @@ export function TopBar({ connection, version, info }: Props) {
   return (
     <header className={styles.bar}>
       <div className={styles.brand}>
-        <span className={styles.mark} aria-hidden="true">
-          <Icon name="mark" />
-        </span>
-        <span className={styles.name}>Upkeep</span>
+        <a className={styles.home} href="/" aria-label="Upkeep, back to the overview">
+          <span className={styles.mark} aria-hidden="true">
+            <Icon name="mark" />
+          </span>
+          <span className={styles.name}>Upkeep</span>
+        </a>
         <span className={styles.scope}>
           <code>upkeep-sample</code>
         </span>
