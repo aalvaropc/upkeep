@@ -52,7 +52,7 @@ jobs:
       group: upkeep
       cancel-in-progress: false
     steps:
-      - uses: aalvaropc/upkeep@v0.2.0
+      - uses: aalvaropc/upkeep@v0.2.1
         with:
           pull-requests: ${{ inputs.pull-requests }}
           dry-run: ${{ inputs.dry-run || false }}
@@ -72,7 +72,7 @@ jobs:
       group: upkeep
       cancel-in-progress: false
     steps:
-      - uses: aalvaropc/upkeep@v0.2.0
+      - uses: aalvaropc/upkeep@v0.2.1
         with:
           pull-requests: ${{ github.event.issue.number }}
           nebius-api-key: ${{ secrets.NEBIUS_API_KEY }}
@@ -90,7 +90,7 @@ How a run starts:
 
 Both jobs share one concurrency group, so two runs never push to the same branch at once.
 
-Pin the action to a release tag or a commit. The current release is [`v0.2.0`](https://github.com/aalvaropc/upkeep/releases/tag/v0.2.0) (29 October 2026). By default the binary is built at the same ref as the action: `go install github.com/aalvaropc/upkeep/cmd/upkeep@<ref>`, or a build of the action's own source when the ref is a branch with a slash in its name, which Go cannot install. Set the `version` input only to try another version.
+Pin the action to a release tag or a commit. The current release is [`v0.2.1`](https://github.com/aalvaropc/upkeep/releases/tag/v0.2.1) (29 October 2026). By default the binary is built at the same ref as the action: `go install github.com/aalvaropc/upkeep/cmd/upkeep@<ref>`, or a build of the action's own source when the ref is a branch with a slash in its name, which Go cannot install. Set the `version` input only to try another version.
 
 ## Inputs
 
