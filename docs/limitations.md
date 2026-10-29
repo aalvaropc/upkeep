@@ -33,6 +33,7 @@ What Upkeep does not do, and where it can be wrong. Each item shows somewhere: i
 
 - **The live evidence is eight runs** (72 of 72 pull requests as expected; [`evals/live.md`](evals/live.md)). Live runs vary:
   - the jwt major needed a second attempt in one run;
+  - outside those runs, in one hosted demo run on 29 October, Super did not fix the jwt major within its 300,000-token repair budget: after three attempts it went to a person with Ultra's diagnosis, and that run cost five cents;
   - #4 averaged two attempts in the last three;
   - the cost per run ranged from two to four cents.
   - Run `upkeep eval -runs N` with `UPKEEP_MODE=live` to measure again.
