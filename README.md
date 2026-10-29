@@ -58,7 +58,9 @@ Press **Run again** and the next run keeps what this one learned: the three fixe
 
 The whole run costs about two cents: $0.0191 against $0.0502 for the same tokens at the largest model's price. That is a price comparison, not a claim that the largest model would have fixed them. CI replays the recording and fails if any pull request ends differently.
 
-The recording is one run, so it was also measured live: five runs against the real models (nothing replayed) ended with all 45 pull requests as the scenario expects, at $0.020 to $0.037 a run ([`docs/evals/live.md`](docs/evals/live.md)).
+The recording is one run, so it was also measured live: five runs against the real models (nothing replayed) ended with all 45 pull requests as the scenario expects, at $0.020 to $0.037 a run ([`docs/evals/live.md`](docs/evals/live.md)). Three more live runs on 2026-10-29, with the plan, the fresh Tavily searches and the learned fixes in place, ended 27 of 27 at $0.0230 a run.
+
+It also runs on real pull requests: as a GitHub Action on the sample repository it brought the two pull requests Dependabot had opened up to date, saw that they conflict with each other, let GitHub merge one, then had Ultra resolve the other's conflict for $0.0006 ([`docs/evals/action.md`](docs/evals/action.md)).
 
 ## Run it
 
@@ -125,6 +127,7 @@ The forecast for a dependency upgrade calls Tavily at runtime to find the migrat
 - [`docs/models.md`](docs/models.md): what each Nemotron model does, what was measured and what was dropped.
 - [`docs/limitations.md`](docs/limitations.md): what Upkeep does not do and where it can be wrong.
 - [`docs/action.md`](docs/action.md): the GitHub Action, its secrets, the token it needs and what a run costs.
+- [`docs/evals`](docs/evals): the replayed recording, the live runs and the Action on real Dependabot pull requests.
 - [`web/DESIGN.md`](web/DESIGN.md): the dashboard's design system.
 
 ## Configuration
