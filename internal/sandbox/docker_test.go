@@ -250,3 +250,15 @@ func TestDockerRunnerDownloadsWithNetworkThenWorksWithout(t *testing.T) {
 	}
 	t.Logf("warm cache: build %v, vet %v, test %v", warm.Build.Duration.Round(time.Millisecond), warm.Vet.Duration.Round(time.Millisecond), warm.Test.Duration.Round(time.Millisecond))
 }
+
+func TestDockerClientNoticesAreNotCommandOutput(t *testing.T) {
+	notice := "WARNING: Error loading config file: open /home/upkeep/.docker/config.json: permission denied\n"
+	got := withoutClientNotices(notice + "# pkg\nfile.go:1:1: undefined: x\n")
+	if got != "# pkg\nfile.go:1:1: undefined: x\n" {
+		t.Fatalf("the client notice stayed in the output: %q", got)
+	}
+	plain := "ok\nWARNING: this one is the command's own\n"
+	if withoutClientNotices(plain) != plain {
+		t.Fatalf("output without the notice changed: %q", withoutClientNotices(plain))
+	}
+}

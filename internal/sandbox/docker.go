@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const clientNotice = "WARNING: Error loading config file:"
+
 const (
 	DefaultImage  = "golang:1.26.10-bookworm"
 	defaultCPUs   = "1"
@@ -155,6 +157,7 @@ func (d Docker) Run(ctx context.Context, spec Spec) (Result, error) {
 		d.remove(name)
 	}
 	res, err := finish(runCtx, spec, out, time.Since(start), runErr)
+	res.Output = withoutClientNotices(res.Output)
 	if err != nil {
 		return res, fmt.Errorf("running %s: %w", d.bin(), err)
 	}
@@ -164,6 +167,20 @@ func (d Docker) Run(ctx context.Context, spec Spec) (Result, error) {
 		}
 	}
 	return res, nil
+}
+
+func withoutClientNotices(output string) string {
+	if !strings.Contains(output, clientNotice) {
+		return output
+	}
+	lines := strings.Split(output, "\n")
+	kept := lines[:0]
+	for _, line := range lines {
+		if !strings.HasPrefix(line, clientNotice) {
+			kept = append(kept, line)
+		}
+	}
+	return strings.Join(kept, "\n")
 }
 
 func dockerFailure(output string) string {
