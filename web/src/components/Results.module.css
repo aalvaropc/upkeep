@@ -3,10 +3,24 @@
   align-content: start;
   gap: 28px;
   min-width: 0;
-  padding: 22px 24px;
+  padding: 28px 30px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--sheet);
+  animation: arrive 220ms var(--ease) both;
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .results {
+    animation: none;
+  }
 }
 
 .block {
@@ -133,9 +147,9 @@
   display: grid;
   gap: 4px;
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid transparent;
-  border-radius: 10px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 12px;
   background: var(--card);
   color: inherit;
   font: inherit;
@@ -144,7 +158,6 @@
 }
 
 .item:hover {
-  border-color: var(--border-strong);
   background: var(--card-hover);
 }
 

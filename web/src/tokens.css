@@ -1,26 +1,26 @@
 :root {
   color-scheme: dark;
 
-  --frame: #08090a;
+  --frame: #070809;
   --bg: var(--frame);
-  --sheet: #0e1011;
+  --sheet: #0c0e0f;
   --bg-sunken: #0b0d0e;
-  --card: #131618;
-  --card-hover: #191d20;
-  --muted: #20252a;
-  --fg: #f2f4f3;
-  --fg-muted: #9aa3a0;
-  --border: #23282c;
-  --border-strong: #3a4247;
-  --rule: #1c2023;
+  --card: #111416;
+  --card-hover: #161a1c;
+  --muted: #1d2225;
+  --fg: #eef1ef;
+  --fg-muted: #8f9894;
+  --border: #1e2326;
+  --border-strong: #2f363a;
+  --rule: #171b1d;
   --ring: #76b900;
 
   --accent: #76b900;
   --accent-ink: #0a0b0a;
   --live: #9be22d;
-  --danger: #ff6b6b;
-  --warn: #f5b041;
-  --info: #4fb3ff;
+  --danger: #f07272;
+  --warn: #e9b053;
+  --info: #5fb4f5;
 
   --ultra: #b69cff;
   --super: #4fb3ff;
