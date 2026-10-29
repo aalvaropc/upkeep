@@ -116,6 +116,8 @@ func NewManager(parent context.Context, opts Options) (*Manager, error) {
 	return &Manager{opts: opts, ctx: ctx, stop: stop, sessions: map[string]*Session{}}, nil
 }
 
+func (m *Manager) Limits() engine.Limits { return m.opts.Limits }
+
 func (m *Manager) Shutdown() {
 	m.stop()
 	m.mu.Lock()

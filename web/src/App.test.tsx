@@ -83,7 +83,7 @@ const info: Info = {
   mode: "replay",
   version: "v1",
   sessions: 1,
-  prs_per_run: 4,
+  parallel_prs: 4,
   runs_per_server: 2,
   daily_tokens: 0,
   tokens_today: 0,

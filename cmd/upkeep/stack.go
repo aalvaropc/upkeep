@@ -24,12 +24,13 @@ import (
 )
 
 type stackFlags struct {
-	policy      string
-	fixtures    string
-	source      string
-	rebuild     bool
-	pace        float64
-	maxSessions int
+	policy        string
+	fixtures      string
+	source        string
+	rebuild       bool
+	pace          float64
+	maxSessions   int
+	runsPerServer int
 }
 
 func (f *stackFlags) register(fs *flag.FlagSet, pace float64) {
@@ -46,6 +47,21 @@ func (f stackFlags) validate() error {
 		return errors.New("-pace cannot be negative and -max-sessions must be at least 1")
 	}
 	return nil
+}
+
+func (f stackFlags) limits() engine.Limits {
+	limits := engine.DefaultLimits
+	if f.runsPerServer > 0 {
+		limits.RunsPerServer = f.runsPerServer
+	}
+	return limits
+}
+
+func newManager(ctx context.Context, f stackFlags, s scenario.Scenario, template, root string, hub *events.Hub, processor demo.Factory, logger *slog.Logger) (*demo.Manager, error) {
+	return demo.NewManager(ctx, demo.Options{
+		Scenario: s, Template: template, Root: root, Git: gitx.Git{}, Hub: hub,
+		Processor: processor, Limits: f.limits(), MaxSessions: f.maxSessions, Logger: logger,
+	})
 }
 
 type stack struct {
@@ -132,10 +148,7 @@ func openStack(ctx context.Context, stderr io.Writer, environ []string, f stackF
 		return nil, err
 	}
 	hub := events.NewHub(ringCapacity)
-	manager, err := demo.NewManager(ctx, demo.Options{
-		Scenario: s, Template: template, Root: sessions, Git: gitx.Git{}, Hub: hub,
-		Processor: rt.Processor, Limits: engine.DefaultLimits, MaxSessions: f.maxSessions, Logger: logger,
-	})
+	manager, err := newManager(ctx, f, s, template, sessions, hub, rt.Processor, logger)
 	if err != nil {
 		return nil, err
 	}

@@ -243,6 +243,13 @@ func TestOnlyAFixedNumberOfRunsGoAtOnce(t *testing.T) {
 	h.waitStatus(second, demo.Finished)
 }
 
+func TestTheManagerReportsTheLimitsItRunsWith(t *testing.T) {
+	h := newHarness(t, func(o *demo.Options) { o.Limits = engine.Limits{RunsPerServer: 3} }, &processor{})
+	if got := h.m.Limits(); got != (engine.Limits{PRsPerRun: engine.DefaultLimits.PRsPerRun, RunsPerServer: 3}) {
+		t.Fatalf("limits = %+v", got)
+	}
+}
+
 func TestARunCannotBeStartedTwice(t *testing.T) {
 	p := &processor{gate: make(chan struct{})}
 	h := newHarness(t, nil, p)
