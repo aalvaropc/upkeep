@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -11,6 +12,23 @@ import (
 	"github.com/aalvaropc/upkeep/internal/receipt"
 )
 
+var (
+	mention    = regexp.MustCompile(`(^|[^\w@/])@([A-Za-z0-9])`)
+	angleQuote = strings.NewReplacer("<", "&lt;", ">", "&gt;")
+)
+
+func quiet(text string) string {
+	parts := strings.Split(text, "`")
+	closed := len(parts)%2 == 1
+	for i, part := range parts {
+		if i%2 == 1 && (closed || i < len(parts)-1) {
+			continue
+		}
+		parts[i] = angleQuote.Replace(mention.ReplaceAllString(part, "${1}@\u2060${2}"))
+	}
+	return strings.Join(parts, "`")
+}
+
 func usd(micros int64) string {
 	return fmt.Sprintf("$%.4f", float64(micros)/1_000_000)
 }
@@ -18,7 +36,7 @@ func usd(micros int64) string {
 func patchComment(res engine.Result) string {
 	var b strings.Builder
 	b.WriteString("Upkeep prepared a fix for this pull request.")
-	if s := strings.TrimSpace(res.Summary); s != "" {
+	if s := quiet(strings.TrimSpace(res.Summary)); s != "" {
 		b.WriteString(" " + s)
 	}
 	if res.PR.Fork {
@@ -70,8 +88,8 @@ func plural(n int, one, many string) string {
 
 func diagnosisComment(res engine.Result) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Upkeep could not finish this pull request: %s.\n", strings.TrimRight(res.Reason, "."))
-	if text := strings.TrimSpace(res.Diagnosis); text != "" {
+	fmt.Fprintf(&b, "Upkeep could not finish this pull request: %s.\n", quiet(strings.TrimRight(res.Reason, ".")))
+	if text := quiet(strings.TrimSpace(res.Diagnosis)); text != "" {
 		b.WriteString("\n")
 		b.WriteString(text)
 		b.WriteString("\n")
@@ -87,7 +105,7 @@ func receiptComment(res engine.Result) string {
 	totals := res.Receipt.Totals()
 	var b strings.Builder
 	b.WriteString("Upkeep receipt\n\n")
-	if s := strings.TrimSpace(res.Summary); s != "" {
+	if s := quiet(strings.TrimSpace(res.Summary)); s != "" {
 		b.WriteString(s + "\n\n")
 	}
 	b.WriteString(forecastBlock(res))
@@ -138,7 +156,7 @@ func forecastBlock(res engine.Result) string {
 	}
 	b.WriteString(":\n")
 	for _, c := range f.Breaking {
-		fmt.Fprintf(&b, "- `%s`: %s", c.Symbol, c.Description)
+		fmt.Fprintf(&b, "- `%s`: %s", c.Symbol, quiet(c.Description))
 		if mark := forecastMark(res, c.Symbol); mark != "" {
 			b.WriteString(" (" + mark + ")")
 		}
