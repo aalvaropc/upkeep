@@ -25,7 +25,7 @@
 
 .list {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -35,10 +35,10 @@
   display: grid;
   gap: 6px;
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: var(--card);
+  padding: 11px 12px 11px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
@@ -53,12 +53,12 @@
 }
 
 .row[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--card-hover);
+  background: var(--card);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .row[data-phase="queued"] {
-  opacity: 0.72;
+  opacity: 0.6;
 }
 
 .top {
@@ -78,7 +78,7 @@
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;

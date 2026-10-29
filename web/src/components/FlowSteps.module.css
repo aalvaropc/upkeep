@@ -1,0 +1,62 @@
+.flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.bar {
+  display: block;
+  height: 3px;
+  margin-bottom: 8px;
+  border-radius: 2px;
+  background: var(--muted);
+  transition: background-color var(--base) var(--ease);
+}
+
+.label {
+  color: var(--fg-muted);
+  font-size: 14px;
+  font-weight: 600;
+  transition: color var(--base) var(--ease);
+}
+
+.hint {
+  color: var(--fg-muted);
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.step[data-state="done"] .bar {
+  background: var(--accent);
+}
+
+.step[data-state="done"] .label {
+  color: var(--fg);
+}
+
+.step[data-state="current"] .bar {
+  background: var(--live);
+}
+
+.step[data-state="current"] .label {
+  color: var(--live);
+}
+
+@media (max-width: 700px) {
+  .hint {
+    display: none;
+  }
+
+  .label {
+    font-size: 12px;
+  }
+}

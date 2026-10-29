@@ -4,14 +4,18 @@
   gap: 16px;
   min-width: 0;
   height: min(78vh, 820px);
-  padding: 22px 24px;
+  padding: 28px 30px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--sheet);
+  animation: arrive 220ms var(--ease) both;
 }
 
-.stage[data-live="true"] {
-  border-color: rgb(118 185 0 / 0.45);
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 
 .head {
@@ -60,9 +64,9 @@
 
 .title {
   margin: 0;
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.2;
   letter-spacing: -0.01em;
 }
 
@@ -102,8 +106,8 @@
 
 .bar {
   display: block;
-  height: 6px;
-  border-radius: 3px;
+  height: 8px;
+  border-radius: 4px;
   background: var(--muted);
 }
 
@@ -141,10 +145,10 @@
 
 .now {
   margin: 0;
-  padding: 10px 14px;
+  padding: 12px 16px;
   overflow: hidden;
-  border-left: 3px solid var(--live);
-  border-radius: 6px;
+  border-left: 2px solid var(--live);
+  border-radius: 10px;
   background: var(--card);
   color: var(--fg);
   font: 13px/1.5 var(--mono);
@@ -211,6 +215,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .stage,
   .dot,
   .step[data-state="running"] .bar {
     animation: none;
