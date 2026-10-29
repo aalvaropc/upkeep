@@ -55,39 +55,40 @@ type Input struct {
 }
 
 type Result struct {
-	PR         pull.Request
-	Blocker    pull.Blocker
-	Outcome    pull.Outcome
-	Reason     string
-	Diagnosis  string
-	HeadBefore string
-	HeadAfter  string
-	FixBase    string
-	MergedBase bool
-	Resolved   []strategy.ResolvedBlock
-	Changed    bool
-	Patch      string
-	Changes    []gitx.FileChange
-	Checklist  verify.Checklist
-	Flaky      []string
-	FlakyKind  string
-	OwnTests   []string
-	Forecast   *forecast.Forecast
-	Confirmed  []string
-	Missed     []string
-	FixedToo   []string
-	BuildFine  bool
-	Receipt    *receipt.Receipt
-	Summary    string
-	Failure    string
-	Attempts   int
-	WantsPush  bool
-	WantsPatch bool
-	WantsMerge bool
-	Confidence confidence.Assessment
-	Learned    *Learned
-	Err        error
-	fixes      []learn.Fix
+	PR               pull.Request
+	Blocker          pull.Blocker
+	Outcome          pull.Outcome
+	Reason           string
+	Diagnosis        string
+	HeadBefore       string
+	HeadAfter        string
+	FixBase          string
+	MergedBase       bool
+	Resolved         []strategy.ResolvedBlock
+	ResolvedComments int
+	Changed          bool
+	Patch            string
+	Changes          []gitx.FileChange
+	Checklist        verify.Checklist
+	Flaky            []string
+	FlakyKind        string
+	OwnTests         []string
+	Forecast         *forecast.Forecast
+	Confirmed        []string
+	Missed           []string
+	FixedToo         []string
+	BuildFine        bool
+	Receipt          *receipt.Receipt
+	Summary          string
+	Failure          string
+	Attempts         int
+	WantsPush        bool
+	WantsPatch       bool
+	WantsMerge       bool
+	Confidence       confidence.Assessment
+	Learned          *Learned
+	Err              error
+	fixes            []learn.Fix
 }
 
 type Processor struct {
@@ -186,6 +187,11 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 			}
 
 		case pull.ConflictSmall:
+			if file := protectedConflict(diag.Merge.Conflicts); file != "" {
+				out := p.escalate(ctx, &res, job, diag, "the conflict is in "+file+", which Upkeep does not edit")
+				_ = env.Git.MergeAbort(ctx, in.Dir)
+				return out
+			}
 			p.step(&res, "conflict", "running", fmt.Sprintf("%d hunks", diag.Merge.Hunks()))
 			resolved, err := env.ResolveConflict(ctx, job, diag.Merge.Conflicts)
 			if err != nil {
@@ -200,6 +206,7 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 			}
 			res.MergedBase = true
 			res.Resolved = resolved.Blocks
+			res.ResolvedComments = resolved.Comments
 			if res.FixBase, err = env.Git.Head(ctx, in.Dir); err != nil {
 				return p.failed(&res, err)
 			}
@@ -464,6 +471,7 @@ func (p Processor) finish(ctx context.Context, res *Result, job *strategy.Job, d
 	if err != nil {
 		return p.failed(res, err)
 	}
+	comments += res.ResolvedComments
 	report := diag.Report
 	if len(diag.FlakyTests) > 0 && diag.FlakyRerun.OK() {
 		report.Test = diag.FlakyRerun
@@ -600,6 +608,16 @@ func testNames(src string) []string {
 		}
 	}
 	return names
+}
+
+func protectedConflict(hunks []gitx.Hunk) string {
+	for _, h := range hunks {
+		name := filepath.Base(h.File)
+		if strings.HasSuffix(name, "_test.go") || !strings.HasSuffix(name, ".go") && name != "go.mod" && name != "go.sum" {
+			return h.File
+		}
+	}
+	return ""
 }
 
 func (p Processor) addedComments(ctx context.Context, job *strategy.Job, changes []gitx.FileChange, base string) (int, error) {

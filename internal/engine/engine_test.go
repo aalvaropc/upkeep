@@ -1021,3 +1021,60 @@ func TestTestNamesReadsOnlyTopLevelTests(t *testing.T) {
 		t.Fatalf("testNames of broken source = %v", got)
 	}
 }
+
+func TestAConflictOutsideGoSourceIsHandedBackUnresolved(t *testing.T) {
+	for _, file := range []string{"limits_test.go", "NOTES.md"} {
+		t.Run(file, func(t *testing.T) {
+			w := newWorld(t, nil, []step{{content: "Both sides changed the same line; a person should pick one."}})
+			w.branch("feature")
+			write(t, w.dir, file, "package m\n\nvar side = \"feature\"\n")
+			w.commit("feat: the feature side")
+			w.checkout("main")
+			write(t, w.dir, file, "package m\n\nvar side = \"main\"\n")
+			w.commit("feat: the main side")
+			w.checkout("feature")
+			before := w.head()
+			res := w.process(person("upkeep"))
+			if res.Outcome != pull.NeedsHuman || res.Blocker != pull.ConflictSmall || !strings.Contains(res.Reason, file+", which Upkeep does not edit") {
+				t.Fatalf("result = %+v", res)
+			}
+			if w.ultra.count() != 1 || !strings.Contains(res.Diagnosis, "a person should pick") {
+				t.Fatalf("only the diagnosis may be asked for: %d Ultra calls, diagnosis %q", w.ultra.count(), res.Diagnosis)
+			}
+			if w.head() != before || !w.clean() {
+				t.Fatal("the branch must be left exactly as it was")
+			}
+		})
+	}
+}
+
+func TestAResolutionThatAddsACommentIsRejected(t *testing.T) {
+	answer := `{"files":[{"path":"limits.go","resolutions":["\t/` + `/ both limits\n\tMaxNotesPerOwner = 1000\n\tMaxAttachments = 5"]}]}`
+	w := newWorld(t, nil, []step{{content: answer}})
+	conflictingLimits(w)
+	before := w.head()
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.NeedsHuman || !strings.Contains(res.Reason, "did not pass verification") {
+		t.Fatalf("result = %+v", res)
+	}
+	if w.head() != before {
+		t.Fatal("a rejected resolution must be undone")
+	}
+}
+
+func TestProtectedConflict(t *testing.T) {
+	cases := map[string]string{
+		"limits.go":         "",
+		"go.mod":            "",
+		"go.sum":            "",
+		"tools/go.mod":      "",
+		"limits_test.go":    "limits_test.go",
+		"README.md":         "README.md",
+		"config/notes.yaml": "config/notes.yaml",
+	}
+	for file, want := range cases {
+		if got := protectedConflict([]gitx.Hunk{{File: "a.go"}, {File: file}}); got != want {
+			t.Errorf("%s: got %q, want %q", file, got, want)
+		}
+	}
+}
