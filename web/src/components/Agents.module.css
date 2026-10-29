@@ -19,7 +19,7 @@
 
 .list {
   display: grid;
-  gap: 10px;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -29,7 +29,7 @@
   --tone: var(--fg-muted);
   display: flex;
   gap: 10px;
-  padding: 14px 0;
+  padding: 12px 0;
   background: transparent;
 }
 
@@ -52,10 +52,6 @@
 
 .row[data-role="search"] {
   --tone: var(--search);
-}
-
-.search {
-  margin-top: 10px;
 }
 
 .query {
@@ -97,7 +93,8 @@
 .job {
   margin: 2px 0 0;
   color: var(--fg-muted);
-  font-size: 13px;
+  font-size: 12.5px;
+  line-height: 1.5;
 }
 
 .meta {

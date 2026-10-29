@@ -88,26 +88,32 @@ export function QueueList({ board, focus, onFocus }: Props) {
                     <span className={styles.blocker}>{blockerLabel(card.blocker)}</span>
                   ) : null}
                 </span>
-                {card.overlap ? (
-                  <span className={styles.overlap} data-tone={overlapTone(card.overlap)}>
-                    {overlapLabel(card.overlap)}
-                  </span>
-                ) : null}
-                {card.learned?.status === "reused" ? (
-                  <span
-                    className={styles.learned}
-                    title={`Reused the fix learned from #${card.learned.from}`}
-                  >
-                    learned fix
-                  </span>
-                ) : null}
-                {card.phase === "done" && card.confidence ? (
-                  <span
-                    className={styles.confidence}
-                    data-level={card.confidence.level}
-                    title={card.confidence.reasons.join("; ")}
-                  >
-                    {card.confidence.level} merge confidence
+                {card.overlap ||
+                card.learned?.status === "reused" ||
+                (card.phase === "done" && card.confidence) ? (
+                  <span className={styles.chips}>
+                    {card.overlap ? (
+                      <span className={styles.overlap} data-tone={overlapTone(card.overlap)}>
+                        {overlapLabel(card.overlap)}
+                      </span>
+                    ) : null}
+                    {card.learned?.status === "reused" ? (
+                      <span
+                        className={styles.learned}
+                        title={`Reused the fix learned from #${card.learned.from}`}
+                      >
+                        learned fix
+                      </span>
+                    ) : null}
+                    {card.phase === "done" && card.confidence ? (
+                      <span
+                        className={styles.confidence}
+                        data-level={card.confidence.level}
+                        title={card.confidence.reasons.join("; ")}
+                      >
+                        {card.confidence.level} merge confidence
+                      </span>
+                    ) : null}
                   </span>
                 ) : null}
               </button>

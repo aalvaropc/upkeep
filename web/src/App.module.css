@@ -46,20 +46,23 @@
 }
 
 .caption {
-  margin: -12px 0 0;
+  max-width: 80ch;
+  margin: -6px 0 0;
   color: var(--fg-muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 300px;
-  gap: 28px;
+  grid-template-columns: 296px minmax(0, 1fr) 316px;
+  gap: 32px;
   align-items: start;
 }
 
 .center {
   display: grid;
+  align-content: start;
+  align-self: stretch;
   gap: 12px;
   min-width: 0;
 }
