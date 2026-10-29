@@ -884,3 +884,162 @@
     justify-items: stretch;
   }
 }
+
+.headline span,
+.lede,
+.heroSide .actions,
+.proof {
+  animation: up-rise 640ms var(--out) both;
+}
+
+.headline span + span {
+  animation-delay: 110ms;
+}
+
+.lede {
+  animation-delay: 220ms;
+}
+
+.heroSide .actions {
+  animation-delay: 300ms;
+}
+
+.proof {
+  animation-delay: 380ms;
+}
+
+.hero .shot {
+  animation: up-focus 760ms var(--out) 460ms both;
+}
+
+.hero .frame {
+  position: relative;
+}
+
+.hero .frame::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 14%;
+  background: linear-gradient(90deg, transparent, rgb(155 226 45 / 0.1), transparent);
+  pointer-events: none;
+  animation: up-pass 6s linear 1.6s infinite;
+}
+
+.navLinks a {
+  position: relative;
+}
+
+.navLinks a::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -4px;
+  left: 0;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--base) var(--out);
+}
+
+.navLinks a:hover::after {
+  transform: scaleX(1);
+}
+
+.page .primary,
+.secondary {
+  transition:
+    background-color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease),
+    transform var(--fast) var(--out);
+}
+
+.page .primary:hover,
+.secondary:hover {
+  transform: translateY(-1px);
+}
+
+.frame {
+  transition: border-color var(--base) var(--out);
+}
+
+.frame:hover {
+  border-color: var(--border-strong);
+}
+
+@supports (animation-timeline: view()) {
+  .section .wrap > *,
+  .closing .wrap > * {
+    animation: up-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 55%;
+  }
+
+  .step::before,
+  .timeline li::before {
+    transform-origin: top;
+    animation: up-draw linear both;
+    animation-timeline: view();
+    animation-range: entry 20% cover 55%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .headline span,
+  .lede,
+  .heroSide .actions,
+  .proof,
+  .hero .shot,
+  .section .wrap > *,
+  .closing .wrap > *,
+  .step::before,
+  .timeline li::before {
+    animation: none;
+  }
+
+  .hero .frame::after {
+    display: none;
+  }
+}
+
+@keyframes up-draw {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes up-focus {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(8px);
+  }
+}
+
+@keyframes up-pass {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  45%,
+  100% {
+    transform: translateX(700%);
+  }
+}
+
+@keyframes up-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+
+@keyframes up-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}

@@ -221,7 +221,7 @@ export function Landing() {
       <header className={styles.nav}>
         <div className={styles.navInner}>
           <a className={styles.brand} href="/" aria-label="Upkeep home">
-            <Mark className={styles.mark} />
+            <Mark className={styles.mark} intro />
             <span>Upkeep</span>
           </a>
           <nav className={styles.navLinks} aria-label="Sections">
