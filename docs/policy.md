@@ -21,16 +21,18 @@ These cannot be configured. A policy file that tries to turn one off is rejected
 | the pull request is a bot's patch or minor dependency bump and every check passes | merge it (with GitHub auto-merge when the repository has required checks) |
 | the pull request is a major bump | repair it, never merge it |
 | the conflict is larger than three hunks or any hunk longer than twenty lines | do not touch it; post Ultra's diagnosis |
+| the conflict is in a test file, or in a file other than Go source, `go.mod` and `go.sum` | do not touch it; post Ultra's diagnosis |
 | Super's repair uses up three attempts, 180 seconds or 300,000 tokens | stop, restore the branch and post a diagnosis |
 | a test fails in the full run and passes alone | report it as flaky, or as order-dependent when two more full runs fail too, and leave it alone |
 | the repository has no `go.mod` at its root | hand it back without asking a model |
 | the pull request is a draft, targets another branch, or comes from a fork while the sandbox is `exec` | skip it and say why in the run's notices |
+| a Dependabot bump updates a module in a subdirectory ("… in /tools") | skip it and say why in the run's notices: Upkeep builds and tests the module at the root |
 
 ## On a real repository
 
 - **One comment of each kind.** A pull request gets at most one receipt, one patch and one diagnosis comment from Upkeep. Each starts with a hidden marker such as `<!-- upkeep:receipt -->`, and a later run edits that comment instead of posting another.
 - **Dry runs say what they skipped.** `upkeep run -dry-run` detects and fixes in scratch copies but pushes, comments and merges nothing. Every action it held back is listed as `skipped` with what it would have done, and no pull request is counted as merged.
-- **Which pull requests are bumps.** A Dependabot branch under `dependabot/go_modules/` titled "Bump X from A to B", or a Renovate branch under `renovate/` titled "Update X to B" (with or without "module" or "dependency", and with or without a prefix such as `build(deps):`) whose description has the line `` `A` -> `B` ``. One module per pull request. When a major bump moves a module whose path ends in `/vN`, the bump names the new path: `github.com/golang-jwt/jwt/v4` from v4.5.2 to v5.3.1 is read as `github.com/golang-jwt/jwt/v5`.
+- **Which pull requests are bumps.** A Dependabot branch under `dependabot/go_modules/` titled "Bump X from A to B" (optionally followed by "in /" or "in the <name> group"), or a Renovate branch under `renovate/` titled "Update X to B" (with or without "module" or "dependency", and with or without a prefix such as `build(deps):`) whose description has the line `` `A` -> `B` ``. One module per pull request: a grouped update of several modules is worked as a bot's change, with no forecast and no merge. When a major bump moves a module whose path ends in `/vN`, the bump names the new path: `github.com/golang-jwt/jwt/v4` from v4.5.2 to v5.3.1 is read as `github.com/golang-jwt/jwt/v5`.
 
 ## What a fix must satisfy
 
@@ -45,6 +47,8 @@ The verifier computes these from the final diff and the container's output, outs
 7. only Go files changed (`go.mod` and `go.sum` are allowed for dependency bumps)
 8. no comment added
 9. the code is formatted
+
+A resolved conflict is checked too. The merge commit is the base the final diff is measured from, so the conflict rule above keeps tests and other files out of Ultra's hands, and the comments a resolution adds to a Go file count toward check 8.
 
 When any check fails, nothing is pushed, the branch is restored and the pull request is handed back with the reason.
 

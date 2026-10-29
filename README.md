@@ -62,7 +62,9 @@ While a run goes, the centre of the dashboard follows the agent at work, one pul
 - **Replay**, run by CI on every change: 9 of 9 for $0.0191 and 29 model calls. [`docs/evals/latest.md`](docs/evals/latest.md)
 - **Live:** 8 runs against the real models, 72 of 72 pull requests as expected, two to four cents a run. [`docs/evals/live.md`](docs/evals/live.md)
 - **Learned fixes:** "Run again" reapplies the three fixes Super made with zero model calls, and the run costs $0.0055.
-- **Real pull requests:** the Action brought the two pull requests Dependabot opened on `upkeep-sample` up to date and saw they conflict. Ultra resolved the second one's conflict for $0.0006, and both merged. [`docs/evals/action.md`](docs/evals/action.md)
+- **Real pull requests:** on the three pull requests Dependabot opened on `upkeep-sample`, all merged. [`docs/evals/action.md`](docs/evals/action.md)
+  - The clockwork 0.5.0 bump broke the build; Super fixed it in one attempt for $0.0017.
+  - The Action brought the other two up to date and saw they conflict in `go.mod`; Ultra resolved the second one's conflict for $0.0006.
 
 ## Run it
 
@@ -109,7 +111,14 @@ From GitHub Actions: `uses: aalvaropc/upkeep@v0.1.0` ([`docs/action.md`](docs/ac
 | Super 120B | the tool loop that fixes builds and tests, and the forecast of an upgrade |
 | Nano 30B | the one-sentence note for the reviewer, checked against the diff |
 
-The routing comes from 73 measured runs. [`docs/models.md`](docs/models.md) has the numbers, the prices and what did not work. Token Factory serves all three behind one key and one OpenAI-compatible API, with live prices that price every receipt.
+The routing comes from 73 measured runs. [`docs/models.md`](docs/models.md) has the numbers, the prices and what did not work.
+
+Where Token Factory made the work faster:
+
+- **Routing by measurement.** Three model sizes behind one key and one OpenAI-compatible API let us run the 73 experiments (3.06 million tokens, about two dollars) in a day and route each step on evidence instead of guesses.
+- **Live prices.** `GET /v1/models?verbose=true` returns each model's price, so every receipt is priced from the catalog and the comparison with the largest model is computed, not assumed.
+- **No infrastructure to run.** Inference needs only a key: the demo machine runs the Go binary and the build sandbox, and parallel runs never came near the rate limits.
+- **Reasoning switch.** `chat_template_kwargs: {"enable_thinking": false}` turns reasoning off for the tool loop, where it measured slower and less accurate.
 
 Tavily runs on every live forecast of a minor or major upgrade. When neither the release notes nor the search have anything, the forecast compares the module's exported API between the two versions instead, with no model.
 
