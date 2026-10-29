@@ -34,7 +34,7 @@
 
 .backdrop[data-side="true"] .panel {
   width: min(760px, 100%);
-  max-height: none;
+  max-height: 100vh;
   border-radius: 0;
   border-width: 0 0 0 1px;
   animation: slide var(--base) var(--ease) both;
