@@ -56,7 +56,6 @@ describe("Landing", () => {
     const { container } = render(<Landing />);
     const images = Array.from(container.querySelectorAll("img"));
     expect(images.map((img) => img.getAttribute("src"))).toEqual([
-      "/landing/dashboard-trace.png",
       "/landing/dashboard-plan.png",
       "/landing/dashboard-detail.png",
       "/landing/dashboard-learned.png",
@@ -66,6 +65,14 @@ describe("Landing", () => {
       expect(img.getAttribute("width")).toBeTruthy();
       expect(img.getAttribute("height")).toBeTruthy();
     });
+  });
+
+  it("replays a real trace in the hero without an image", () => {
+    render(<Landing />);
+    const replay = screen.getByRole("img", { name: /looping replay of the recorded trace/ });
+    expect(replay.textContent).toContain("Recorded run");
+    expect(replay.textContent).toContain("9 of 9 checks passed");
+    expect(replay.textContent).toContain("$0.0064");
   });
 
   it("cites its sources and never calls the network", () => {
