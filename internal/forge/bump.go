@@ -9,7 +9,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/pull"
 )
 
-var bumpTitle = regexp.MustCompile(`(?i)^(?:[a-z]+(?:\([^)]*\))?!?:\s*)?bump\s+(\S+)\s+from\s+v?(\S+)\s+to\s+v?(\S+?)\.?\s*$`)
+var bumpTitle = regexp.MustCompile(`(?i)^(?:[a-z]+(?:\([^)]*\))?!?:\s*)?bump\s+(\S+)\s+from\s+v?(\S+)\s+to\s+v?(\S+?)(?:\s+in\s+(/\S*?))?(?:\s+in\s+the\s+\S+\s+group)?\.?\s*$`)
 
 var updateTitle = regexp.MustCompile(`(?i)^(?:[a-z]+(?:\([^)]*\))?!?:\s*)?update\s+(?:module\s+|dependency\s+)?(\S+)\s+to\s+v?(\S+?)\.?(?:\s+(?:\([^)]*\)|\[[^\]]*\]))*\s*$`)
 
@@ -30,7 +30,7 @@ func BumpFromTitle(title, branch string) *pull.Bump {
 		return nil
 	}
 	m := bumpTitle.FindStringSubmatch(strings.TrimSpace(title))
-	if m == nil {
+	if m == nil || nested(m[4]) {
 		return nil
 	}
 	from, to := "v"+m[2], "v"+m[3]
@@ -39,6 +39,21 @@ func BumpFromTitle(title, branch string) *pull.Bump {
 		return nil
 	}
 	return &pull.Bump{Module: m[1], From: from, To: to, Level: level}
+}
+
+func NestedModule(title, branch string) string {
+	if !strings.HasPrefix(branch, "dependabot/go_modules/") {
+		return ""
+	}
+	m := bumpTitle.FindStringSubmatch(strings.TrimSpace(title))
+	if m == nil || !nested(m[4]) {
+		return ""
+	}
+	return m[4]
+}
+
+func nested(dir string) bool {
+	return strings.Trim(dir, "/") != ""
 }
 
 func renovateBump(title, body string) *pull.Bump {
