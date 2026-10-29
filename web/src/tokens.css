@@ -49,6 +49,8 @@
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --fast: 150ms;
   --base: 240ms;
+  --slow: 480ms;
+  --out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 *,

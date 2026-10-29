@@ -11,14 +11,19 @@
   border: 1px solid var(--border);
   border-radius: 20px;
   background: var(--sheet);
-  animation: arrive 220ms var(--ease) both;
+  overflow: hidden;
+  animation: up-slide 260ms var(--out) both;
 }
 
-@keyframes arrive {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
+.stage[data-live="true"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 25%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--live), transparent);
+  animation: up-beam 2.4s linear infinite;
 }
 
 .head {
@@ -46,12 +51,17 @@
   height: 8px;
   border-radius: 50%;
   background: var(--live);
-  animation: blink 1.2s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgb(155 226 45 / 0.6);
+  animation: beacon 1.6s ease-out infinite;
 }
 
-@keyframes blink {
-  50% {
-    opacity: 0.3;
+@keyframes beacon {
+  70% {
+    box-shadow: 0 0 0 8px rgb(155 226 45 / 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgb(155 226 45 / 0);
   }
 }
 
@@ -110,36 +120,55 @@
 }
 
 .bar {
+  position: relative;
   display: block;
   height: 8px;
+  overflow: hidden;
   border-radius: 4px;
   background: var(--muted);
+}
+
+.bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
 }
 
 .label {
   color: var(--fg-muted);
   font-size: 12px;
   font-weight: 500;
+  transition: color var(--base) var(--out);
 }
 
-.step[data-state="done"] .bar {
-  background: var(--accent);
+.step[data-state="done"] .bar::after,
+.step[data-state="running"] .bar::after,
+.step[data-state="failed"] .bar::after,
+.step[data-state="handed"] .bar::after {
+  transform: scaleX(1);
+  animation: up-fill var(--slow) var(--out) both;
 }
 
-.step[data-state="running"] .bar {
-  background: var(--live);
-  animation: blink 1.2s ease-in-out infinite;
+.step[data-state="running"] .bar::after {
+  background: linear-gradient(90deg, var(--live) 0%, #d4fb7c 50%, var(--live) 100%);
+  background-size: 200% 100%;
+  animation:
+    up-fill var(--slow) var(--out) both,
+    up-shimmer 1.6s linear infinite;
 }
 
 .step[data-state="running"] .label {
   color: var(--live);
 }
 
-.step[data-state="failed"] .bar {
+.step[data-state="failed"] .bar::after {
   background: var(--danger);
 }
 
-.step[data-state="handed"] .bar {
+.step[data-state="handed"] .bar::after {
   background: var(--warn);
 }
 
@@ -149,40 +178,65 @@
 }
 
 .now {
+  --tone: var(--live);
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
   margin: 0;
   padding: 12px 16px;
-  overflow: hidden;
-  border-left: 2px solid var(--live);
   border-radius: 10px;
   background: var(--card);
   color: var(--fg);
   font: 12px/1.5 var(--mono);
+  animation: up-rise var(--base) var(--out) both;
+}
+
+.now::before {
+  content: "\203A";
+  flex: none;
+  color: var(--tone);
+  font-weight: 700;
+}
+
+.now::after {
+  content: "";
+  flex: none;
+  width: 0.55em;
+  height: 1.1em;
+  background: var(--tone);
+  animation: up-caret 1s steps(1) infinite;
+}
+
+.nowText {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  background: linear-gradient(90deg, transparent, rgb(155 226 45 / 0.28), transparent) no-repeat;
+  background-size: 50% 100%;
   text-overflow: ellipsis;
   white-space: nowrap;
+  animation: up-sweep 700ms var(--out) both;
 }
 
 .now[data-tone="ultra"] {
-  border-left-color: var(--ultra);
+  --tone: var(--ultra);
 }
 
 .now[data-tone="super"] {
-  border-left-color: var(--super);
+  --tone: var(--super);
 }
 
 .now[data-tone="nano"] {
-  border-left-color: var(--nano);
+  --tone: var(--nano);
 }
 
 .now[data-tone="search"] {
-  border-left-color: var(--search);
+  --tone: var(--search);
 }
 
 .now[data-tone="failed"] {
-  border-left-color: var(--danger);
-}
-
-.stage[data-live="true"] {
-  height: var(--room);
+  --tone: var(--danger);
 }
 
 .feed {
@@ -231,7 +285,73 @@
 @media (prefers-reduced-motion: reduce) {
   .stage,
   .dot,
-  .step[data-state="running"] .bar {
+  .now,
+  .nowText,
+  .step .bar::after {
     animation: none;
+  }
+
+  .stage[data-live="true"]::before {
+    display: none;
+  }
+
+  .now::after {
+    animation: none;
+  }
+}
+
+@keyframes up-beam {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(400%);
+  }
+}
+
+@keyframes up-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes up-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes up-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes up-slide {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+@keyframes up-sweep {
+  from {
+    background-position: 160% 0;
+  }
+
+  to {
+    background-position: -60% 0;
+  }
+}
+
+@keyframes up-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -100% 0;
   }
 }

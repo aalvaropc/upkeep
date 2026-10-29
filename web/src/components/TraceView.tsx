@@ -323,7 +323,7 @@ function Rows({ group, live }: { group: TraceGroup; live: boolean }) {
     }
   }
   return (
-    <ol className={styles.events}>
+    <ol className={styles.events} data-live={live}>
       {rows.map((r) => (
         <Row key={r.entry.seq} row={r} live={live} named={named.has(r.entry.seq)} />
       ))}
