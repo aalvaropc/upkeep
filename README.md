@@ -32,7 +32,7 @@ The Summary tab keeps what a reviewer needs: what changed, the merge confidence 
 
 ![The summary of the jwt upgrade: low merge confidence with its reasons, and the forecast built from release notes and pages Tavily found](docs/images/dashboard-detail.png)
 
-The merge plan sits next to the board. In the scenario the jwt and clockwork bumps both edit `go.mod`; Upkeep merges clockwork first and, after the run, says the jwt upgrade now needs its branch updated:
+The merge plan sits next to the queue, which is shown in its order. In the scenario the jwt and clockwork bumps both edit `go.mod`; Upkeep merges clockwork first and, after the run, says the jwt upgrade now needs its branch updated:
 
 ![The merge plan: the suggested order with each outcome, the files pull requests share, and the warning that #5 went stale after #7 merged](docs/images/dashboard-plan.png)
 

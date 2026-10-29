@@ -214,6 +214,12 @@ async function ready() {
   });
 }
 
+function row(n: number): HTMLElement {
+  return screen
+    .getByRole("button", { name: new RegExp(`Pull request ${n}:`) })
+    .closest("tr") as HTMLElement;
+}
+
 function startedEvent() {
   emit("run.started", undefined, { prs: snapshot().prs });
 }
@@ -252,16 +258,18 @@ describe("App", () => {
     expect(await screen.findByText("Replay")).toBeTruthy();
   });
 
-  it("keeps a single live region, a skip link and four labelled columns", async () => {
+  it("keeps a single live region, a skip link, a title and a labelled queue", async () => {
     installFetch(newServer());
     render(<App />);
     await ready();
     expect(screen.getAllByRole("status")).toHaveLength(1);
-    expect(screen.getByRole("link", { name: "Skip to the board" }).getAttribute("href")).toBe(
+    expect(screen.getByRole("link", { name: "Skip to the queue" }).getAttribute("href")).toBe(
       "#main",
     );
-    for (const title of ["Blocked", "Working", "Verified", "Done"]) {
-      expect(screen.getByRole("heading", { name: title })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Pull request queue" })).toBeTruthy();
+    expect(screen.getByRole("tablist", { name: "Pull requests by state" })).toBeTruthy();
+    for (const title of ["Pull request", "Blocker", "Progress", "Result", "Cost"]) {
+      expect(screen.getByRole("columnheader", { name: new RegExp(`^${title}`) })).toBeTruthy();
     }
   });
 
@@ -276,8 +284,8 @@ describe("App", () => {
     startedEvent();
     emit("pr.step", 1, { step: "detect", status: "running", detail: "" });
     emit("pr.blocker", 1, { blocker: "behind", behind: true });
-    const working = screen.getByRole("heading", { name: "Working" }).closest("div") as HTMLElement;
-    expect(within(working).getByRole("button", { name: /Pull request 1/ })).toBeTruthy();
+    const working = row(1);
+    expect(working.getAttribute("data-phase")).toBe("working");
     expect(within(working).getByText("behind main")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Working" }).hasAttribute("disabled")).toBe(true);
 
@@ -293,10 +301,7 @@ describe("App", () => {
     expect(screen.getByText(/1 call · 1,100 tokens/)).toBeTruthy();
 
     emit("verify.result", 1, { passed: true, checks: [] });
-    const verified = screen
-      .getByRole("heading", { name: "Verified" })
-      .closest("div") as HTMLElement;
-    expect(within(verified).getByRole("button", { name: /Pull request 1/ })).toBeTruthy();
+    expect(row(1).getAttribute("data-phase")).toBe("verified");
 
     emit("action", 1, { kind: "patch", status: "done", detail: "attached" });
     emit("pr.done", 1, {
@@ -308,7 +313,8 @@ describe("App", () => {
       duration_ms: 4200,
       actions: [],
     });
-    const done = screen.getByRole("heading", { name: "Done" }).closest("div") as HTMLElement;
+    const done = row(1);
+    expect(done.getAttribute("data-phase")).toBe("done");
     expect(within(done).getByText("Ready to merge")).toBeTruthy();
     expect(within(done).getByText("patch attached")).toBeTruthy();
     expect(within(done).getByText("Merged main into the branch; nothing conflicted.")).toBeTruthy();
@@ -515,8 +521,8 @@ describe("App", () => {
         reasons: ["a major upgrade", "conflicts with #7 in go.mod, which merges first"],
       },
     });
-    const card = await screen.findByRole("button", { name: /Pull request 2/ });
-    const chip = within(card).getByText("low merge confidence");
+    await screen.findByRole("button", { name: /Pull request 2/ });
+    const chip = within(row(2)).getByText("low merge confidence");
     expect(chip.getAttribute("data-level")).toBe("low");
     expect(chip.getAttribute("title")).toContain("conflicts with #7");
   });
@@ -721,7 +727,7 @@ describe("App", () => {
       from: 2,
       saved_micros: 6400,
     });
-    const working = screen.getByRole("heading", { name: "Working" }).closest("div") as HTMLElement;
+    const working = row(2);
     expect(within(working).getByText(/Reusing a learned fix…/)).toBeTruthy();
     expect(within(working).queryByText("learned fix")).toBeNull();
     emit("pr.step", 2, {
@@ -741,8 +747,8 @@ describe("App", () => {
       actions: [{ kind: "push", status: "done", detail: "pushed" }],
       learned: { from: 2, saved_calls: 4, saved_micros: 6400 },
     });
-    const done = screen.getByRole("heading", { name: "Done" }).closest("div") as HTMLElement;
-    const card = within(done).getByRole("button", { name: /Pull request 2/ });
+    const card = row(2);
+    expect(card.getAttribute("data-phase")).toBe("done");
     expect(within(card).getByText("learned fix").getAttribute("title")).toBe(
       "Reused the fix learned from #2",
     );
@@ -762,7 +768,7 @@ describe("App", () => {
           : original(path, init),
       ),
     );
-    fireEvent.click(card);
+    fireEvent.click(within(card).getByRole("button", { name: /Pull request 2/ }));
     const dialog = await screen.findByRole("dialog", { name: "#2 Pull request 2" });
     expect(
       await within(dialog).findByText(
@@ -867,15 +873,16 @@ describe("App", () => {
     render(<App />);
     await ready();
     expect(
-      await screen.findByText(/The model answers come from a recorded run of Nemotron/),
+      await screen.findByText(/model answers come from a recorded run of Nemotron/),
     ).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Project links" });
     const links = within(nav).getAllByRole("link");
     expect(links.map((l) => l.textContent)).toEqual([
-      "Source",
       "How it works",
       "Which model does what",
+      "Live evaluation",
       "Limitations",
+      "Source",
     ]);
     for (const link of links) {
       expect(link.getAttribute("rel")).toBe("noreferrer noopener");
@@ -1020,8 +1027,7 @@ describe("App", () => {
     expect(within(steps[0]!).getByText("Waiting")).toBeTruthy();
     expect(within(rail).getByText("#1 and #2 both change notes/limits.go")).toBeTruthy();
     expect(within(rail).getByText("conflict")).toBeTruthy();
-    const card = screen.getByRole("button", { name: /Pull request 2/ });
-    expect(within(card).getByText("conflicts with #1")).toBeTruthy();
+    expect(within(row(2)).getByText("conflicts with #1")).toBeTruthy();
 
     for (const n of [1, 2, 3]) {
       emit("pr.done", n, {
@@ -1049,9 +1055,7 @@ describe("App", () => {
       within(rail).getByText(/conflicts with main after #1 merged: notes\/limits\.go/),
     ).toBeTruthy();
     expect(within(rail).getByText("Went stale")).toBeTruthy();
-    const done = screen.getByRole("heading", { name: "Done" }).closest("div") as HTMLElement;
-    const finished = within(done).getByRole("button", { name: /Pull request 2/ });
-    expect(within(finished).getByText("conflicts with main")).toBeTruthy();
+    expect(within(row(2)).getByText("conflicts with main")).toBeTruthy();
     expect(screen.getAllByRole("status")).toHaveLength(1);
   });
 

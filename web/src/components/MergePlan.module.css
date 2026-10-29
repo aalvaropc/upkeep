@@ -1,10 +1,6 @@
 .panel {
   min-width: 0;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card);
-  animation: rise var(--base) var(--ease) 225ms both;
+  padding: 0;
 }
 
 @keyframes rise {
@@ -16,11 +12,9 @@
 
 .title {
   margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
 }
 
 .empty {
@@ -45,16 +39,19 @@
     "position reason reason";
   align-items: center;
   gap: 2px 8px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--muted);
+  padding: 10px 0;
+  background: transparent;
+}
+
+.step + .step {
+  border-top: 1px solid var(--rule);
 }
 
 .position {
   grid-area: position;
   align-self: start;
   min-width: 14px;
-  font: 600 12px/1.6 var(--mono);
+  font: 600 12px/1.6 var(--sans);
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -72,7 +69,7 @@
 
 .number {
   flex: none;
-  font: 700 12px/1.5 var(--mono);
+  font: 700 12px/1.5 var(--sans);
   color: var(--fg);
 }
 
@@ -110,7 +107,7 @@
   border-radius: 999px;
   background: var(--tint);
   color: var(--tone);
-  font: 600 11px/1.6 var(--mono);
+  font: 600 11px/1.6 var(--sans);
   white-space: nowrap;
 }
 
@@ -153,7 +150,7 @@
 
 .subtitle {
   margin: 0 0 8px;
-  font: 600 12px/1.4 var(--mono);
+  font: 600 12px/1.4 var(--sans);
   color: var(--fg);
 }
 
@@ -175,7 +172,7 @@
 .pair {
   min-width: 0;
   color: var(--fg-muted);
-  font: 12px/1.5 var(--mono);
+  font: 12px/1.5 var(--sans);
   overflow-wrap: anywhere;
 }
 

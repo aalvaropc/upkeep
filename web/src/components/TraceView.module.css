@@ -17,11 +17,9 @@
 
 .heading {
   margin: 0;
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
 }
 
 .events {
@@ -209,7 +207,7 @@
   gap: 6px;
   margin: 0;
   color: var(--fg);
-  font: 600 13px/1.5 var(--mono);
+  font: 600 13px/1.5 var(--sans);
 }
 
 .attemptTitle svg {
@@ -301,7 +299,7 @@
   border: 0;
   background: none;
   color: var(--info);
-  font: 600 12px var(--mono);
+  font: 600 12px var(--sans);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;

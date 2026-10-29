@@ -23,7 +23,7 @@ import {
   type ActionTrace,
 } from "../trace";
 import { Icon, type IconName } from "./Icon";
-import { stepLabel } from "./PullCard";
+import { stepLabel } from "../labels";
 import detailStyles from "./DetailPanel.module.css";
 import styles from "./TraceView.module.css";
 

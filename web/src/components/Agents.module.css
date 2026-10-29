@@ -1,9 +1,6 @@
 .panel {
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card);
-  animation: rise var(--base) var(--ease) 200ms both;
+  min-width: 0;
+  padding: 0;
 }
 
 @keyframes rise {
@@ -15,11 +12,9 @@
 
 .title {
   margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
 }
 
 .list {
@@ -34,9 +29,13 @@
   --tone: var(--fg-muted);
   display: flex;
   gap: 10px;
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  background: var(--muted);
+  padding: 12px 0;
+  background: transparent;
+}
+
+.row + .row,
+.search {
+  border-top: 1px solid var(--rule);
 }
 
 .row[data-role="ultra"] {
@@ -61,7 +60,7 @@
 
 .query {
   margin: 4px 0 0;
-  font: 12px/1.4 var(--mono);
+  font: 12px/1.4 var(--sans);
   color: var(--fg);
   overflow-wrap: anywhere;
 }
@@ -87,7 +86,7 @@
   align-items: baseline;
   gap: 8px;
   margin: 0;
-  font: 600 13px/1.4 var(--mono);
+  font: 600 13px/1.4 var(--sans);
 }
 
 .size {
@@ -103,7 +102,7 @@
 
 .meta {
   margin: 6px 0 0;
-  font: 12px/1.4 var(--mono);
+  font: 12px/1.4 var(--sans);
   color: var(--fg-muted);
 }
 
@@ -150,7 +149,7 @@
 
 .compareTitle {
   margin: 0 0 8px;
-  font: 600 12px/1.4 var(--mono);
+  font: 600 12px/1.4 var(--sans);
   color: var(--fg);
 }
 
@@ -164,7 +163,7 @@
 }
 
 .amount {
-  font: 600 13px/1.4 var(--mono);
+  font: 600 13px/1.4 var(--sans);
   color: var(--fg);
 }
 
