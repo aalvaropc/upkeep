@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/aalvaropc/upkeep/internal/gitx"
+	"github.com/aalvaropc/upkeep/internal/gocomments"
 	"github.com/aalvaropc/upkeep/internal/jsonfix"
 	"github.com/aalvaropc/upkeep/internal/model"
 )
@@ -31,9 +32,10 @@ const (
 )
 
 type Resolution struct {
-	Files  int
-	Hunks  int
-	Blocks []ResolvedBlock
+	Files    int
+	Hunks    int
+	Comments int
+	Blocks   []ResolvedBlock
 }
 
 type ResolvedBlock struct {
@@ -150,6 +152,9 @@ func (e Env) tryResolve(ctx context.Context, job *Job, hunks []gitx.Hunk, purpos
 		}
 		writes = append(writes, write{path: file, text: resolved})
 		out.Hunks += count
+		if strings.HasSuffix(file, ".go") {
+			out.Comments += gocomments.Added(data, []byte(resolved))
+		}
 		for _, r := range resolutions {
 			out.Blocks = append(out.Blocks, ResolvedBlock{Path: file, Text: r})
 		}
