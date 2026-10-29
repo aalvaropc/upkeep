@@ -23,6 +23,42 @@
   font-size: 12px;
 }
 
+.list > li {
+  animation: up-rise 320ms var(--out) both;
+}
+
+.list > li:nth-child(2) {
+  animation-delay: 30ms;
+}
+
+.list > li:nth-child(3) {
+  animation-delay: 60ms;
+}
+
+.list > li:nth-child(4) {
+  animation-delay: 90ms;
+}
+
+.list > li:nth-child(5) {
+  animation-delay: 120ms;
+}
+
+.list > li:nth-child(6) {
+  animation-delay: 150ms;
+}
+
+.list > li:nth-child(7) {
+  animation-delay: 180ms;
+}
+
+.list > li:nth-child(8) {
+  animation-delay: 210ms;
+}
+
+.list > li:nth-child(n + 9) {
+  animation-delay: 240ms;
+}
+
 .list {
   display: grid;
   gap: 2px;
@@ -50,6 +86,23 @@
 
 .row:hover {
   background: var(--card-hover);
+}
+
+.row[data-phase="done"] {
+  --flash: var(--tint-info);
+  animation: up-flash 1100ms var(--out) both;
+}
+
+.row[data-outcome="merged"] {
+  --flash: var(--tint-accent);
+}
+
+.row[data-outcome="needs_human"] {
+  --flash: var(--tint-warn);
+}
+
+.row[data-outcome="failed"] {
+  --flash: var(--tint-danger);
 }
 
 .row[aria-pressed="true"] {
@@ -90,6 +143,7 @@
 
 .outcome {
   flex: none;
+  animation: up-pop 320ms var(--out) both;
   color: var(--accent);
   font-size: 15px;
 }
@@ -132,6 +186,7 @@
   height: 4px;
   border-radius: 2px;
   background: var(--border-strong);
+  transition: background-color var(--base) var(--out);
 }
 
 .dotStage[data-state="done"] {
@@ -210,4 +265,24 @@
 
 .row[data-phase="working"] .status {
   color: var(--live);
+}
+
+@keyframes up-flash {
+  from {
+    background-color: var(--flash, var(--tint-accent));
+  }
+}
+
+@keyframes up-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes up-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }

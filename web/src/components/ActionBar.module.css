@@ -86,6 +86,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.tick {
+  --flash: var(--tint-accent);
+  border-radius: 4px;
+  animation: up-flash 900ms var(--out) both;
+}
+
 .finding {
   margin: 0;
   color: var(--warn);
@@ -186,5 +192,11 @@
   .dot,
   .work[data-busy="true"] .icon {
     animation: none;
+  }
+}
+
+@keyframes up-flash {
+  from {
+    background-color: var(--flash, var(--tint-accent));
   }
 }

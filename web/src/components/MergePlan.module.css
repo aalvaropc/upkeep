@@ -3,13 +3,6 @@
   padding: 0;
 }
 
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-
 .title {
   margin: 0 0 10px;
   font-size: 15px;
@@ -21,6 +14,35 @@
   margin: 0;
   color: var(--fg-muted);
   font-size: 13px;
+}
+
+.step,
+.overlap {
+  animation: up-rise 320ms var(--out) both;
+}
+
+.step:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.step:nth-child(3) {
+  animation-delay: 80ms;
+}
+
+.step:nth-child(4) {
+  animation-delay: 120ms;
+}
+
+.step:nth-child(5) {
+  animation-delay: 160ms;
+}
+
+.step:nth-child(6) {
+  animation-delay: 200ms;
+}
+
+.step:nth-child(n + 7) {
+  animation-delay: 240ms;
 }
 
 .order {
@@ -232,5 +254,12 @@
 
   .status {
     justify-self: start;
+  }
+}
+
+@keyframes up-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
 }

@@ -21,11 +21,28 @@
 }
 
 .bar {
+  position: relative;
   display: block;
   height: 3px;
+  overflow: hidden;
   border-radius: 2px;
   background: var(--muted);
-  transition: background-color var(--base) var(--ease);
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--live);
+}
+
+.fill rect {
+  transition: width var(--slow) var(--out);
+}
+
+.step[data-state="done"] .fill {
+  fill: var(--accent);
 }
 
 .label {
@@ -46,16 +63,8 @@
   white-space: nowrap;
 }
 
-.step[data-state="done"] .bar {
-  background: var(--accent);
-}
-
 .step[data-state="done"] .label {
   color: var(--fg);
-}
-
-.step[data-state="current"] .bar {
-  background: var(--live);
 }
 
 .step[data-state="current"] .label {
