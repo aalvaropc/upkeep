@@ -1078,3 +1078,68 @@ func TestProtectedConflict(t *testing.T) {
 		}
 	}
 }
+
+func TestAChangeToANestedModuleIsHandedBackWithoutAModel(t *testing.T) {
+	w := newWorld(t, nil, nil)
+	write(t, w.dir, "tools/go.mod", "module example.test/m/tools\n\ngo 1.25\n")
+	write(t, w.dir, "tools/tools.go", "package tools\n\nconst Version = 1\n")
+	w.commit("chore: add a tools module")
+	w.branch("feature")
+	write(t, w.dir, "tools/tools.go", "package tools\n\nconst Version = 2\n")
+	w.commit("feat: bump the tools version")
+	before := w.head()
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.NeedsHuman || res.Blocker != pull.NestedModule || res.Reason != "it changes the module in /tools, and Upkeep builds and tests the module at the repository root" {
+		t.Fatalf("result = %+v", res)
+	}
+	if w.ultra.count() != 0 || w.super.count() != 0 || res.Receipt.Totals().Calls != 0 {
+		t.Fatal("no model may be asked about a nested module")
+	}
+	if w.head() != before || res.HeadAfter != before {
+		t.Fatal("the branch must be left as it was")
+	}
+}
+
+func TestARootChangeNextToANestedModuleIsWorkedAsUsual(t *testing.T) {
+	w := newWorld(t, nil, nil)
+	write(t, w.dir, "tools/go.mod", "module example.test/m/tools\n\ngo 1.25\n")
+	write(t, w.dir, "tools/tools.go", "package tools\n\nconst Version = 1\n")
+	write(t, w.dir, "testdata/fixture/go.mod", "module example.test/fixture\n\ngo 1.25\n")
+	write(t, w.dir, "testdata/fixture/f.go", "package fixture\n")
+	w.commit("chore: add a tools module and a fixture")
+	w.branch("feature")
+	write(t, w.dir, "notes.go", "package m\n\nconst Notes = 1\n")
+	write(t, w.dir, "testdata/fixture/f.go", "package fixture\n\nconst F = 1\n")
+	w.commit("feat: add notes")
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.Mergeable || res.Blocker != pull.Clean {
+		t.Fatalf("result = %+v", res)
+	}
+}
+
+func TestNestedModule(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "go.mod", "module m\n")
+	write(t, dir, "tools/go.mod", "module m/tools\n")
+	write(t, dir, "tools/lint/go.mod", "module m/tools/lint\n")
+	write(t, dir, "testdata/mod/go.mod", "module fixture\n")
+	write(t, dir, "_old/go.mod", "module old\n")
+	write(t, dir, "vendor/x/go.mod", "module x\n")
+	cases := []struct {
+		files []string
+		want  string
+	}{
+		{[]string{"main.go", "go.mod", "pkg/a.go"}, ""},
+		{[]string{"tools/x.go"}, "/tools"},
+		{[]string{"tools/go.sum"}, "/tools"},
+		{[]string{"tools/lint/deep/y.go"}, "/tools/lint"},
+		{[]string{"tools/README.md"}, ""},
+		{[]string{"testdata/mod/f.go", "_old/a.go", "vendor/x/x.go", ".github/a.go"}, ""},
+		{[]string{"README.md", "tools/x.go"}, "/tools"},
+	}
+	for _, c := range cases {
+		if got := nestedModule(dir, c.files); got != c.want {
+			t.Errorf("%v: got %q, want %q", c.files, got, c.want)
+		}
+	}
+}

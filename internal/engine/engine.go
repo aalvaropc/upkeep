@@ -8,6 +8,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -117,6 +118,15 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 		return p.failed(&res, fmt.Errorf("reading the branch head: %w", err))
 	}
 	res.HeadBefore, res.FixBase = head, head
+	if files, err := env.Git.Touched(ctx, in.Dir, in.Base, head); err == nil {
+		if dir := nestedModule(in.Dir, files); dir != "" {
+			res.Blocker = pull.NestedModule
+			p.step(&res, "detect", "done", string(res.Blocker))
+			p.emit(&res, events.PRBlocker, map[string]any{"blocker": string(res.Blocker), "behind": false})
+			p.step(&res, "plan", "done", approach(res.Blocker, env.Policy, strings.TrimPrefix(in.Base, "origin/")))
+			return p.handBack(ctx, &res, in.Dir, "it changes the module in "+dir+", and Upkeep builds and tests the module at the repository root")
+		}
+	}
 	deferred := p.defersForecast(job)
 	if !deferred {
 		p.forecast(ctx, &res, job)
@@ -155,13 +165,7 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 		}
 		switch diag.Blocker {
 		case pull.Unsupported:
-			res.Outcome = pull.NeedsHuman
-			res.Reason = "there is no go.mod at the repository root, and Upkeep works Go modules only"
-			if head, err := env.Git.Head(ctx, in.Dir); err == nil {
-				res.HeadAfter = head
-			}
-			p.emit(&res, events.Receipt, receiptData(res.Receipt))
-			return res
+			return p.handBack(ctx, &res, in.Dir, "there is no go.mod at the repository root, and Upkeep works Go modules only")
 
 		case pull.Clean, pull.Flaky:
 			return p.finish(ctx, &res, job, diag)
@@ -608,6 +612,43 @@ func testNames(src string) []string {
 		}
 	}
 	return names
+}
+
+func (p Processor) handBack(ctx context.Context, res *Result, dir, reason string) Result {
+	res.Outcome = pull.NeedsHuman
+	res.Reason = reason
+	if head, err := p.Env.Git.Head(ctx, dir); err == nil {
+		res.HeadAfter = head
+	}
+	p.emit(res, events.Receipt, receiptData(res.Receipt))
+	return *res
+}
+
+func nestedModule(dir string, files []string) string {
+	for _, f := range files {
+		if !moduleFile(f) {
+			continue
+		}
+		for d := path.Dir(f); d != "."; d = path.Dir(d) {
+			if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(d), "go.mod")); err == nil {
+				return "/" + d
+			}
+		}
+	}
+	return ""
+}
+
+func moduleFile(file string) bool {
+	name := path.Base(file)
+	if !strings.HasSuffix(name, ".go") && name != "go.mod" && name != "go.sum" {
+		return false
+	}
+	for _, part := range strings.Split(file, "/") {
+		if part == "testdata" || part == "vendor" || strings.HasPrefix(part, ".") || strings.HasPrefix(part, "_") {
+			return false
+		}
+	}
+	return true
 }
 
 func protectedConflict(hunks []gitx.Hunk) string {

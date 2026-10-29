@@ -9,7 +9,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/pull"
 )
 
-var bumpTitle = regexp.MustCompile(`(?i)^(?:[a-z]+(?:\([^)]*\))?!?:\s*)?bump\s+(\S+)\s+from\s+v?(\S+)\s+to\s+v?(\S+?)(?:\s+in\s+(/\S*?))?(?:\s+in\s+the\s+\S+\s+group)?\.?\s*$`)
+var bumpTitle = regexp.MustCompile(`(?i)^(?:[a-z]+(?:\([^)]*\))?!?:\s*)?bump\s+(\S+)\s+from\s+v?(\S+)\s+to\s+v?(\S+?)(?:\s+in\s+(/\S*?))?(?:\s+in\s+the\s+\S+\s+group)?(?:\s+across\s+\d+\s+director(?:y|ies))?\.?\s*$`)
 
 var updateTitle = regexp.MustCompile(`(?i)^(?:[a-z]+(?:\([^)]*\))?!?:\s*)?update\s+(?:module\s+|dependency\s+)?(\S+)\s+to\s+v?(\S+?)\.?(?:\s+(?:\([^)]*\)|\[[^\]]*\]))*\s*$`)
 

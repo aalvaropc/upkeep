@@ -10,6 +10,7 @@ const BLOCKERS: Record<string, string> = {
   format: "formatting",
   clean: "nothing blocks it",
   unsupported: "not a Go module",
+  nested_module: "module in a subdirectory",
 };
 
 export const ACTIONS: Record<string, { icon: IconName; label: string }> = {
