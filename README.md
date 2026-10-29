@@ -6,7 +6,7 @@ Upkeep keeps GitHub pull requests mergeable. It looks at the whole queue of open
 
 It runs on NVIDIA Nemotron models (Ultra, Super and Nano) served by Nebius Token Factory, and reads migration guides found with Tavily. It is written in Go and ships as one binary with its dashboard built in.
 
-![The dashboard after a run: the queue in merge order on the left, the results in the centre, the models and the web search on the right](docs/images/dashboard-done.png)
+![The dashboard after a run: the queue on the left, the merge order drawn as a graph above the results in the centre, the models and the web search on the right](docs/images/dashboard-done.png)
 
 ## What it does
 
@@ -26,7 +26,7 @@ Upkeep never force-pushes, never merges a pull request opened by a person, and n
 
 While the queue runs, the centre of the screen is a live stage: the pull request the agent is working, its five stages, the latest thing that happened, and the trace as it grows: the plan, the Tavily search, every Super turn with the tool it asked for and the file it edited, each attempt with why it failed, the verifier and the action. Click a pull request in the queue to follow it instead:
 
-![The live stage following the jwt major upgrade: its stages, the forecast with the Tavily search, and Super's attempt turn by turn with its edits](docs/images/dashboard-trace.png)
+![The live stage following the jwt major upgrade: its stages, the other workers in parallel, and Super's attempt turn by turn with its edits](docs/images/dashboard-trace.png)
 
 The full detail of a pull request opens in a side sheet; its Summary tab keeps what a reviewer needs: what changed, the merge confidence and its reasons, the forecast with each prediction confirmed or not seen by the build and where the sources came from, the diff, the verifier and the receipt.
 
