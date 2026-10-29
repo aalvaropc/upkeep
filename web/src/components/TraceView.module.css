@@ -51,6 +51,30 @@
   background: var(--dot);
 }
 
+.events[data-live="true"] li:nth-last-child(-n + 3) {
+  --flash: var(--tint-neutral);
+  border-radius: 6px;
+  animation:
+    up-rise var(--base) var(--out) both,
+    up-flash 900ms var(--out) both;
+}
+
+.events[data-live="true"] li[data-tone="danger"]:nth-last-child(-n + 3) {
+  --flash: var(--tint-danger);
+}
+
+.events[data-live="true"] li[data-tone="warn"]:nth-last-child(-n + 3) {
+  --flash: var(--tint-warn);
+}
+
+.events[data-live="true"] li[data-tone="info"]:nth-last-child(-n + 3) {
+  --flash: var(--tint-info);
+}
+
+.events[data-live="true"] li[data-tone="accent"]:nth-last-child(-n + 3) {
+  --flash: var(--tint-accent);
+}
+
 .events li[data-tone="danger"] {
   --dot: var(--danger);
 }
@@ -194,6 +218,16 @@
   background: var(--card);
 }
 
+.attempt[data-status="failed"] {
+  --flash: var(--tint-danger);
+  animation: up-flash 1100ms var(--out) both;
+}
+
+.attempt[data-status="done"] {
+  --flash: var(--tint-accent);
+  animation: up-flash 1100ms var(--out) both;
+}
+
 .attemptHead {
   display: flex;
   flex-wrap: wrap;
@@ -303,4 +337,17 @@
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
+}
+
+@keyframes up-flash {
+  from {
+    background-color: var(--flash, var(--tint-accent));
+  }
+}
+
+@keyframes up-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }

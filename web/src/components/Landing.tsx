@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { HeroConsole } from "./HeroConsole";
 import { Icon } from "./Icon";
 import { Mark } from "./Mark";
 import styles from "./Landing.module.css";
@@ -221,7 +222,7 @@ export function Landing() {
       <header className={styles.nav}>
         <div className={styles.navInner}>
           <a className={styles.brand} href="/" aria-label="Upkeep home">
-            <Mark className={styles.mark} />
+            <Mark className={styles.mark} intro />
             <span>Upkeep</span>
           </a>
           <nav className={styles.navLinks} aria-label="Sections">
@@ -238,46 +239,42 @@ export function Landing() {
 
       <main id="content">
         <section className={styles.hero} aria-labelledby="hero-title">
-          <div className={styles.wrap}>
-            <h1 id="hero-title" className={styles.headline}>
-              <span>Clear the pull request queue.</span> <span>Prove every fix.</span>
-            </h1>
-            <div className={styles.heroRow}>
+          <div className={`${styles.wrap} ${styles.heroGrid}`}>
+            <div className={styles.heroCopy}>
+              <h1 id="hero-title" className={styles.headline}>
+                <span>Clear the pull request queue.</span> <span>Prove every fix.</span>
+              </h1>
               <p className={styles.lede}>
                 Upkeep is an agent that works your whole pull request queue. It plans the merge
                 order, fixes what your policy allows with NVIDIA Nemotron on Nebius Token Factory,
                 and proves every fix with your compiler and your tests.
               </p>
-              <div className={styles.heroSide}>
-                <div className={styles.actions}>
-                  <a className={styles.primary} href="/demo">
-                    Watch it work the queue
-                  </a>
-                  <a className={styles.secondary} href={`${DOCS}/action.md`}>
-                    Install the GitHub Action
-                  </a>
-                </div>
-                <p className={styles.proof}>
-                  <span>9 of 9 in the recorded run</span>
-                  <span>72 of 72 across eight live runs</span>
-                  <span>about two cents a queue</span>
-                </p>
+              <div className={styles.actions}>
+                <a className={styles.primary} href="/demo">
+                  Watch it work the queue
+                </a>
+                <a className={styles.secondary} href={`${DOCS}/action.md`}>
+                  Install the GitHub Action
+                </a>
               </div>
             </div>
-            <figure className={styles.shot}>
-              <div className={`${styles.frame} ${styles.crop}`}>
-                <img
-                  src="/landing/dashboard-trace.png"
-                  width={1440}
-                  height={900}
-                  alt="The Upkeep dashboard mid-run: the queue of nine pull requests in merge order on the left, the live stage following a jwt major upgrade in the centre with Nemotron Super's turns and the files it edited, and each model's calls and cost on the right."
-                />
+            <HeroConsole />
+          </div>
+          <div className={styles.wrap}>
+            <dl className={styles.evidence} aria-label="Evidence">
+              <div>
+                <dt>9 of 9</dt>
+                <dd>pull requests fixed in the recorded run</dd>
               </div>
-              <figcaption>
-                The live stage following a dependency upgrade: the forecast, then Nemotron Super's
-                turns and the files it edited.
-              </figcaption>
-            </figure>
+              <div>
+                <dt>72 of 72</dt>
+                <dd>across eight live runs</dd>
+              </div>
+              <div>
+                <dt>$0.0191</dt>
+                <dd>in model calls for the nine</dd>
+              </div>
+            </dl>
           </div>
         </section>
 

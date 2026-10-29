@@ -29,7 +29,10 @@ export function Lanes({ board, focus, onFocus }: Props) {
               onClick={() => onFocus(card.pr.number)}
             >
               <code className={styles.number}>#{card.pr.number}</code>
-              <span className={styles.step}>
+              <span
+                key={card.step ? `${card.step.name}:${card.step.status}` : "checking"}
+                className={styles.step}
+              >
                 {card.step ? stepLabel(card.step.name, card.step.status, "") : "checking"}
               </span>
               <span className={styles.dots} role="img" aria-label={stagesText(stages(card))}>

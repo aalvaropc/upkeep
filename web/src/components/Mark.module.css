@@ -15,19 +15,23 @@
   animation: light 1.5s var(--ease) infinite;
 }
 
-.mark[data-running="true"] .bar:nth-child(2) {
+.mark[data-running="true"] .bar:nth-child(2),
+.mark[data-intro="true"] .bar:nth-child(2) {
   animation-delay: 0.15s;
 }
 
-.mark[data-running="true"] .bar:nth-child(3) {
+.mark[data-running="true"] .bar:nth-child(3),
+.mark[data-intro="true"] .bar:nth-child(3) {
   animation-delay: 0.3s;
 }
 
-.mark[data-running="true"] .bar:nth-child(4) {
+.mark[data-running="true"] .bar:nth-child(4),
+.mark[data-intro="true"] .bar:nth-child(4) {
   animation-delay: 0.45s;
 }
 
-.mark[data-running="true"] .bar:nth-child(5) {
+.mark[data-running="true"] .bar:nth-child(5),
+.mark[data-intro="true"] .bar:nth-child(5) {
   animation-delay: 0.6s;
 }
 
@@ -43,7 +47,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mark[data-running="true"] .bar {
+  .mark[data-running="true"] .bar,
+  .mark[data-intro="true"] .bar {
     animation: none;
   }
 }

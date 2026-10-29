@@ -3,13 +3,6 @@
   padding: 0;
 }
 
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-
 .title {
   margin: 0 0 10px;
   font-size: 15px;
@@ -116,6 +109,19 @@
 
 .fill {
   fill: var(--tone, var(--accent));
+  transition: width var(--slow) var(--out);
+}
+
+.tick {
+  --flash: var(--tint-neutral);
+  border-radius: 4px;
+  animation: up-flash 900ms var(--out) both;
+}
+
+.tickSearch {
+  --flash: rgb(255 122 182 / 0.16);
+  border-radius: 4px;
+  animation: up-flash 900ms var(--out) both;
 }
 
 .bar[data-tone="ultra"] .fill {
@@ -168,4 +174,10 @@
   margin: 0;
   color: var(--fg-muted);
   font-size: 12px;
+}
+
+@keyframes up-flash {
+  from {
+    background-color: var(--flash, var(--tint-accent));
+  }
 }

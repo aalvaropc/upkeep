@@ -9,6 +9,7 @@
 }
 
 .item {
+  animation: up-focus 520ms var(--out) both;
   display: grid;
   align-content: start;
   gap: 2px;
@@ -41,5 +42,25 @@
   .figures {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
+  }
+}
+
+.item:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.item:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.item:nth-child(4) {
+  animation-delay: 180ms;
+}
+
+@keyframes up-focus {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(8px);
   }
 }

@@ -85,7 +85,9 @@ function WebSearch({ search }: { search: SearchTotals }) {
           {search.recorded ? <span className={styles.size}>recorded</span> : null}
         </p>
         <p className={styles.job}>Finds migration guides and changelogs for Super.</p>
-        <p className={styles.meta}>{searchMeta(search)}</p>
+        <p key={search.calls} className={`${styles.meta} ${styles.tickSearch}`}>
+          {searchMeta(search)}
+        </p>
         {search.lastQuery ? <p className={styles.query}>“{search.lastQuery}”</p> : null}
         {search.lastProblem ? <p className={styles.meta}>{search.lastProblem}</p> : null}
       </div>
@@ -116,7 +118,7 @@ export function Agents({ board }: Props) {
                 {m ? (
                   <>
                     <Bar value={m.micros} max={maxMicros} tone={role} />
-                    <p className={styles.meta}>
+                    <p key={m.calls} className={`${styles.meta} ${styles.tick}`}>
                       {m.calls} {m.calls === 1 ? "call" : "calls"} ·{" "}
                       {(m.promptTokens + m.completionTokens).toLocaleString("en-US")} tokens ·{" "}
                       {seconds(m.latencyMs)} · {dollars(m.micros)}

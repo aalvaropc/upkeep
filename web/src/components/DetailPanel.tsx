@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { dollars, outcomeLabel, providerLabel, quantity, seconds, type Card } from "../board";
 import type { Detail, Forecast, PullRequest } from "../types";
 import { DiffView } from "./DiffView";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 import { Overlay } from "./Overlay";
-import { blockerLabel } from "../labels";
+import { ACTIONS, blockerLabel } from "../labels";
 import { Tabs } from "./Tabs";
 import { TraceView } from "./TraceView";
 import styles from "./DetailPanel.module.css";
@@ -17,6 +17,13 @@ interface Props {
 }
 
 const MAX_FAILURE = 3000;
+
+const VERDICT_ICONS: Record<string, IconName> = {
+  merged: "done",
+  mergeable: "verified",
+  needs_human: "person",
+  failed: "alert",
+};
 
 export function isWebAddress(address: string): boolean {
   return /^https?:\/\//i.test(address);
@@ -159,42 +166,48 @@ function Body({ d }: { d: Detail }) {
       : 0;
   return (
     <div className={styles.body}>
-      <div className={styles.summary}>
-        <span className={styles.outcome} data-outcome={d.outcome}>
-          {outcomeLabel(d.outcome) || "Not worked yet"}
-        </span>
-        {d.blocker ? <span className={styles.chip}>{blockerLabel(d.blocker)}</span> : null}
-        {d.duration_ms ? <span className={styles.chip}>{seconds(d.duration_ms)}</span> : null}
-        {d.attempts > 0 ? (
-          <span className={styles.chip}>
-            {d.attempts} {d.attempts === 1 ? "attempt" : "attempts"}
-          </span>
+      <header className={styles.verdict} data-outcome={d.outcome}>
+        <p className={styles.verdictLine}>
+          <Icon name={VERDICT_ICONS[d.outcome ?? ""] ?? "wait"} className={styles.verdictIcon} />
+          <span className={styles.verdictWord}>{outcomeLabel(d.outcome) || "Not worked yet"}</span>
+        </p>
+        {d.summary ? <p className={styles.verdictLead}>{d.summary}</p> : null}
+        {d.learned ? (
+          <p className={styles.muted}>
+            Reused the fix learned from #{d.learned.from} in the previous run: 0 model calls (the
+            first time cost {dollars(d.learned.saved_micros)}).
+          </p>
         ) : null}
-        {d.receipt && d.receipt.calls > 0 ? (
-          <span className={styles.chip}>
-            {d.receipt.calls} model calls · {dollars(d.receipt.micros)}
-          </span>
-        ) : null}
-      </div>
-
-      {d.summary ? (
-        <Section title="What changed">
-          <p className={styles.lead}>{d.summary}</p>
-          {d.learned ? (
-            <p className={styles.muted}>
-              Reused the fix learned from #{d.learned.from} in the previous run: 0 model calls (the
-              first time cost {dollars(d.learned.saved_micros)}).
-            </p>
+        <p className={styles.facts}>
+          {d.blocker ? <span>{blockerLabel(d.blocker)}</span> : null}
+          {d.duration_ms ? <span>{seconds(d.duration_ms)}</span> : null}
+          {d.attempts > 0 ? (
+            <span>
+              {d.attempts} {d.attempts === 1 ? "attempt" : "attempts"}
+            </span>
           ) : null}
-        </Section>
-      ) : null}
+          <span>
+            {d.receipt && d.receipt.calls > 0
+              ? `${d.receipt.calls} model calls · ${dollars(d.receipt.micros)}`
+              : "no model calls"}
+          </span>
+        </p>
+      </header>
 
       {d.confidence ? (
         <Section title="Merge confidence">
-          <p className={styles.confidence} data-level={d.confidence.level}>
-            <Icon name="gauge" className={styles.confidenceIcon} />
-            {d.confidence.level}
-          </p>
+          <div className={styles.gauge} data-level={d.confidence.level}>
+            <span
+              className={styles.meter}
+              role="img"
+              aria-label={`${d.confidence.level} of three levels`}
+            >
+              <i />
+              <i />
+              <i />
+            </span>
+            <span className={styles.level}>{d.confidence.level}</span>
+          </div>
           <ul className={styles.reasons}>
             {d.confidence.reasons.map((r) => (
               <li key={r}>{r}</li>
@@ -220,9 +233,11 @@ function Body({ d }: { d: Detail }) {
           <ul className={styles.actions}>
             {d.actions.map((a) => (
               <li key={a.kind} data-status={a.status}>
-                <Icon name={a.status === "done" ? "verified" : "alert"} />
+                <Icon
+                  name={a.status === "done" ? (ACTIONS[a.kind]?.icon ?? "verified") : "alert"}
+                />
                 <span>
-                  <strong>{a.kind}</strong> {a.detail}
+                  <span className={styles.kind}>{a.kind}</span> {a.detail}
                 </span>
               </li>
             ))}
@@ -282,7 +297,13 @@ function Body({ d }: { d: Detail }) {
       ) : null}
 
       {d.checklist && d.checklist.length > 0 ? (
-        <Section title="Verifier">
+        <section className={styles.section}>
+          <h3 className={styles.heading}>
+            Verifier
+            <span className={styles.count} data-clean={d.checklist.every((c) => c.pass)}>
+              {d.checklist.filter((c) => c.pass).length} of {d.checklist.length} passed
+            </span>
+          </h3>
           <ul className={styles.checks}>
             {d.checklist.map((c) => (
               <li key={c.id} data-pass={c.pass}>
@@ -294,7 +315,7 @@ function Body({ d }: { d: Detail }) {
               </li>
             ))}
           </ul>
-        </Section>
+        </section>
       ) : null}
 
       {d.receipt ? (

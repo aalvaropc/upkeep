@@ -2,13 +2,6 @@
   min-width: 0;
 }
 
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-
 .head {
   display: flex;
   align-items: baseline;

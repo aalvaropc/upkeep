@@ -46,6 +46,7 @@
 }
 
 .caption {
+  animation: up-rise 520ms var(--out) 270ms both;
   max-width: 80ch;
   margin: -6px 0 0;
   color: var(--fg-muted);

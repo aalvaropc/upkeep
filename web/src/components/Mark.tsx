@@ -3,6 +3,7 @@ import styles from "./Mark.module.css";
 interface Props {
   className?: string;
   running?: boolean;
+  intro?: boolean;
 }
 
 const BARS = [
@@ -13,11 +14,12 @@ const BARS = [
   { x: 19.5, height: 19 },
 ];
 
-export function Mark({ className, running = false }: Props) {
+export function Mark({ className, running = false, intro = false }: Props) {
   return (
     <svg
       className={`${styles.mark} ${className ?? ""}`}
       data-running={running}
+      data-intro={intro}
       viewBox="0 0 24 24"
       width="1em"
       height="1em"

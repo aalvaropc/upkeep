@@ -67,6 +67,23 @@ function title(board: BoardState): string {
   }
 }
 
+function RunningLine({ board, now }: { board: BoardState; now: number }) {
+  const total = board.order.length;
+  const done = columns(board).done.length;
+  const cost = dollars(board.totals.micros);
+  return (
+    <>
+      <span key={done} className={styles.tick}>
+        {done} of {total} finished
+      </span>
+      {` · ${elapsed(board, now)} · `}
+      <span key={cost} className={styles.tick}>
+        {cost} so far
+      </span>
+    </>
+  );
+}
+
 export function ActionBar({ board, busy, error, now, onStart, onRules }: Props) {
   const waiting = board.run === "waiting";
   const running = board.run === "running";
@@ -98,7 +115,9 @@ export function ActionBar({ board, busy, error, now, onStart, onRules }: Props) 
             every fix with the compiler and the tests.
           </p>
         ) : (
-          <p className={styles.line}>{statusLine(board, now)}</p>
+          <p className={styles.line}>
+            {running ? <RunningLine board={board} now={now} /> : statusLine(board, now)}
+          </p>
         )}
         {extra ? <p className={styles.finding}>{extra}</p> : null}
       </div>
