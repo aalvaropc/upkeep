@@ -1,9 +1,5 @@
 .feed {
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-sunken);
-  animation: rise var(--base) var(--ease) 250ms both;
+  min-width: 0;
 }
 
 @keyframes rise {
@@ -23,11 +19,9 @@
 
 .title {
   margin: 0;
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
 }
 
 .session {
@@ -46,7 +40,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font: 12px/1.7 var(--mono);
+  font: 12px/1.7 var(--sans);
 }
 
 .events li {

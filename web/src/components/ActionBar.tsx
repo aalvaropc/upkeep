@@ -45,6 +45,14 @@ export function statusLine(board: BoardState, now: number): string {
   }
 }
 
+function finding(board: BoardState): string {
+  const stale = board.plan?.stale ?? [];
+  if (board.run !== "finished" || stale.length === 0) {
+    return "";
+  }
+  return stale.map((s) => `#${s.pr} needs one more pass: ${s.because}.`).join(" ");
+}
+
 export function ActionBar({ board, busy, error, now, onStart, onRules }: Props) {
   const waiting = board.run === "waiting";
   const running = board.run === "running";
@@ -58,23 +66,30 @@ export function ActionBar({ board, busy, error, now, onStart, onRules }: Props) 
         ? "Run again"
         : "Work the queue";
   const icon = waiting ? "wait" : running ? "working" : finished ? "again" : "play";
+  const extra = finding(board);
   return (
     <section className={styles.bar} aria-label="Queue">
-      <button
-        type="button"
-        className={styles.work}
-        onClick={onStart}
-        disabled={disabled}
-        data-busy={running || waiting}
-      >
-        <Icon name={icon} className={styles.icon} />
-        {label}
-      </button>
-      <p className={styles.line}>{statusLine(board, now)}</p>
-      <button type="button" className={styles.rules} onClick={onRules}>
-        <Icon name="rules" className={styles.rulesIcon} />
-        What Upkeep may do
-      </button>
+      <div className={styles.heading}>
+        <h1 className={styles.title}>Pull request queue</h1>
+        <p className={styles.line}>{statusLine(board, now)}</p>
+        {extra ? <p className={styles.finding}>{extra}</p> : null}
+      </div>
+      <div className={styles.actions}>
+        <button type="button" className={styles.rules} onClick={onRules}>
+          <Icon name="rules" className={styles.rulesIcon} />
+          What Upkeep may do
+        </button>
+        <button
+          type="button"
+          className={styles.work}
+          onClick={onStart}
+          disabled={disabled}
+          data-busy={running || waiting}
+        >
+          <Icon name={icon} className={styles.icon} />
+          {label}
+        </button>
+      </div>
       {error ? (
         <p className={styles.error} role="alert">
           <Icon name="alert" className={styles.errorIcon} />

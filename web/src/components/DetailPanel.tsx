@@ -4,7 +4,7 @@ import type { Detail, Forecast, PullRequest } from "../types";
 import { DiffView } from "./DiffView";
 import { Icon } from "./Icon";
 import { Overlay } from "./Overlay";
-import { blockerLabel } from "./PullCard";
+import { blockerLabel } from "../labels";
 import { Tabs } from "./Tabs";
 import { TraceView } from "./TraceView";
 import styles from "./DetailPanel.module.css";

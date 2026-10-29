@@ -33,6 +33,10 @@ function status(card: Card | undefined, stale: boolean): Status {
   }
 }
 
+function free(reason: string | undefined): boolean {
+  return Boolean(reason?.startsWith("Shares no files"));
+}
+
 export function MergePlan({ board }: Props) {
   const plan = board.plan;
   return (
@@ -65,13 +69,22 @@ export function MergePlan({ board }: Props) {
                     <Icon name={s.icon} className={styles.statusIcon} />
                     {s.label}
                   </span>
-                  {plan.reasons[String(n)] ? (
+                  {plan.reasons[String(n)] && !free(plan.reasons[String(n)]) ? (
                     <p className={styles.reason}>{plan.reasons[String(n)]}</p>
                   ) : null}
                 </li>
               );
             })}
           </ol>
+          {plan.order.some((n) => free(plan.reasons[String(n)])) ? (
+            <p className={styles.reason}>
+              {plan.order
+                .filter((n) => free(plan.reasons[String(n)]))
+                .map((n) => `#${n}`)
+                .join(", ")}{" "}
+              share no files with another open pull request, so they can merge in any order.
+            </p>
+          ) : null}
           {plan.overlaps.length > 0 ? (
             <div className={styles.section}>
               <h3 className={styles.subtitle}>Shared files</h3>
