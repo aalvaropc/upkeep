@@ -60,6 +60,8 @@ type Result struct {
 	HeadBefore string
 	HeadAfter  string
 	FixBase    string
+	MergedBase bool
+	Resolved   []strategy.ResolvedBlock
 	Changed    bool
 	Patch      string
 	Changes    []gitx.FileChange
@@ -189,6 +191,8 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 			if err := env.CommitMerge(ctx, job); err != nil {
 				return p.failed(&res, err)
 			}
+			res.MergedBase = true
+			res.Resolved = resolved.Blocks
 			if res.FixBase, err = env.Git.Head(ctx, in.Dir); err != nil {
 				return p.failed(&res, err)
 			}
@@ -393,6 +397,7 @@ func (p Processor) commitPending(ctx context.Context, res *Result, job *strategy
 		return err
 	}
 	res.FixBase = head
+	res.MergedBase = true
 	p.step(res, "merge", "done", "merged "+strings.TrimPrefix(job.Base, "origin/"))
 	return nil
 }

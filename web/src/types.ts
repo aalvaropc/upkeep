@@ -164,6 +164,11 @@ export interface Receipt {
   baseline_micros: number;
 }
 
+export interface ResolvedBlock {
+  path: string;
+  text: string;
+}
+
 export interface Detail extends PullView {
   reason?: string;
   summary?: string;
@@ -171,6 +176,8 @@ export interface Detail extends PullView {
   diagnosis?: string;
   attempts: number;
   patch?: string;
+  merged_base?: boolean;
+  resolution?: ResolvedBlock[];
   changes?: Change[];
   checklist?: Check[];
   flaky?: string[];
@@ -184,7 +191,7 @@ export interface Info {
   mode: "live" | "record" | "replay";
   version: string;
   sessions: number;
-  prs_per_run: number;
+  parallel_prs: number;
   runs_per_server: number;
   daily_tokens: number;
   tokens_today: number;

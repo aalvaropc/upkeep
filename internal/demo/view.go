@@ -14,6 +14,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/pull"
 	"github.com/aalvaropc/upkeep/internal/queue"
 	"github.com/aalvaropc/upkeep/internal/receipt"
+	"github.com/aalvaropc/upkeep/internal/strategy"
 	"github.com/aalvaropc/upkeep/internal/verify"
 )
 
@@ -81,19 +82,21 @@ type ReceiptView struct {
 
 type Detail struct {
 	PRView
-	Reason    string             `json:"reason,omitempty"`
-	Summary   string             `json:"summary,omitempty"`
-	Failure   string             `json:"failure,omitempty"`
-	Diagnosis string             `json:"diagnosis,omitempty"`
-	Attempts  int                `json:"attempts"`
-	Patch     string             `json:"patch,omitempty"`
-	Changes   []gitx.FileChange  `json:"changes,omitempty"`
-	Checklist verify.Checklist   `json:"checklist,omitempty"`
-	Flaky     []string           `json:"flaky,omitempty"`
-	Forecast  *forecast.Forecast `json:"forecast,omitempty"`
-	Confirmed []string           `json:"confirmed,omitempty"`
-	Missed    []string           `json:"missed,omitempty"`
-	Receipt   *ReceiptView       `json:"receipt,omitempty"`
+	Reason    string                   `json:"reason,omitempty"`
+	Summary   string                   `json:"summary,omitempty"`
+	Failure   string                   `json:"failure,omitempty"`
+	Diagnosis string                   `json:"diagnosis,omitempty"`
+	Attempts  int                      `json:"attempts"`
+	Patch     string                   `json:"patch,omitempty"`
+	Merged    bool                     `json:"merged_base,omitempty"`
+	Resolved  []strategy.ResolvedBlock `json:"resolution,omitempty"`
+	Changes   []gitx.FileChange        `json:"changes,omitempty"`
+	Checklist verify.Checklist         `json:"checklist,omitempty"`
+	Flaky     []string                 `json:"flaky,omitempty"`
+	Forecast  *forecast.Forecast       `json:"forecast,omitempty"`
+	Confirmed []string                 `json:"confirmed,omitempty"`
+	Missed    []string                 `json:"missed,omitempty"`
+	Receipt   *ReceiptView             `json:"receipt,omitempty"`
 }
 
 func (s *Session) Snapshot(ctx context.Context) Snapshot {
@@ -148,6 +151,8 @@ func (s *Session) Detail(ctx context.Context, number int) (Detail, error) {
 		Diagnosis: res.Diagnosis,
 		Attempts:  res.Attempts,
 		Patch:     res.Patch,
+		Merged:    res.MergedBase,
+		Resolved:  res.Resolved,
 		Changes:   res.Changes,
 		Checklist: res.Checklist,
 		Flaky:     res.Flaky,

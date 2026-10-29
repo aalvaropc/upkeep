@@ -350,3 +350,81 @@ func TestUnlimitedAndNilBudgetsNeverRunOut(t *testing.T) {
 		t.Fatal("a budget without a limit should never be exhausted")
 	}
 }
+
+func nanoCall(t *testing.T, rt *Runtime) error {
+	t.Helper()
+	name, m, err := rt.primary.router.For(model.Nano)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = m.Complete(t.Context(), model.Request{Model: name, Messages: []model.Message{{Role: "user", Content: "hello"}}, MaxTokens: 1})
+	return err
+}
+
+func TestABudgetThatRunsOutMidRunStopsTheNextCall(t *testing.T) {
+	for _, mode := range []config.Mode{config.Live, config.Record} {
+		t.Run(string(mode), func(t *testing.T) {
+			o := options(t, mode)
+			o.Config.DailyTokens = 20
+			rt, err := New(t.Context(), o)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := range 2 {
+				if err := nanoCall(t, rt); err != nil {
+					t.Fatalf("call %d with budget left: %v", i+1, err)
+				}
+			}
+			if rt.Budget.Spent() != 26 || !rt.Budget.Exhausted() {
+				t.Fatalf("spent %d, exhausted %v", rt.Budget.Spent(), rt.Budget.Exhausted())
+			}
+			err = nanoCall(t, rt)
+			if err == nil || err.Error() != "the daily token budget of 20 tokens ran out during the run" {
+				t.Fatalf("the call after the budget ran out = %v", err)
+			}
+			if rt.Budget.Spent() != 26 {
+				t.Fatalf("a refused call spent tokens: %d", rt.Budget.Spent())
+			}
+		})
+	}
+}
+
+func TestTheCheckCallCountsAgainstTheBudget(t *testing.T) {
+	rt, err := New(t.Context(), options(t, config.Live))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.probe(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if rt.Budget.Spent() != 13 {
+		t.Fatalf("the check call spent %d tokens, want 13", rt.Budget.Spent())
+	}
+}
+
+func TestReplayNeverRunsOutOfBudget(t *testing.T) {
+	rec := options(t, config.Record)
+	recorder, err := New(t.Context(), rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := nanoCall(t, recorder); err != nil {
+		t.Fatal(err)
+	}
+	rep := options(t, config.Replay)
+	rep.Fixtures = rec.Fixtures
+	rep.Config.DailyTokens = 1
+	rt, err := New(t.Context(), rep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt.Budget.Add(1000)
+	for i := range 3 {
+		if err := nanoCall(t, rt); err != nil {
+			t.Fatalf("replayed call %d: %v", i+1, err)
+		}
+	}
+	if rt.Budget.Spent() != 1000 {
+		t.Fatalf("a replay spent live tokens: %d", rt.Budget.Spent())
+	}
+}

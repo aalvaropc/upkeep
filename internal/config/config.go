@@ -47,6 +47,11 @@ const (
 	Exec   Sandbox = "exec"
 )
 
+const (
+	Runc  = "runc"
+	Runsc = "runsc"
+)
+
 type Models struct {
 	Ultra string
 	Super string
@@ -75,6 +80,7 @@ type Config struct {
 	Addr             string
 	DataDir          string
 	Sandbox          Sandbox
+	SandboxRuntime   string
 	DailyTokens      int64
 	SearchDailyLimit int
 	SearchPrice      float64
@@ -116,12 +122,13 @@ func Load(environ []string) (Config, error) {
 			Super: get("UPKEEP_MODEL_SUPER", DefaultSuper),
 			Nano:  get("UPKEEP_MODEL_NANO", DefaultNano),
 		},
-		TavilyAPIKey: Secret(env["TAVILY_API_KEY"]),
-		GitHubToken:  Secret(env["GITHUB_TOKEN"]),
-		Mode:         Mode(get("UPKEEP_MODE", string(Replay))),
-		Addr:         get("UPKEEP_ADDR", DefaultAddr),
-		DataDir:      get("UPKEEP_DATA_DIR", DefaultDataDir),
-		Sandbox:      Sandbox(get("UPKEEP_SANDBOX", string(Docker))),
+		TavilyAPIKey:   Secret(env["TAVILY_API_KEY"]),
+		GitHubToken:    Secret(env["GITHUB_TOKEN"]),
+		Mode:           Mode(get("UPKEEP_MODE", string(Replay))),
+		Addr:           get("UPKEEP_ADDR", DefaultAddr),
+		DataDir:        get("UPKEEP_DATA_DIR", DefaultDataDir),
+		Sandbox:        Sandbox(get("UPKEEP_SANDBOX", string(Docker))),
+		SandboxRuntime: env["UPKEEP_SANDBOX_RUNTIME"],
 	}
 
 	if u, err := url.Parse(c.NebiusBaseURL); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
@@ -139,6 +146,11 @@ func Load(environ []string) (Config, error) {
 	case Docker, Exec:
 	default:
 		errs = append(errs, fmt.Errorf("UPKEEP_SANDBOX %q must be docker or exec", c.Sandbox))
+	}
+	switch c.SandboxRuntime {
+	case "", Runc, Runsc:
+	default:
+		errs = append(errs, fmt.Errorf("UPKEEP_SANDBOX_RUNTIME %q must be runc, runsc or empty for the Docker default", c.SandboxRuntime))
 	}
 	if _, _, err := net.SplitHostPort(c.Addr); err != nil {
 		errs = append(errs, fmt.Errorf("UPKEEP_ADDR %q: %w", c.Addr, err))
@@ -201,6 +213,7 @@ func (c Config) LogValue() slog.Value {
 		slog.Bool("public", c.Public),
 		slog.String("data_dir", c.DataDir),
 		slog.String("sandbox", string(c.Sandbox)),
+		slog.String("sandbox_runtime", c.SandboxRuntime),
 		slog.String("base_url", c.NebiusBaseURL),
 		slog.String("ultra", c.Models.Ultra),
 		slog.String("super", c.Models.Super),
