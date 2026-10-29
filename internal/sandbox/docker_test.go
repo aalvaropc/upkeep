@@ -70,6 +70,29 @@ func TestDockerArgsNetworkAndDefaults(t *testing.T) {
 	}
 }
 
+func TestDockerArgsChooseTheRuntimeOnlyWhenSet(t *testing.T) {
+	spec := Spec{Dir: "/w", Args: []string{"go", "test", "./..."}}
+	plain, err := (Docker{CacheDir: "/c", UID: 7, GID: 7}).args(spec, "n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(plain, "--runtime") {
+		t.Fatalf("no runtime was chosen: %v", plain)
+	}
+	gvisor, err := (Docker{CacheDir: "/c", UID: 7, GID: 7, Runtime: "runsc"}).args(spec, "n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsRun(gvisor, []string{"--runtime", "runsc", DefaultImage, "go", "test", "./..."}) {
+		t.Fatalf("the runtime must come right before the image: %v", gvisor)
+	}
+	i := slices.Index(gvisor, "--runtime")
+	without := slices.Delete(slices.Clone(gvisor), i, i+2)
+	if !slices.Equal(without, plain) {
+		t.Fatalf("the runtime changed other arguments:\n%v\n%v", without, plain)
+	}
+}
+
 func TestDockerNeverRunsAsRoot(t *testing.T) {
 	d := Docker{CacheDir: "/c", UID: 0, GID: 0}
 	uid, gid := d.ids()
