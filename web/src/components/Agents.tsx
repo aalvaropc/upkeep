@@ -8,6 +8,7 @@ import {
   type SearchTotals,
 } from "../board";
 import { Icon } from "./Icon";
+import { ModelGlyph } from "./ModelGlyph";
 import styles from "./Agents.module.css";
 
 interface Props {
@@ -31,6 +32,8 @@ const TIERS = {
     job: "Writes the reviewer note, checked against the diff.",
   },
 } as const;
+
+const LEVELS = { ultra: 3, super: 2, nano: 1 } as const;
 
 function Bar({ value, max, tone }: { value: number; max: number; tone: string }) {
   const width = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
@@ -103,7 +106,7 @@ export function Agents({ board }: Props) {
           const m = board.models[role];
           return (
             <li key={role} className={styles.row} data-role={role} data-active={m !== undefined}>
-              <Icon name="chip" className={styles.icon} />
+              <ModelGlyph level={LEVELS[role]} className={styles.icon} />
               <div className={styles.body}>
                 <p className={styles.name}>
                   <span>{tier.name}</span>

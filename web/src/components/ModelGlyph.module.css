@@ -1,0 +1,12 @@
+.glyph {
+  flex: none;
+}
+
+.bar {
+  fill: currentColor;
+  opacity: 0.22;
+}
+
+.bar[data-lit="true"] {
+  opacity: 1;
+}
