@@ -26,7 +26,7 @@ Why Ultra loses inside the loop: it explores instead of editing (ten to twelve o
 
 What follows from it:
 
-- **Super fixes builds and tests**, with reasoning off, in up to three fresh attempts. Each attempt starts from a clean tree and from the previous failure's output; three attempts turn a 65 percent attempt into roughly 96 percent. The receipt says which attempt worked.
+- **Super fixes builds and tests**, with reasoning off, in up to three fresh attempts. Each attempt starts from a clean tree and from the previous failure's output; three attempts turn a 65 percent attempt into roughly 96 percent, when the 300,000-token repair budget leaves room for the third. The receipt says which attempt worked.
 - **Ultra stays out of the loop.** It resolves small conflicts in one call and writes the diagnosis when a pull request is handed to a person, where it measured best.
 - **Upkeep runs `gofmt` itself** after every edit. Left to the model, formatting caused several failures.
 - **Rules are checked by code.** Models added comments in 2 of 73 runs and never tried to edit tests, but the verifier checks both on the final diff regardless.

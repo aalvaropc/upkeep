@@ -17,7 +17,7 @@ forge ──► Prepare (clone; check out the branch, or pull/N/head for a fork)
         detect ──► no go.mod ──► hand back, no model
           ├─► conflict (small) ──► Ultra resolves it in one call ─────────────────────────┐
           │     └─► in a test or a non-Go file ──► Ultra diagnoses ──► hand back          │
-          ├─► conflict (large, or a file with no text) ──► Ultra diagnoses ──► hand back  │
+          ├─► conflict (large, or no text) ──► Ultra diagnoses any text ──► hand back     │
           ├─► build / test fails ──► learned fix? ──► Super repairs, up to 3 attempts ────┤
           ├─► formatting ──► gofmt ───────────────────────────────────────────────────────┤
           ├─► behind ──► merge the base ──────────────────────────────────────────────────┤
