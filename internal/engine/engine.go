@@ -119,7 +119,7 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 	}
 	res.HeadBefore, res.FixBase = head, head
 	if files, err := env.Git.Touched(ctx, in.Dir, in.Base, head); err == nil {
-		if dir := nestedModule(in.Dir, files); dir != "" {
+		if dir := nestedModule(files, p.moduleAt(ctx, in.Dir, in.Base)); dir != "" {
 			res.Blocker = pull.NestedModule
 			p.step(&res, "detect", "done", string(res.Blocker))
 			p.emit(&res, events.PRBlocker, map[string]any{"blocker": string(res.Blocker), "behind": false})
@@ -630,13 +630,30 @@ func (p Processor) handBack(ctx context.Context, res *Result, dir, reason string
 	return *res
 }
 
-func nestedModule(dir string, files []string) string {
+func (p Processor) moduleAt(ctx context.Context, dir, base string) func(string) bool {
+	seen := map[string]bool{}
+	return func(d string) bool {
+		if found, ok := seen[d]; ok {
+			return found
+		}
+		_, err := os.Stat(filepath.Join(dir, filepath.FromSlash(d), "go.mod"))
+		found := err == nil
+		if !found {
+			_, err = p.Env.Git.Show(ctx, dir, base, d+"/go.mod")
+			found = err == nil
+		}
+		seen[d] = found
+		return found
+	}
+}
+
+func nestedModule(files []string, moduleAt func(string) bool) string {
 	for _, f := range files {
 		if !moduleFile(f) {
 			continue
 		}
 		for d := path.Dir(f); d != "."; d = path.Dir(d) {
-			if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(d), "go.mod")); err == nil {
+			if moduleAt(d) {
 				return "/" + d
 			}
 		}
