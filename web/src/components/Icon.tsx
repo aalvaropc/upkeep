@@ -1,5 +1,4 @@
 export type IconName =
-  | "mark"
   | "blocked"
   | "working"
   | "verified"
@@ -25,13 +24,6 @@ export type IconName =
   | "gauge";
 
 const PATHS: Record<IconName, string[]> = {
-  mark: [
-    "M5 6.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0",
-    "M5 17.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0",
-    "M14 12a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0",
-    "M7.5 9v6",
-    "M10 6.5c5 0 6.5 2 6.5 3",
-  ],
   blocked: ["M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0", "M5.6 5.6l12.8 12.8"],
   working: ["M21 12a9 9 0 1 1-6.2-8.55", "M21 4v5h-5"],
   verified: ["M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z", "M9 12l2 2 4-4"],

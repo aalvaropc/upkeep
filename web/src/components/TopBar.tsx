@@ -1,6 +1,6 @@
 import type { Connection } from "../board";
 import type { Info } from "../types";
-import { Icon } from "./Icon";
+import { Mark } from "./Mark";
 import { StatusBadge } from "./StatusBadge";
 import styles from "./TopBar.module.css";
 
@@ -8,6 +8,7 @@ interface Props {
   connection: Connection;
   version: string | null;
   info: Info | null;
+  running: boolean;
 }
 
 const MODES = {
@@ -16,16 +17,14 @@ const MODES = {
   record: { label: "Recording", hint: "Calls Nemotron and saves every answer for replay." },
 } as const;
 
-export function TopBar({ connection, version, info }: Props) {
+export function TopBar({ connection, version, info, running }: Props) {
   const mode = info ? MODES[info.mode] : null;
   return (
     <header className={styles.bar}>
       <div className={styles.inner}>
         <div className={styles.brand}>
           <a className={styles.home} href="/" aria-label="Upkeep, back to the overview">
-            <span className={styles.mark} aria-hidden="true">
-              <Icon name="mark" />
-            </span>
+            <Mark className={styles.mark} running={running} />
             <span className={styles.name}>Upkeep</span>
           </a>
           <span className={styles.scope}>

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "./Icon";
+import { Mark } from "./Mark";
 import styles from "./Landing.module.css";
 
 const REPO = "https://github.com/aalvaropc/upkeep";
@@ -261,9 +262,7 @@ export function Landing() {
       <header className={styles.nav}>
         <div className={styles.navInner}>
           <a className={styles.brand} href="/" aria-label="Upkeep home">
-            <span className={styles.mark} aria-hidden="true">
-              <Icon name="mark" />
-            </span>
+            <Mark className={styles.mark} />
             <span>Upkeep</span>
           </a>
           <nav className={styles.navLinks} aria-label="Sections">

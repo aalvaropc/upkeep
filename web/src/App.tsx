@@ -84,7 +84,12 @@ export function App() {
       <a className={styles.skip} href="#main">
         Skip to the queue
       </a>
-      <TopBar connection={board.connection} version={board.version} info={session.info} />
+      <TopBar
+        connection={board.connection}
+        version={board.version}
+        info={session.info}
+        running={board.run === "running"}
+      />
       <main id="main" className={styles.main} tabIndex={-1}>
         <ActionBar
           board={board}
