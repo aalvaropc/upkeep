@@ -2,48 +2,63 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  height: var(--topbar);
-  padding: 0 calc(var(--inset) + 16px) 0 8px;
-  background: var(--frame);
+  height: 56px;
+  padding: 0 var(--gutter);
+  border-bottom: 1px solid var(--rule);
 }
 
-.crumb {
+.brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  margin: 0;
-  color: var(--fg-muted);
-  font-size: 13px;
-  white-space: nowrap;
 }
 
-.here {
-  overflow: hidden;
-  color: var(--fg);
-  text-overflow: ellipsis;
+.mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 19px;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.scope {
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.scope code {
+  font-size: 12px;
 }
 
 .right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   margin-left: auto;
 }
 
 .mode {
-  padding: 1px 8px;
+  padding: 2px 10px;
   border-radius: 999px;
   background: var(--tint-neutral);
   color: var(--fg);
-  font-size: 12px;
-  font-weight: 500;
+  font: 500 12px var(--mono);
   line-height: 20px;
 }
 
 .mode[data-mode="live"] {
   background: var(--tint-accent);
-  color: #04250e;
+  color: var(--live);
 }
 
 .budget {
@@ -53,14 +68,7 @@
 }
 
 @media (max-width: 800px) {
-  .bar {
-    padding: 0 16px;
-  }
-
-  .crumb > :not(.here) {
-    display: none;
-  }
-
+  .scope,
   .budget {
     display: none;
   }

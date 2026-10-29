@@ -1,5 +1,6 @@
 import type { Connection } from "../board";
 import type { Info } from "../types";
+import { Icon } from "./Icon";
 import { StatusBadge } from "./StatusBadge";
 import styles from "./TopBar.module.css";
 
@@ -19,11 +20,15 @@ export function TopBar({ connection, version, info }: Props) {
   const mode = info ? MODES[info.mode] : null;
   return (
     <header className={styles.bar}>
-      <p className={styles.crumb}>
-        <span>Demo session</span>
-        <span aria-hidden="true">/</span>
-        <span className={styles.here}>Nine pull requests built to show one blocker each</span>
-      </p>
+      <div className={styles.brand}>
+        <span className={styles.mark} aria-hidden="true">
+          <Icon name="mark" />
+        </span>
+        <span className={styles.name}>Upkeep</span>
+        <span className={styles.scope}>
+          <code>upkeep-sample</code>
+        </span>
+      </div>
       <div className={styles.right}>
         {mode ? (
           <span className={styles.mode} title={mode.hint} data-mode={info?.mode}>

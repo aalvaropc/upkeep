@@ -6,7 +6,7 @@ Upkeep keeps GitHub pull requests mergeable. It looks at the whole queue of open
 
 It runs on NVIDIA Nemotron models (Ultra, Super and Nano) served by Nebius Token Factory, and reads migration guides found with Tavily. It is written in Go and ships as one binary with its dashboard built in.
 
-![The dashboard after a run: nine pull requests with their outcome, merge confidence and cost; the models and the web search on the right](docs/images/dashboard-done.png)
+![The dashboard after a run: the queue in merge order on the left, the results in the centre, the models and the web search on the right](docs/images/dashboard-done.png)
 
 ## What it does
 
@@ -24,21 +24,21 @@ Upkeep never force-pushes, never merges a pull request opened by a person, and n
 
 ## See the agent work
 
-Open a pull request while it runs and the Trace tab shows the plan, the Tavily search, every Super turn with the tool it asked for and the file it edited, each attempt with why it failed, the verifier and the action:
+While the queue runs, the centre of the screen is a live stage: the pull request the agent is working, its five stages, the latest thing that happened, and the trace as it grows: the plan, the Tavily search, every Super turn with the tool it asked for and the file it edited, each attempt with why it failed, the verifier and the action. Click a pull request in the queue to follow it instead:
 
-![The trace of the jwt major upgrade: the plan, the forecast with the Tavily search, and Super's attempt turn by turn with its edits](docs/images/dashboard-trace.png)
+![The live stage following the jwt major upgrade: its stages, the forecast with the Tavily search, and Super's attempt turn by turn with its edits](docs/images/dashboard-trace.png)
 
-The Summary tab keeps what a reviewer needs: what changed, the merge confidence and its reasons, the forecast with each prediction confirmed or not seen by the build and where the sources came from, the diff, the verifier and the receipt.
+The full detail of a pull request opens in a side sheet; its Summary tab keeps what a reviewer needs: what changed, the merge confidence and its reasons, the forecast with each prediction confirmed or not seen by the build and where the sources came from, the diff, the verifier and the receipt.
 
 ![The summary of the jwt upgrade: low merge confidence with its reasons, and the forecast built from release notes and pages Tavily found](docs/images/dashboard-detail.png)
 
-The merge plan sits next to the queue, which is shown in its order. In the scenario the jwt and clockwork bumps both edit `go.mod`; Upkeep merges clockwork first and, after the run, says the jwt upgrade now needs its branch updated:
+When the run ends, the centre shows the results: the run's figures, the merge order Upkeep planned, and what it did grouped into merged, ready and needs a person. In the scenario the jwt and clockwork bumps both edit `go.mod`; Upkeep merges clockwork first and, after the run, says the jwt upgrade now needs its branch updated:
 
-![The merge plan: the suggested order with each outcome, the files pull requests share, and the warning that #5 went stale after #7 merged](docs/images/dashboard-plan.png)
+![The results: the figures, the merge order with #5 marked stale after #7 merged, and the pull requests grouped by outcome](docs/images/dashboard-plan.png)
 
 Press **Run again** and the next run keeps what this one learned: the three fixes Super made are reapplied with zero model calls and still go through every check, and the run costs $0.0055 instead of $0.0191.
 
-![The second run: #4, #5 and #7 carry a learned fix chip and the run cost drops](docs/images/dashboard-learned.png)
+![The second run: #4, #5 and #7 carry a learned fix and the run costs $0.0055](docs/images/dashboard-learned.png)
 
 ## The demo scenario
 

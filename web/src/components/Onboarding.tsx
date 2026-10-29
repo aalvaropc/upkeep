@@ -22,13 +22,11 @@ const STEPS: { icon: IconName; title: string; text: string }[] = [
 export function Onboarding() {
   return (
     <ol className={styles.steps} aria-label="How it works">
-      {STEPS.map((step, i) => (
+      {STEPS.map((step) => (
         <li key={step.title} className={styles.step}>
           <Icon name={step.icon} className={styles.icon} />
           <div>
-            <h3 className={styles.title}>
-              {i + 1}. {step.title}
-            </h3>
+            <h3 className={styles.title}>{step.title}</h3>
             <p className={styles.text}>{step.text}</p>
           </div>
         </li>

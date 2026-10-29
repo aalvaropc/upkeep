@@ -53,10 +53,25 @@ function finding(board: BoardState): string {
   return stale.map((s) => `#${s.pr} needs one more pass: ${s.because}.`).join(" ");
 }
 
+function title(board: BoardState): string {
+  const total = board.order.length;
+  switch (board.run) {
+    case "idle":
+      return total > 0 ? `${total} pull requests can't merge.` : "Getting the queue ready.";
+    case "waiting":
+      return "Waiting for a slot";
+    case "running":
+      return "Working the queue";
+    case "finished":
+      return "The queue is worked";
+  }
+}
+
 export function ActionBar({ board, busy, error, now, onStart, onRules }: Props) {
   const waiting = board.run === "waiting";
   const running = board.run === "running";
   const finished = board.run === "finished";
+  const idle = board.run === "idle";
   const disabled = busy || waiting || running || (board.order.length === 0 && !finished);
   const label = waiting
     ? `Waiting for a slot`
@@ -68,17 +83,27 @@ export function ActionBar({ board, busy, error, now, onStart, onRules }: Props) 
   const icon = waiting ? "wait" : running ? "working" : finished ? "again" : "play";
   const extra = finding(board);
   return (
-    <section className={styles.bar} aria-label="Queue">
+    <section className={styles.bar} aria-label="Queue" data-run={board.run}>
       <div className={styles.heading}>
-        <h1 className={styles.title}>Pull request queue</h1>
-        <p className={styles.line}>{statusLine(board, now)}</p>
+        {running ? (
+          <p className={styles.live}>
+            <span className={styles.dot} aria-hidden="true" />
+            Live
+          </p>
+        ) : null}
+        <h1 className={styles.title}>{title(board)}</h1>
+        {idle ? (
+          <p className={styles.lead}>
+            Watch an agent unstick them. Upkeep plans the merge order, fixes what its policy allows
+            with NVIDIA Nemotron on Nebius Token Factory, and proves every fix with the compiler and
+            the tests.
+          </p>
+        ) : (
+          <p className={styles.line}>{statusLine(board, now)}</p>
+        )}
         {extra ? <p className={styles.finding}>{extra}</p> : null}
       </div>
       <div className={styles.actions}>
-        <button type="button" className={styles.rules} onClick={onRules}>
-          <Icon name="rules" className={styles.rulesIcon} />
-          What Upkeep may do
-        </button>
         <button
           type="button"
           className={styles.work}
@@ -88,6 +113,10 @@ export function ActionBar({ board, busy, error, now, onStart, onRules }: Props) 
         >
           <Icon name={icon} className={styles.icon} />
           {label}
+        </button>
+        <button type="button" className={styles.rules} onClick={onRules}>
+          <Icon name="rules" className={styles.rulesIcon} />
+          What Upkeep may do
         </button>
       </div>
       {error ? (
