@@ -202,6 +202,9 @@ func (p Policy) MayAutoMerge(author pull.Author, bump *pull.Bump) bool {
 }
 
 func (p Policy) MayPush(pr pull.Request) bool {
+	if pr.Fork {
+		return false
+	}
 	return pr.Author.Kind == pull.Bot || pr.HasLabel(p.Label)
 }
 

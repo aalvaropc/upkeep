@@ -378,3 +378,33 @@ func TestOnlyTheSelectedPullRequestsAreListed(t *testing.T) {
 		t.Fatalf("listed %+v", pulls)
 	}
 }
+
+func TestAForkIsPreparedFromItsPullRefAndNeverPushed(t *testing.T) {
+	g := newGitHub(t, &api{pulls: pullList})
+	g.AllowForks = true
+	pulls, err := g.Pulls(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fork pull.Request
+	for _, p := range pulls {
+		if p.Number == 5 {
+			fork = p
+		}
+	}
+	if !fork.Fork || fork.Number != 5 {
+		t.Fatalf("the fork is listed and marked: %+v", pulls)
+	}
+	head := forgetest.Git(t, g.CloneURL, "rev-parse", "main")
+	forgetest.Git(t, g.CloneURL, "update-ref", "refs/pull/5/head", head)
+	dir := filepath.Join(t.TempDir(), "work")
+	if err := g.Prepare(t.Context(), fork, dir); err != nil {
+		t.Fatal(err)
+	}
+	if got := forgetest.Git(t, dir, "rev-parse", "--abbrev-ref", "HEAD"); got != "upkeep/pr-5" {
+		t.Fatalf("checked out %q", got)
+	}
+	if err := g.Push(t.Context(), dir, fork); err == nil || !strings.Contains(err.Error(), "fork") {
+		t.Fatalf("pushing to a fork must fail, got %v", err)
+	}
+}
