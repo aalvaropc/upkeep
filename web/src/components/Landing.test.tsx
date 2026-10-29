@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Landing } from "./Landing";
 
@@ -39,18 +39,17 @@ describe("Landing", () => {
     });
   });
 
-  it("says the paid plans are planned", () => {
+  it("says it is open source and marks the savings as an example", () => {
     render(<Landing />);
-    const heading = screen.getByRole("heading", { level: 2, name: "The business model" });
+    const heading = screen.getByRole("heading", { level: 2, name: "Open source and cheap to run" });
     const section = heading.closest("section");
     if (!section) {
-      throw new Error("the business model has no section");
+      throw new Error("the cost section is missing");
     }
     const text = section.textContent ?? "";
-    expect(text).toContain("This is the plan");
-    expect(within(section).getAllByText("Planned")).toHaveLength(2);
-    expect(within(section).getByText("Available now · MIT")).toBeTruthy();
+    expect(text).toContain("MIT licensed");
     expect(text).toContain("An assumption");
+    expect(text).not.toMatch(/Enterprise|Planned/);
   });
 
   it("shows the product with described screenshots", () => {

@@ -13,12 +13,17 @@ const ICONS: Record<Connection, IconName> = {
   lost: "lost",
 };
 
+export function shortVersion(version: string): string {
+  const m = /^(v\d+\.\d+\.\d+)-(?:0\.)?\d{14}-([0-9a-f]{7})[0-9a-f]*(\+dirty)?$/.exec(version);
+  return m ? `${m[1]} · ${m[2]}${m[3] ? " dirty" : ""}` : version;
+}
+
 function label(status: Connection, version: string | null): string {
   switch (status) {
     case "connecting":
       return "connecting";
     case "live":
-      return version ? `live · ${version}` : "live";
+      return version ? `live · ${shortVersion(version)}` : "live";
     case "lost":
       return "reconnecting";
   }

@@ -1,5 +1,4 @@
 export type IconName =
-  | "mark"
   | "blocked"
   | "working"
   | "verified"
@@ -7,7 +6,6 @@ export type IconName =
   | "connecting"
   | "live"
   | "lost"
-  | "chip"
   | "play"
   | "again"
   | "close"
@@ -25,16 +23,9 @@ export type IconName =
   | "gauge";
 
 const PATHS: Record<IconName, string[]> = {
-  mark: [
-    "M5 6.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0",
-    "M5 17.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0",
-    "M14 12a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0",
-    "M7.5 9v6",
-    "M10 6.5c5 0 6.5 2 6.5 3",
-  ],
   blocked: ["M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0", "M5.6 5.6l12.8 12.8"],
   working: ["M21 12a9 9 0 1 1-6.2-8.55", "M21 4v5h-5"],
-  verified: ["M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z", "M9 12l2 2 4-4"],
+  verified: ["M4 4h16v16H4z", "M8 12.5l3 3 5-6"],
   done: ["M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0", "M8 12.5l2.7 2.7L16 9.5"],
   connecting: ["M5 12h.01", "M12 12h.01", "M19 12h.01"],
   live: [
@@ -43,17 +34,6 @@ const PATHS: Record<IconName, string[]> = {
     "M18.4 5.6a9 9 0 0 1 0 12.8",
   ],
   lost: ["M12 4l9 16H3z", "M12 10v4", "M12 17.5h.01"],
-  chip: [
-    "M7 7h10v10H7z",
-    "M10 3v4",
-    "M14 3v4",
-    "M10 17v4",
-    "M14 17v4",
-    "M3 10h4",
-    "M3 14h4",
-    "M17 10h4",
-    "M17 14h4",
-  ],
   play: ["M7 5l12 7-12 7z"],
   again: ["M4 12a8 8 0 0 1 14-5.3", "M20 4v4h-4", "M20 12a8 8 0 0 1-14 5.3", "M4 20v-4h4"],
   close: ["M6 6l12 12", "M18 6L6 18"],
@@ -72,13 +52,7 @@ const PATHS: Record<IconName, string[]> = {
   alert: ["M12 3l9 16H3z", "M12 10v4", "M12 17h.01"],
   gauge: ["M3.34 19a10 10 0 1 1 17.32 0", "M12 14l4-4"],
   learned: ["M6 3h12v18l-6-4-6 4z", "M9 9.5l2 2 4-4"],
-  search: [
-    "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0",
-    "M3.6 9h16.8",
-    "M3.6 15h16.8",
-    "M12 3c-2.5 2.6-3.6 5.6-3.6 9s1.1 6.4 3.6 9",
-    "M12 3c2.5 2.6 3.6 5.6 3.6 9s-1.1 6.4-3.6 9",
-  ],
+  search: ["M4.5 10.5a6 6 0 1 0 12 0a6 6 0 1 0-12 0", "M15 15l5 5", "M8 9.5h5", "M8 12h3"],
 };
 
 interface Props {
@@ -95,9 +69,9 @@ export function Icon({ name, className }: Props) {
       height="1em"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      strokeWidth="1.6"
+      strokeLinecap="square"
+      strokeLinejoin="miter"
       aria-hidden="true"
       focusable="false"
     >

@@ -355,6 +355,33 @@ describe("App", () => {
     ).toBe(true);
   });
 
+  it("keeps the stage on one pull request while others work, and pins a lane on click", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    startedEvent();
+    emit("pr.step", 1, { step: "detect", status: "running", detail: "" });
+    emit("pr.step", 2, { step: "detect", status: "running", detail: "" });
+    emit("pr.step", 2, { step: "forecast", status: "running", detail: "" });
+    emit("pr.step", 2, { step: "conflict", status: "running", detail: "" });
+
+    const stage = screen.getByRole("region", { name: "Live stage" });
+    expect(within(stage).getByRole("heading", { level: 2 }).textContent).toContain("#1");
+    const lanes = within(stage).getByRole("group", { name: "In parallel" });
+    expect(within(lanes).getAllByRole("button")).toHaveLength(2);
+
+    fireEvent.click(within(lanes).getByRole("button", { name: "Follow pull request 2" }));
+    const pinned = screen.getByRole("region", { name: "Live stage" });
+    expect(within(pinned).getByRole("heading", { level: 2 }).textContent).toContain("#2");
+    expect(within(pinned).getByRole("button", { name: "Follow the agent" })).toBeTruthy();
+
+    fireEvent.click(within(pinned).getByRole("button", { name: "Follow the agent" }));
+    expect(
+      within(screen.getByRole("region", { name: "Live stage" })).getByRole("heading", { level: 2 })
+        .textContent,
+    ).toContain("#1");
+  });
+
   it("totals the models and compares the cost with the largest model's price", async () => {
     installFetch(newServer());
     render(<App />);
@@ -381,7 +408,7 @@ describe("App", () => {
     const rail = screen.getByRole("region", { name: "Models" });
     expect(within(rail).getByText(/1 call · 3,200 tokens · 2\.0 s · \$0\.0010/)).toBeTruthy();
     expect(within(rail).getByText(/1 call · 1,100 tokens · 1\.5 s · \$0\.0020/)).toBeTruthy();
-    expect(within(rail).getByText("no calls yet")).toBeTruthy();
+    expect(within(rail).getByText("no calls")).toBeTruthy();
     expect(within(rail).getByText("$0.0030")).toBeTruthy();
     expect(within(rail).getByText("$0.0052")).toBeTruthy();
     expect(
@@ -397,7 +424,7 @@ describe("App", () => {
     const rail = screen.getByRole("region", { name: "Models" });
     const block = within(rail).getByRole("group", { name: "Web search" });
     expect(within(block).getByText("Web search · Tavily")).toBeTruthy();
-    expect(within(block).getByText("no searches yet")).toBeTruthy();
+    expect(within(block).getByText("no searches")).toBeTruthy();
     emit("search.call", 3, {
       provider: "tavily",
       query: "example.com/lib migration guide",
@@ -875,9 +902,7 @@ describe("App", () => {
     installFetch(newServer());
     render(<App />);
     await ready();
-    expect(
-      await screen.findByText(/model answers come from a recorded run of Nemotron/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/recorded Nemotron answers/)).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Project links" });
     const links = within(nav).getAllByRole("link");
     expect(links.map((l) => l.textContent)).toEqual([
@@ -1009,7 +1034,7 @@ describe("App", () => {
     render(<App />);
     await ready();
     const rail = screen.getByRole("region", { name: "Merge plan" });
-    expect(within(rail).getByText(/Once every pull request is cloned/)).toBeTruthy();
+    expect(within(rail).getByText(/Ordered once every pull request is cloned/)).toBeTruthy();
 
     startedEvent();
     emit("run.plan", undefined, {

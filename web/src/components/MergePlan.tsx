@@ -43,10 +43,7 @@ export function MergePlan({ board }: Props) {
     <section className={styles.panel} aria-label="Merge plan">
       <h2 className={styles.title}>Merge plan</h2>
       {plan === null ? (
-        <p className={styles.empty}>
-          Once every pull request is cloned, Upkeep compares the files they change and suggests an
-          order to merge them in.
-        </p>
+        <p className={styles.empty}>Ordered once every pull request is cloned.</p>
       ) : (
         <>
           <ol className={styles.order} aria-label="Suggested merge order">

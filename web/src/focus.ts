@@ -1,29 +1,26 @@
 import type { BoardState, Card } from "./board";
 
-function lastAt(card: Card): number {
-  const last = card.trace[card.trace.length - 1];
-  return Math.max(last?.at ?? 0, card.startedAt ?? 0);
+function working(card: Card | undefined): card is Card {
+  return card !== undefined && (card.phase === "working" || card.phase === "verified");
 }
 
-export function liveCard(board: BoardState): Card | null {
+export function workingCards(board: BoardState): Card[] {
+  return queueOrder(board)
+    .map((n) => board.cards[n])
+    .filter(working);
+}
+
+export function nextFocus(board: BoardState, current: number | null): number | null {
+  if (current !== null && working(board.cards[current])) {
+    return current;
+  }
   let best: Card | null = null;
-  for (const n of board.order) {
-    const card = board.cards[n];
-    if (!card || (card.phase !== "working" && card.phase !== "verified")) {
-      continue;
-    }
-    if (!best || lastAt(card) > lastAt(best)) {
+  for (const card of workingCards(board)) {
+    if (!best || (card.startedAt ?? 0) < (best.startedAt ?? 0)) {
       best = card;
     }
   }
-  return best;
-}
-
-export function activeCount(board: BoardState): number {
-  return board.order.filter((n) => {
-    const phase = board.cards[n]?.phase;
-    return phase === "working" || phase === "verified";
-  }).length;
+  return best ? best.pr.number : current;
 }
 
 export function queueOrder(board: BoardState): number[] {

@@ -1,10 +1,19 @@
 .bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-bottom: 1px solid var(--rule);
+  background: var(--frame);
+}
+
+.inner {
   display: flex;
   align-items: center;
   gap: 16px;
   height: 56px;
+  max-width: 1600px;
+  margin: 0 auto;
   padding: 0 var(--gutter);
-  border-bottom: 1px solid var(--rule);
 }
 
 .brand {
@@ -27,17 +36,11 @@
 }
 
 .mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 19px;
+  font-size: 28px;
 }
 
 .name {
+  font-family: var(--display);
   font-size: 16px;
   font-weight: 650;
   letter-spacing: -0.01em;
@@ -64,7 +67,7 @@
   border-radius: 999px;
   background: var(--tint-neutral);
   color: var(--fg);
-  font: 500 12px var(--mono);
+  font: 500 11px var(--mono);
   line-height: 20px;
 }
 
@@ -87,7 +90,7 @@
 }
 
 @media (max-width: 480px) {
-  .bar {
+  .inner {
     gap: 10px;
   }
 

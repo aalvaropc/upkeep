@@ -5,6 +5,7 @@ import { Agents } from "./components/Agents";
 import { DetailPanel } from "./components/DetailPanel";
 import { FlowSteps } from "./components/FlowSteps";
 import { Icon } from "./components/Icon";
+import { Lanes } from "./components/Lanes";
 import { MergePlan } from "./components/MergePlan";
 import { Onboarding } from "./components/Onboarding";
 import { PolicyPanel } from "./components/PolicyPanel";
@@ -12,7 +13,7 @@ import { QueueList } from "./components/QueueList";
 import { Results } from "./components/Results";
 import { Stage } from "./components/Stage";
 import { TopBar } from "./components/TopBar";
-import { liveCard } from "./focus";
+import { useFocus } from "./useFocus";
 import { useNow } from "./useNow";
 import { useSession } from "./useSession";
 
@@ -44,8 +45,10 @@ export function App() {
   const [rules, setRules] = useState(false);
   const now = useNow(board.run === "running");
 
+  const auto = useFocus(board);
   const followed = pinned !== null ? board.cards[pinned] : undefined;
-  const focus = followed ?? (board.run === "running" ? liveCard(board) : null);
+  const autoCard = auto !== null ? board.cards[auto] : undefined;
+  const focus = followed ?? (board.run === "running" ? (autoCard ?? null) : null);
   const finished = board.run === "finished";
 
   let center;
@@ -61,15 +64,19 @@ export function App() {
         pinned={pinned !== null}
         onFollow={() => setPinned(null)}
         onOpen={setOpen}
+        lanes={
+          board.run === "running" ? (
+            <Lanes
+              board={board}
+              focus={focus.pr.number}
+              onFocus={(n) => setPinned(n === auto && pinned === null ? null : n)}
+            />
+          ) : null
+        }
       />
     );
   } else {
-    center = (
-      <p className={styles.waiting}>
-        Cloning the pull requests and planning the merge order. The first one appears here in a
-        moment.
-      </p>
-    );
+    center = <p className={styles.waiting}>Cloning and planning the merge order.</p>;
   }
 
   return (
@@ -77,7 +84,12 @@ export function App() {
       <a className={styles.skip} href="#main">
         Skip to the queue
       </a>
-      <TopBar connection={board.connection} version={board.version} info={session.info} />
+      <TopBar
+        connection={board.connection}
+        version={board.version}
+        info={session.info}
+        running={board.run === "running"}
+      />
       <main id="main" className={styles.main} tabIndex={-1}>
         <ActionBar
           board={board}
@@ -104,14 +116,13 @@ export function App() {
         ))}
         {session.info?.mode === "replay" ? (
           <p className={styles.caption}>
-            Replay: the model answers come from a recorded run of Nemotron on Nebius Token Factory.
-            Git, the sandbox, the compiler and the tests run for real.
+            Replay: recorded Nemotron answers. Git, the compiler and the tests run for real.
           </p>
         ) : null}
         {session.info?.mode === "live" ? (
           <p className={styles.caption}>
-            Live: every model call goes to Nemotron on Nebius Token Factory now. When the daily
-            budget is spent, runs replay a recording and say so.
+            Live: every call goes to Nemotron on Nebius Token Factory. Past the daily budget, runs
+            replay a recording.
           </p>
         ) : null}
         {board.run === "idle" ? null : <FlowSteps board={board} />}

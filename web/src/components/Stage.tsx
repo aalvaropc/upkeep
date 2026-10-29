@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { dollars, outcomeLabel, type Card } from "../board";
 import { blockerLabel, stepLabel } from "../labels";
 import { stages, stagesText } from "../progress";
@@ -12,6 +12,7 @@ interface Props {
   pinned: boolean;
   onFollow: () => void;
   onOpen: (number: number) => void;
+  lanes?: ReactNode;
 }
 
 const ROLES: Record<string, string> = {
@@ -57,7 +58,7 @@ function now(entry: TraceEntry | undefined): { tone: string; text: string } | nu
   }
 }
 
-export function Stage({ card, pinned, onFollow, onOpen }: Props) {
+export function Stage({ card, pinned, onFollow, onOpen, lanes }: Props) {
   const feed = useRef<HTMLDivElement | null>(null);
   const live = card.phase === "working" || card.phase === "verified";
   const list = stages(card);
@@ -73,6 +74,7 @@ export function Stage({ card, pinned, onFollow, onOpen }: Props) {
 
   return (
     <section className={styles.stage} aria-label="Live stage" data-live={live}>
+      {lanes}
       <header className={styles.head}>
         <p className={styles.mode}>
           {live ? <span className={styles.dot} aria-hidden="true" /> : null}

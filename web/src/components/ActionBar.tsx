@@ -94,9 +94,8 @@ export function ActionBar({ board, busy, error, now, onStart, onRules }: Props) 
         <h1 className={styles.title}>{title(board)}</h1>
         {idle ? (
           <p className={styles.lead}>
-            Watch an agent unstick them. Upkeep plans the merge order, fixes what its policy allows
-            with NVIDIA Nemotron on Nebius Token Factory, and proves every fix with the compiler and
-            the tests.
+            Upkeep plans the merge order, fixes what its policy allows with Nemotron, and proves
+            every fix with the compiler and the tests.
           </p>
         ) : (
           <p className={styles.line}>{statusLine(board, now)}</p>
