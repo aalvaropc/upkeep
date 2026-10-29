@@ -35,6 +35,7 @@ type Docker struct {
 	Pids     int
 	UID      int
 	GID      int
+	Runtime  string
 }
 
 func (d Docker) bin() string {
@@ -112,6 +113,9 @@ func (d Docker) args(spec Spec, name string) ([]string, error) {
 	)
 	for _, kv := range spec.Env {
 		args = append(args, "-e", kv)
+	}
+	if d.Runtime != "" {
+		args = append(args, "--runtime", d.Runtime)
 	}
 	args = append(args, d.image())
 	args = append(args, spec.Args...)

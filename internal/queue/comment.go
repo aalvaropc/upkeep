@@ -20,13 +20,43 @@ func patchComment(res engine.Result) string {
 	if s := strings.TrimSpace(res.Summary); s != "" {
 		b.WriteString(" " + s)
 	}
-	b.WriteString(" It does not push to a person's branch without the `upkeep` label, so here is the change as a patch:\n\n```diff\n")
-	b.WriteString(strings.TrimRight(res.Patch, "\n"))
-	b.WriteString("\n```\n")
+	b.WriteString(" It does not push to a person's branch without the `upkeep` label, so here is how to apply it.\n")
+	base := strings.TrimPrefix(res.PR.Base, "origin/")
+	if base == "" {
+		base = "main"
+	}
+	switch {
+	case len(res.Resolved) > 0:
+		files := map[string]bool{}
+		for _, r := range res.Resolved {
+			files[r.Path] = true
+		}
+		fmt.Fprintf(&b, "\nMerge `%s` into this branch. Git stops on %d conflicting %s in %d %s; Upkeep resolved %s like this, and every check passed on the result:\n", base, len(res.Resolved), plural(len(res.Resolved), "region", "regions"), len(files), plural(len(files), "file", "files"), plural(len(res.Resolved), "it", "them"))
+		for _, r := range res.Resolved {
+			fmt.Fprintf(&b, "\n`%s`\n\n```go\n%s\n```\n", r.Path, strings.TrimRight(r.Text, "\n"))
+		}
+	case res.MergedBase:
+		fmt.Fprintf(&b, "\nMerge `%s` into this branch: it merges cleanly, and every check passed on the result.\n", base)
+	}
+	if patch := strings.TrimRight(res.Patch, "\n"); patch != "" {
+		if res.MergedBase {
+			b.WriteString("\nThen apply this change:\n\n")
+		} else {
+			b.WriteString("\nApply this change:\n\n")
+		}
+		b.WriteString("```diff\n" + patch + "\n```\n")
+	}
 	if len(res.Flaky) > 0 {
 		fmt.Fprintf(&b, "\nTests that failed once and passed on a rerun, left alone: %s.\n", strings.Join(res.Flaky, ", "))
 	}
 	return b.String()
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 func diagnosisComment(res engine.Result) string {

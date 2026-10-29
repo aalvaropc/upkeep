@@ -45,6 +45,7 @@ func TestOverrides(t *testing.T) {
 		"UPKEEP_ADDR=0.0.0.0:9000",
 		"UPKEEP_DATA_DIR=/var/lib/upkeep",
 		"UPKEEP_SANDBOX=exec",
+		"UPKEEP_SANDBOX_RUNTIME=runsc",
 		"UPKEEP_DAILY_TOKENS=5000",
 		"UPKEEP_SEARCH_DAILY_LIMIT=0",
 		"UPKEEP_PRICE_ULTRA_INPUT=0.6",
@@ -71,6 +72,9 @@ func TestOverrides(t *testing.T) {
 	if c.Mode != Live || !c.Public || c.Addr != "0.0.0.0:9000" || c.DataDir != "/var/lib/upkeep" || c.Sandbox != Exec {
 		t.Errorf("config = %+v", c)
 	}
+	if c.SandboxRuntime != Runsc {
+		t.Errorf("sandbox runtime = %q", c.SandboxRuntime)
+	}
 	if c.DailyTokens != 5000 || c.SearchDailyLimit != 0 {
 		t.Errorf("limits = %d tokens, %d searches", c.DailyTokens, c.SearchDailyLimit)
 	}
@@ -94,6 +98,8 @@ func TestInvalid(t *testing.T) {
 		{"UPKEEP_MODE=live", "needs NEBIUS_API_KEY"},
 		{"UPKEEP_MODE=record", "needs NEBIUS_API_KEY"},
 		{"UPKEEP_SANDBOX=vm", "UPKEEP_SANDBOX"},
+		{"UPKEEP_SANDBOX_RUNTIME=kata", "UPKEEP_SANDBOX_RUNTIME"},
+		{"UPKEEP_SANDBOX_RUNTIME=RUNSC", "UPKEEP_SANDBOX_RUNTIME"},
 		{"UPKEEP_ADDR=8080", "UPKEEP_ADDR"},
 		{"UPKEEP_PUBLIC=maybe", "UPKEEP_PUBLIC"},
 		{"UPKEEP_DAILY_TOKENS=0", "UPKEEP_DAILY_TOKENS"},
@@ -113,6 +119,15 @@ func TestInvalid(t *testing.T) {
 				t.Fatalf("Load(%q) error = %v, want it to mention %q", tt.env, err, tt.want)
 			}
 		})
+	}
+}
+
+func TestTheSandboxRuntimeAcceptsTheDockerDefaultRuncAndRunsc(t *testing.T) {
+	for _, v := range []string{"", Runc, Runsc} {
+		c, err := Load([]string{"UPKEEP_SANDBOX_RUNTIME=" + v})
+		if err != nil || c.SandboxRuntime != v {
+			t.Errorf("UPKEEP_SANDBOX_RUNTIME=%q: runtime %q, error %v", v, c.SandboxRuntime, err)
+		}
 	}
 }
 

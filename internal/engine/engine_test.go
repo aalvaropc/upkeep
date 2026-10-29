@@ -280,6 +280,9 @@ func TestBehindBranchGetsAMergeCommit(t *testing.T) {
 	if res.Patch != "" || len(res.Changes) != 0 {
 		t.Fatalf("a plain merge has no fix of its own: %q %v", res.Patch, res.Changes)
 	}
+	if !res.MergedBase || len(res.Resolved) != 0 {
+		t.Fatalf("a plain merge is delivered as a merge of the base: merged %v resolved %v", res.MergedBase, res.Resolved)
+	}
 }
 
 func TestPushOrPatchFollowsThePolicy(t *testing.T) {
@@ -347,6 +350,9 @@ func TestSmallConflictIsResolvedByUltra(t *testing.T) {
 	got := read(t, w.dir, "limits.go")
 	if !strings.Contains(got, "MaxNotesPerOwner = 1000") || !strings.Contains(got, "MaxAttachments") || !strings.Contains(got, "= 5") || gitx.HasMarkers(got) {
 		t.Fatalf("limits.go:\n%s", got)
+	}
+	if !res.MergedBase || len(res.Resolved) != 1 || res.Resolved[0].Path != "limits.go" || !strings.Contains(res.Resolved[0].Text, "MaxNotesPerOwner = 1000") {
+		t.Fatalf("the resolution is kept for the person: merged %v resolved %+v", res.MergedBase, res.Resolved)
 	}
 	if w.parents("HEAD") != 2 || !w.clean() {
 		t.Fatal("the resolution should be committed as a merge")
@@ -974,5 +980,20 @@ func TestAFailedForecastStillReportsItsSearch(t *testing.T) {
 	res := w.process(dependencyPR())
 	if res.Forecast != nil || len(w.payloads(events.SearchCall)) != 1 {
 		t.Fatalf("forecast %+v events %v", res.Forecast, w.events)
+	}
+}
+
+func TestARepositoryWithoutGoModIsHandedBackWithoutAModel(t *testing.T) {
+	w := newWorld(t, nil, nil)
+	if err := os.Remove(filepath.Join(w.dir, "go.mod")); err != nil {
+		t.Fatal(err)
+	}
+	w.commit("chore: drop the module file")
+	res := w.process(person())
+	if res.Outcome != pull.NeedsHuman || res.Blocker != pull.Unsupported || !strings.Contains(res.Reason, "go.mod") {
+		t.Fatalf("result = %+v", res)
+	}
+	if w.super.count() != 0 || w.ultra.count() != 0 || res.Diagnosis != "" {
+		t.Fatalf("no model may be asked: super %d ultra %d diagnosis %q", w.super.count(), w.ultra.count(), res.Diagnosis)
 	}
 }

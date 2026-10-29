@@ -60,6 +60,8 @@ type Result struct {
 	HeadBefore string
 	HeadAfter  string
 	FixBase    string
+	MergedBase bool
+	Resolved   []strategy.ResolvedBlock
 	Changed    bool
 	Patch      string
 	Changes    []gitx.FileChange
@@ -144,6 +146,15 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 			return p.escalate(ctx, &res, job, diag, "the same blocker came back after it was fixed")
 		}
 		switch diag.Blocker {
+		case pull.Unsupported:
+			res.Outcome = pull.NeedsHuman
+			res.Reason = "there is no go.mod at the repository root, and Upkeep works Go modules only"
+			if head, err := env.Git.Head(ctx, in.Dir); err == nil {
+				res.HeadAfter = head
+			}
+			p.emit(&res, events.Receipt, receiptData(res.Receipt))
+			return res
+
 		case pull.Clean, pull.Flaky:
 			return p.finish(ctx, &res, job, diag)
 
@@ -180,6 +191,8 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 			if err := env.CommitMerge(ctx, job); err != nil {
 				return p.failed(&res, err)
 			}
+			res.MergedBase = true
+			res.Resolved = resolved.Blocks
 			if res.FixBase, err = env.Git.Head(ctx, in.Dir); err != nil {
 				return p.failed(&res, err)
 			}
@@ -384,6 +397,7 @@ func (p Processor) commitPending(ctx context.Context, res *Result, job *strategy
 		return err
 	}
 	res.FixBase = head
+	res.MergedBase = true
 	p.step(res, "merge", "done", "merged "+strings.TrimPrefix(job.Base, "origin/"))
 	return nil
 }

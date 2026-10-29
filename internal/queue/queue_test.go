@@ -18,6 +18,7 @@ import (
 	"github.com/aalvaropc/upkeep/internal/pull"
 	"github.com/aalvaropc/upkeep/internal/queue"
 	"github.com/aalvaropc/upkeep/internal/receipt"
+	"github.com/aalvaropc/upkeep/internal/strategy"
 )
 
 type scripted struct {
@@ -423,5 +424,83 @@ func TestADryRunReportsWhatItWouldDoWithoutClaimingIt(t *testing.T) {
 		if !strings.Contains(notes, n) {
 			t.Errorf("notes lack %q:\n%s", n, notes)
 		}
+	}
+}
+
+type skippingForge struct {
+	*forge.Local
+}
+
+func (skippingForge) Skipped() []pull.Skipped {
+	return []pull.Skipped{{Number: 12, Title: "Try a new idea", Reason: "it is a draft"}}
+}
+
+func TestSkippedPullRequestsAreAnnounced(t *testing.T) {
+	p := &scripted{t: t, results: map[int]engine.Result{}}
+	r, f, l := newRunner(t, p)
+	r.Forge = skippingForge{Local: f}
+	s, err := r.Run(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Skipped) != 1 || s.Skipped[0].Number != 12 {
+		t.Fatalf("skipped = %+v", s.Skipped)
+	}
+	found := false
+	for _, e := range l.kinds(events.Notice) {
+		if strings.Contains(string(e.Data), "#12") && strings.Contains(string(e.Data), "it is a draft") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("no notice names the skipped pull request")
+	}
+}
+
+func TestAPatchCommentDeliversTheMergeAndTheResolution(t *testing.T) {
+	for name, tc := range map[string]struct {
+		res  engine.Result
+		want []string
+		not  []string
+	}{
+		"behind": {
+			res:  engine.Result{Outcome: pull.Mergeable, Changed: true, WantsPatch: true, MergedBase: true},
+			want: []string{"Merge `main` into this branch: it merges cleanly"},
+			not:  []string{"```diff", "Then apply"},
+		},
+		"conflict": {
+			res: engine.Result{Outcome: pull.Mergeable, Changed: true, WantsPatch: true, MergedBase: true, Resolved: []strategy.ResolvedBlock{
+				{Path: "notes/limits.go", Text: "\tMaxTitle = 140\n"},
+				{Path: "notes/limits.go", Text: "\tMaxBody = 10000\n"},
+			}},
+			want: []string{"Git stops on 2 conflicting regions in 1 file", "resolved them like this", "`notes/limits.go`", "```go\n\tMaxTitle = 140\n```", "```go\n\tMaxBody = 10000\n```"},
+			not:  []string{"```diff"},
+		},
+		"merge then fix": {
+			res:  engine.Result{Outcome: pull.Mergeable, Changed: true, WantsPatch: true, MergedBase: true, Patch: "diff --git a/x b/x\n+line\n"},
+			want: []string{"Merge `main` into this branch", "Then apply this change:", "```diff\ndiff --git a/x b/x\n+line\n```"},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			p := &scripted{t: t, results: map[int]engine.Result{1: tc.res}}
+			r, f, _ := newRunner(t, p)
+			if _, err := r.Run(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			c := comments(f, 1, "patch")
+			if len(c) != 1 {
+				t.Fatalf("patch comments = %+v", c)
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(c[0].Body, w) {
+					t.Errorf("the comment lacks %q:\n%s", w, c[0].Body)
+				}
+			}
+			for _, n := range tc.not {
+				if strings.Contains(c[0].Body, n) {
+					t.Errorf("the comment should not contain %q:\n%s", n, c[0].Body)
+				}
+			}
+		})
 	}
 }

@@ -279,6 +279,31 @@ function Body({ d }: { d: Detail }) {
         </Section>
       ) : null}
 
+      {d.resolution && d.resolution.length > 0 ? (
+        <Section title="How the conflict was resolved">
+          <p className={styles.muted}>
+            Ultra resolved{" "}
+            {quantity(d.resolution.length, "conflicting region", "conflicting regions")} after
+            merging {d.base || "the base branch"}; every check passed on the result.
+          </p>
+          {d.resolution.map((r, i) => (
+            <div key={`${r.path}-${i}`} className={styles.resolved}>
+              <code className={styles.resolvedPath}>{r.path}</code>
+              <pre className={styles.pre} tabIndex={0}>
+                {r.text}
+              </pre>
+            </div>
+          ))}
+        </Section>
+      ) : d.merged_base && !d.patch ? (
+        <Section title="The change">
+          <p className={styles.lead}>
+            Merged {d.base || "the base branch"} into the branch: it merged cleanly and every check
+            passed.
+          </p>
+        </Section>
+      ) : null}
+
       {d.patch ? (
         <Section title="The change">
           {d.changes && d.changes.length > 0 ? (

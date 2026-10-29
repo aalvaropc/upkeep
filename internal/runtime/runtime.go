@@ -68,6 +68,9 @@ type metered struct {
 }
 
 func (m metered) Complete(ctx context.Context, req model.Request) (model.Response, error) {
+	if m.budget.Exhausted() {
+		return model.Response{}, fmt.Errorf("the daily token budget of %d tokens ran out during the run", m.budget.Limit)
+	}
 	resp, err := m.inner.Complete(ctx, req)
 	if err == nil {
 		m.budget.Add(resp.Usage.Total())
@@ -98,7 +101,7 @@ func New(ctx context.Context, o Options) (*Runtime, error) {
 	r := &Runtime{opts: o}
 	switch o.Config.Sandbox {
 	case config.Docker:
-		d := sandbox.Docker{CacheDir: filepath.Join(o.CacheDir, "go")}
+		d := sandbox.Docker{CacheDir: filepath.Join(o.CacheDir, "go"), Runtime: o.Config.SandboxRuntime}
 		if err := d.EnsureImage(ctx); err != nil {
 			return nil, fmt.Errorf("preparing the sandbox image: %w", err)
 		}
@@ -168,11 +171,11 @@ func (r *Runtime) networked(ctx context.Context, mode config.Mode, cache fixture
 	if record != nil {
 		base = &model.Recorder{Inner: tf, Fixtures: record}
 	}
+	base = metered{inner: base, budget: r.Budget}
 	if mode == config.Live {
-		base = metered{inner: base, budget: r.Budget}
 		off := false
 		r.probe = func(ctx context.Context) error {
-			_, err := tf.Complete(ctx, model.Request{Model: cfg.Models.Nano, Messages: []model.Message{{Role: "user", Content: "Reply with OK."}}, MaxTokens: 1, Reasoning: &off})
+			_, err := base.Complete(ctx, model.Request{Model: cfg.Models.Nano, Messages: []model.Message{{Role: "user", Content: "Reply with OK."}}, MaxTokens: 1, Reasoning: &off})
 			return err
 		}
 	}

@@ -22,8 +22,27 @@ type GitHub struct {
 	CloneURL string
 	Bots     []string
 
-	base  string
-	heads map[int]string
+	base    string
+	heads   map[int]string
+	skipped []pull.Skipped
+}
+
+func (g *GitHub) Skipped() []pull.Skipped {
+	return g.skipped
+}
+
+func skipReason(draft bool, target, base string, headExists, sameRepo bool) string {
+	switch {
+	case draft:
+		return "it is a draft"
+	case target != base:
+		return fmt.Sprintf("it targets %s, not %s", target, base)
+	case !headExists:
+		return "the repository it came from was deleted"
+	case !sameRepo:
+		return "it comes from a fork"
+	}
+	return ""
 }
 
 func NewGitHub(c *github.Client, g gitx.Git, owner, repo string, bots []string) *GitHub {
@@ -62,8 +81,10 @@ func (g *GitHub) Pulls(ctx context.Context) ([]pull.Request, error) {
 		return nil, err
 	}
 	var out []pull.Request
+	g.skipped = nil
 	for _, p := range list {
-		if p.Draft || p.Base.Ref != base || p.Head.Repo == nil || !strings.EqualFold(p.Head.Repo.FullName, g.fullName()) {
+		if reason := skipReason(p.Draft, p.Base.Ref, base, p.Head.Repo != nil, p.Head.Repo != nil && strings.EqualFold(p.Head.Repo.FullName, g.fullName())); reason != "" {
+			g.skipped = append(g.skipped, pull.Skipped{Number: p.Number, Title: p.Title, Reason: reason})
 			continue
 		}
 		req := pull.Request{
