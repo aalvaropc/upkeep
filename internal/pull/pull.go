@@ -51,7 +51,14 @@ const (
 	Flaky         Blocker = "flaky"
 	Format        Blocker = "format"
 	Clean         Blocker = "clean"
+	Unsupported   Blocker = "unsupported"
 )
+
+type Skipped struct {
+	Number int    `json:"number"`
+	Title  string `json:"title"`
+	Reason string `json:"reason"`
+}
 
 type Outcome string
 

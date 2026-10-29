@@ -36,6 +36,8 @@ func approach(blocker pull.Blocker, pol policy.Policy, base string) string {
 		return "build fails: " + repair
 	case pull.Test:
 		return "tests fail: " + repair
+	case pull.Unsupported:
+		return "not a Go module: no model is asked, and a person decides"
 	default:
 		return string(blocker)
 	}

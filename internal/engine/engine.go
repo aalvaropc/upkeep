@@ -146,6 +146,15 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 			return p.escalate(ctx, &res, job, diag, "the same blocker came back after it was fixed")
 		}
 		switch diag.Blocker {
+		case pull.Unsupported:
+			res.Outcome = pull.NeedsHuman
+			res.Reason = "there is no go.mod at the repository root, and Upkeep works Go modules only"
+			if head, err := env.Git.Head(ctx, in.Dir); err == nil {
+				res.HeadAfter = head
+			}
+			p.emit(&res, events.Receipt, receiptData(res.Receipt))
+			return res
+
 		case pull.Clean, pull.Flaky:
 			return p.finish(ctx, &res, job, diag)
 

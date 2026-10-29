@@ -982,3 +982,18 @@ func TestAFailedForecastStillReportsItsSearch(t *testing.T) {
 		t.Fatalf("forecast %+v events %v", res.Forecast, w.events)
 	}
 }
+
+func TestARepositoryWithoutGoModIsHandedBackWithoutAModel(t *testing.T) {
+	w := newWorld(t, nil, nil)
+	if err := os.Remove(filepath.Join(w.dir, "go.mod")); err != nil {
+		t.Fatal(err)
+	}
+	w.commit("chore: drop the module file")
+	res := w.process(person())
+	if res.Outcome != pull.NeedsHuman || res.Blocker != pull.Unsupported || !strings.Contains(res.Reason, "go.mod") {
+		t.Fatalf("result = %+v", res)
+	}
+	if w.super.count() != 0 || w.ultra.count() != 0 || res.Diagnosis != "" {
+		t.Fatalf("no model may be asked: super %d ultra %d diagnosis %q", w.super.count(), w.ultra.count(), res.Diagnosis)
+	}
+}

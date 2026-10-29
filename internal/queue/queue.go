@@ -42,10 +42,11 @@ type Item struct {
 }
 
 type Summary struct {
-	Items  []Item
-	Counts map[pull.Outcome]int
-	Totals receipt.Totals
-	Plan   *plan.Plan
+	Items   []Item
+	Skipped []pull.Skipped
+	Counts  map[pull.Outcome]int
+	Totals  receipt.Totals
+	Plan    *plan.Plan
 }
 
 type Runner struct {
@@ -69,6 +70,13 @@ func (r Runner) Run(ctx context.Context) (Summary, error) {
 	pulls, err := r.Forge.Pulls(ctx)
 	if err != nil {
 		return Summary{}, err
+	}
+	var skipped []pull.Skipped
+	if s, ok := r.Forge.(interface{ Skipped() []pull.Skipped }); ok {
+		skipped = s.Skipped()
+	}
+	for _, s := range skipped {
+		r.emit(events.Notice, 0, map[string]string{"message": fmt.Sprintf("#%d %q was not worked: %s.", s.Number, s.Title, s.Reason)})
 	}
 	r.emit(events.RunStarted, 0, map[string]any{"prs": pulls})
 
@@ -125,6 +133,7 @@ feed:
 
 	summary := summarize(items)
 	summary.Plan = advice
+	summary.Skipped = skipped
 	r.emit(events.RunFinished, 0, map[string]any{
 		"counts": summary.Counts, "calls": summary.Totals.Calls, "micros": summary.Totals.Charge.Micros,
 		"baseline_micros": summary.Totals.Charge.BaselineMicros, "prompt": summary.Totals.Usage.PromptTokens,

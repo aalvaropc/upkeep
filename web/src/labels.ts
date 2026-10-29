@@ -9,6 +9,7 @@ const BLOCKERS: Record<string, string> = {
   flaky: "flaky test",
   format: "formatting",
   clean: "nothing blocks it",
+  unsupported: "not a Go module",
 };
 
 export const ACTIONS: Record<string, { icon: IconName; label: string }> = {
