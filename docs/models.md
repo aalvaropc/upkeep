@@ -22,11 +22,13 @@ Upkeep uses the three Nemotron 3 models on Nebius Token Factory. The routing is 
 | a small merge conflict | Super | 2 of 3 (one run dropped a constant) |
 | | Ultra, one call, no tools | 3 of 3 |
 
+These measurements ran `go doc` on the host, where it worked; in the product's sandbox `go_doc` currently finds nothing (see [limitations](limitations.md)), so the live evaluations, not these cells, describe the product as shipped.
+
 Why Ultra loses inside the loop: it explores instead of editing (ten to twelve of twelve turns reading documentation, no edit), or rewrites more code than needed, or invents packages. Its written plans contained APIs that do not exist and Super followed them.
 
 What follows from it:
 
-- **Super fixes builds and tests**, with reasoning off, in up to three fresh attempts. Each attempt starts from a clean tree and from the previous failure's output; three attempts turn a 65 percent attempt into roughly 96 percent. The receipt says which attempt worked.
+- **Super fixes builds and tests**, with reasoning off, in up to three fresh attempts. Each attempt starts from a clean tree and from the previous failure's output; three attempts turn a 65 percent attempt into roughly 96 percent, when the 300,000-token repair budget leaves room for the third. The receipt says which attempt worked.
 - **Ultra stays out of the loop.** It resolves small conflicts in one call and writes the diagnosis when a pull request is handed to a person, where it measured best.
 - **Upkeep runs `gofmt` itself** after every edit. Left to the model, formatting caused several failures.
 - **Rules are checked by code.** Models added comments in 2 of 73 runs and never tried to edit tests, but the verifier checks both on the final diff regardless.

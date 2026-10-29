@@ -11,7 +11,7 @@ What Upkeep does not do, and where it can be wrong. Each item shows somewhere: i
   - Forks are worked only with the docker sandbox, because their code is untrusted. Upkeep never pushes to them: the fix goes in a patch comment.
 - **Bumps are recognized from their branch and title.** These are a Dependabot `go_modules` branch or a Renovate branch, one module per pull request. Patch bumps are not forecast.
   - A grouped update of several modules is worked as a bot's change: no forecast, and never merged.
-- **One module, at the root.** The checks run on the module at the repository root, so a pull request that changes Go or module files inside a module in a subdirectory is handed back without a model; a Dependabot bump that names one in its title is skipped before it is cloned. A repository with a `go.work` is treated the same way, even though its workspace would let the checks reach those modules. Paths under `testdata`, `vendor`, or a directory whose name starts with `.` or `_` are not treated as modules, as the Go tool ignores them.
+- **One module, at the root.** The checks run on the module at the repository root, so a pull request that changes Go or module files inside a module in a subdirectory, including one that removes or flattens such a module, is handed back without a model; a Dependabot bump that names one in its title is skipped before it is cloned. A repository with a `go.work` is treated the same way, even though its workspace would let the checks reach those modules. Paths under `testdata`, `vendor`, or a directory whose name starts with `.` or `_` are not treated as modules, as the Go tool ignores them.
 - **A forecast needs something to read.** It uses the release notes, a Tavily search, or, failing both, a comparison of the module's exported API that the sandbox must be able to download. A private module that the proxy cannot serve gets no forecast, and the fix starts from the build output.
 
 ## What can be wrong
@@ -33,7 +33,7 @@ What Upkeep does not do, and where it can be wrong. Each item shows somewhere: i
 
 - **The live evidence is eight runs** (72 of 72 pull requests as expected; [`evals/live.md`](evals/live.md)). Live runs vary:
   - the jwt major needed a second attempt in one run;
-  - outside those runs, in one hosted demo run on 29 October, Super did not fix the jwt major within its 300,000-token repair budget: after three attempts it went to a person with Ultra's diagnosis, and that run cost five cents;
+  - outside those runs, in one hosted demo run on 29 October, Super did not fix the jwt major: its first two attempts used all 16 turns and its third ran out of the 300,000-token repair budget, so it went to a person with Ultra's diagnosis, and that run cost five cents;
   - #4 averaged two attempts in the last three;
   - the cost per run ranged from two to four cents.
   - Run `upkeep eval -runs N` with `UPKEEP_MODE=live` to measure again.
@@ -44,6 +44,7 @@ What Upkeep does not do, and where it can be wrong. Each item shows somewhere: i
 - **The sandbox trusts its container runtime.**
   - Builds run with no network, no capabilities, a read-only root and a non-root user, but a container escape is not stopped by Upkeep. `UPKEEP_SANDBOX_RUNTIME=runsc` adds gVisor.
   - Within a run, the module and build caches are shared and writable, so one pull request's tests could change what a later one builds from.
+- **`go_doc` finds nothing in the sandbox.** With no network, `go doc` loads the whole module graph, fails on a module that `go mod download` did not fetch, and answers "no documentation found", for the project's packages and its dependencies alike. Super then works from the code, the build output and the forecast, as it did in the recorded run and in the live runs checked on 29 October. Fixing it changes what the tool returns, so it needs a new recording of the replay.
 - **The attempt, time and token limits apply to Super's repair.** The conflict resolution, the diagnosis, the forecast and the note are single calls outside those limits.
 - **The token budget is per data directory and per day (UTC).**
   - Each live run starts with a one-token check call, and once the budget is spent the next model call is refused.
