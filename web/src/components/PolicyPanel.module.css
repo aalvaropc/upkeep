@@ -1,30 +1,74 @@
-.list {
+.groups {
   display: grid;
-  gap: 10px;
+  gap: 26px;
+}
+
+.group {
+  display: grid;
+  gap: 4px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.icon {
+  flex: none;
+  font-size: 18px;
+  color: var(--accent);
+}
+
+.group[data-kind="never"] .icon {
+  color: var(--danger);
+}
+
+.group[data-kind="limits"] .icon {
+  color: var(--warn);
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.hint {
+  margin-left: auto;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.list {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .rule {
-  display: flex;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--card);
+  padding: 11px 0;
+  border-top: 1px solid var(--rule);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
-.icon {
-  flex: none;
-  margin-top: 2px;
-  font-size: 18px;
-  color: var(--accent);
+.figure {
+  color: var(--live);
+  font-weight: 600;
 }
 
 .note {
-  margin: 16px 0 0;
+  margin: 28px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
   color: var(--fg-muted);
   font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .hint {
+    display: none;
+  }
 }
