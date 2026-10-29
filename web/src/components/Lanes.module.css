@@ -1,7 +1,7 @@
 .lanes {
   display: flex;
   flex: none;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px 14px;
   padding-bottom: 16px;
@@ -9,6 +9,7 @@
 }
 
 .title {
+  flex: none;
   color: var(--fg-muted);
   font-size: 12px;
   font-weight: 600;
@@ -16,7 +17,8 @@
 
 .list {
   display: flex;
-  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
   gap: 6px;
   margin: 0;
   padding: 0;
@@ -24,6 +26,8 @@
 }
 
 .item {
+  flex: 0 1 200px;
+  min-width: 0;
   animation: up-rise var(--base) var(--out) both;
 }
 
@@ -35,7 +39,8 @@
     "dots dots";
   align-items: baseline;
   gap: 4px 8px;
-  min-width: 150px;
+  width: 100%;
+  min-width: 0;
   padding: 7px 10px;
   border: 1px solid var(--border);
   border-radius: 10px;

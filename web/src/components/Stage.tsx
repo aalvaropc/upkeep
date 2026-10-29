@@ -111,9 +111,14 @@ export function Stage({ card, pinned, onFollow, onOpen, lanes }: Props) {
         ))}
       </ol>
 
-      {latest && live ? (
-        <p key={latest.text} className={styles.now} data-tone={latest.tone} aria-live="off">
-          <span className={styles.nowText}>{latest.text}</span>
+      {live ? (
+        <p
+          key={latest?.text ?? "starting"}
+          className={styles.now}
+          data-tone={latest?.tone ?? "step"}
+          aria-live="off"
+        >
+          <span className={styles.nowText}>{latest?.text ?? "Starting"}</span>
         </p>
       ) : null}
 
