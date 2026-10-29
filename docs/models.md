@@ -22,6 +22,8 @@ Upkeep uses the three Nemotron 3 models on Nebius Token Factory. The routing is 
 | a small merge conflict | Super | 2 of 3 (one run dropped a constant) |
 | | Ultra, one call, no tools | 3 of 3 |
 
+These measurements ran `go doc` on the host, where it worked; in the product's sandbox `go_doc` currently finds nothing (see [limitations](limitations.md)), so the live evaluations, not these cells, describe the product as shipped.
+
 Why Ultra loses inside the loop: it explores instead of editing (ten to twelve of twelve turns reading documentation, no edit), or rewrites more code than needed, or invents packages. Its written plans contained APIs that do not exist and Super followed them.
 
 What follows from it:
