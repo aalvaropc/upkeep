@@ -1,5 +1,7 @@
 # Live evaluation: notes-api
 
+Eight live runs in all, against the real models with nothing replayed: **72 of 72 pull requests ended as the scenario expects**, at two to four cents a run.
+
 ## 2026-10-29, after the merge plan, Tavily on every run and learned fixes
 
 Three more live runs on the hosted demo's machine with the code of that day: the merge plan before every run, a fresh Tavily search for each dependency forecast, merge confidence and learned fixes (each run starts with an empty memory, so no fix is reused). Every pull request again ended as the scenario expects.

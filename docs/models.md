@@ -4,7 +4,7 @@ Upkeep uses the three Nemotron 3 models on Nebius Token Factory. The routing is 
 
 ## Platform facts that shaped the code
 
-- Prices per million tokens, read live from `GET /v1/models?verbose=true`: Ultra 1.00 in and 3.00 out, Super 0.30 and 0.90, Nano 0.06 and 0.24. Ultra costs 3.3 times Super and about 16 times Nano.
+- Prices per million tokens, read live from `GET /v1/models?verbose=true`: Ultra 1.00 in and 3.00 out, Super 0.30 and 0.90, Nano 0.06 and 0.24. Ultra costs 3.3 times Super; against Nano it is about 17 times on input and 12.5 times on output.
 - Reasoning is switched off with `chat_template_kwargs: {"enable_thinking": false}`. `/no_think` in the prompt does nothing, and `reasoning_effort: "none"` returned an empty answer on Nano.
 - A small call takes one to two seconds on all three models. Rate limits are 300 requests and 200,000 tokens a minute on Ultra and Super, and 800,000 tokens on Nano.
 
@@ -47,7 +47,7 @@ The forecast is checked afterwards: the compiler's output either mentions a pred
 
 ## The note for the reviewer
 
-Nano writes one sentence about what a model-made change does. A first version described comment edits in a formatting-only diff, so the sentence is checked against the change: names in backticks, qualified or camel-case identifiers and capitalized words in mid-sentence must all appear in the diff, the failure or the title. Otherwise the sentence is dropped and the note falls back to the list of edited files. Merges and formatting get a fixed sentence and no model call. On the recorded run Nano's note was accepted for some pull requests and dropped for others; both outcomes are visible in the activity feed.
+Nano writes one sentence about what a model-made change does. A first version described comment edits in a formatting-only diff, so the sentence is checked against the change: names in backticks, qualified or camel-case identifiers and capitalized words in mid-sentence must all appear in the diff, the failure or the title. Otherwise the sentence is dropped and the note falls back to the list of edited files. Merges and formatting get a fixed sentence and no model call. On the recorded run Nano's note was accepted for some pull requests and dropped for others; the trace of each pull request shows which.
 
 ## What the receipt compares
 
