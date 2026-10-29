@@ -219,7 +219,11 @@ func (p Processor) Process(ctx context.Context, in Input) Result {
 			}
 
 		case pull.ConflictLarge:
-			out := p.escalate(ctx, &res, job, diag, fmt.Sprintf("%d conflicting hunks are too large to resolve automatically", diag.Merge.Hunks()))
+			reason := fmt.Sprintf("%d conflicting hunks are too large to resolve automatically", diag.Merge.Hunks())
+			if files := diag.Merge.Unresolvable; len(files) > 0 {
+				reason = "the conflict in " + strings.Join(files, ", ") + " has no text to resolve: one side deleted the file, or it is binary"
+			}
+			out := p.escalate(ctx, &res, job, diag, reason)
 			_ = env.Git.MergeAbort(ctx, in.Dir)
 			return out
 
@@ -436,7 +440,9 @@ func (p Processor) escalate(ctx context.Context, res *Result, job *strategy.Job,
 	var err error
 	switch diag.Blocker {
 	case pull.ConflictLarge, pull.ConflictSmall:
-		text, err = p.Env.DiagnoseConflict(ctx, job, diag.Merge.Conflicts)
+		if len(diag.Merge.Conflicts) > 0 {
+			text, err = p.Env.DiagnoseConflict(ctx, job, diag.Merge.Conflicts)
+		}
 	default:
 		failure, _ := diag.Failure()
 		text, err = p.Env.DiagnoseFailure(ctx, job, strategy.FailureText(failure), res.Attempts)

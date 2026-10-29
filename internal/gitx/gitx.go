@@ -64,8 +64,9 @@ type Hunk struct {
 }
 
 type MergeResult struct {
-	Clean     bool   `json:"clean"`
-	Conflicts []Hunk `json:"conflicts,omitempty"`
+	Clean        bool     `json:"clean"`
+	Conflicts    []Hunk   `json:"conflicts,omitempty"`
+	Unresolvable []string `json:"unresolvable,omitempty"`
 }
 
 func (r MergeResult) Hunks() int { return len(r.Conflicts) }
@@ -229,6 +230,9 @@ func (g Git) Merge(ctx context.Context, dir, ref string) (MergeResult, error) {
 		hunks, parseErr := ParseConflicts(file, string(data))
 		if parseErr != nil {
 			return MergeResult{}, parseErr
+		}
+		if len(hunks) == 0 {
+			result.Unresolvable = append(result.Unresolvable, file)
 		}
 		result.Conflicts = append(result.Conflicts, hunks...)
 	}

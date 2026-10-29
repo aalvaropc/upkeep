@@ -19,7 +19,7 @@ What Upkeep does not do, and where it can be wrong. Each item shows somewhere: i
 - **A fix that compiles can still be wrong.** The checks are the compiler, vet and the repository's own tests. A major bump is never merged on its own, and the merge confidence says what backs each fix.
   - It names the tests the pull request adds, which passed in the full run.
   - It does not measure whether the lines Upkeep wrote are covered by any test.
-- **Conflict resolutions are judged by tests, not by intent.** Where no test covers the disagreement, the resolution is a guess. The patch comment and the detail view show each resolved region so a person can read it. Conflicts in tests or in files other than Go source, `go.mod` and `go.sum` are never resolved.
+- **Conflict resolutions are judged by tests, not by intent.** Where no test covers the disagreement, the resolution is a guess. The patch comment and the detail view show each resolved region so a person can read it. Conflicts in tests or in files other than Go source, `go.mod` and `go.sum` are never resolved, and neither is a file deleted on one side or a binary file.
 - **Flaky and order-dependent are heuristics.**
   - A test that fails in the full run and passes alone is run twice more in the full suite: it is "order-dependent" when it fails both times, "flaky" otherwise.
   - A test that fails rarely can look order-dependent, and a real bug that only shows in the full run looks the same.

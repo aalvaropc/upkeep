@@ -22,6 +22,7 @@ These cannot be configured. A policy file that tries to turn one off is rejected
 | the pull request is a major bump | repair it, never merge it |
 | the conflict is larger than three hunks or any hunk longer than twenty lines | do not touch it; post Ultra's diagnosis |
 | the conflict is in a test file, or in a file other than Go source, `go.mod` and `go.sum` | do not touch it; post Ultra's diagnosis |
+| a conflicting file has no text to resolve (one side deleted it, or it is binary) | do not touch it; hand it back naming the file, with Ultra's diagnosis of any other conflict in the same merge |
 | Super's repair uses up three attempts, 180 seconds or 300,000 tokens | stop, restore the branch and post a diagnosis |
 | a test fails in the full run and passes alone | report it as flaky, or as order-dependent when two more full runs fail too, and leave it alone |
 | the repository has no `go.mod` at its root | hand it back without asking a model |
