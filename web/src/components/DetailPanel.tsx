@@ -38,7 +38,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function ForecastView({
+export function ForecastView({
   forecast,
   confirmed,
   missed,
@@ -73,11 +73,20 @@ function ForecastView({
   const moreReleases = releases.filter(isWebAddress).length - 4;
   return (
     <>
-      <p className={styles.lead}>
-        Super read {read || "the release notes and the migration guide"} for {forecast.module}{" "}
-        {forecast.from} to {forecast.to} before any fix, and predicted what would break. The
-        compiler then said whether it did.
-      </p>
+      {forecast.source === "api" ? (
+        <p className={styles.lead}>
+          No release notes or web pages covered {forecast.module} {forecast.from} to {forecast.to},
+          so this forecast comes from the module&apos;s exported API: before any fix, Upkeep
+          compared both versions for the identifiers the project uses. The compiler then said
+          whether it broke.
+        </p>
+      ) : (
+        <p className={styles.lead}>
+          Super read {read || "the release notes and the migration guide"} for {forecast.module}{" "}
+          {forecast.from} to {forecast.to} before any fix, and predicted what would break. The
+          compiler then said whether it did.
+        </p>
+      )}
       {search ? (
         <p className={styles.searchLine}>
           <Icon name="search" />
@@ -99,7 +108,9 @@ function ForecastView({
       ) : null}
       {forecast.breaking.length === 0 ? (
         <p className={styles.muted}>
-          It predicted nothing specific. The fix started from the build output alone.
+          {forecast.source === "api"
+            ? "None of the identifiers the project uses changed in the module's exported API."
+            : "It predicted nothing specific. The fix started from the build output alone."}
         </p>
       ) : (
         <ul className={styles.predictions}>
