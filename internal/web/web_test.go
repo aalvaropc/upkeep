@@ -111,15 +111,51 @@ func TestDashboardAndAssets(t *testing.T) {
 
 func TestDashboardNotBuilt(t *testing.T) {
 	srv, _, _ := newServerWith(t, time.Minute, fstest.MapFS{".keep": {Data: []byte{}}})
-	page := get(t, srv.URL+"/")
-	if page.status != http.StatusOK || !strings.Contains(page.body, "make web") {
-		t.Fatalf("GET / without a build: %d %s", page.status, page.body)
+	for _, path := range []string{"/", "/demo"} {
+		page := get(t, srv.URL+path)
+		if page.status != http.StatusOK || !strings.Contains(page.body, "make web") {
+			t.Fatalf("GET %s without a build: %d %s", path, page.status, page.body)
+		}
 	}
 	if r := get(t, srv.URL+"/assets/index.js"); r.status != http.StatusNotFound {
 		t.Fatalf("GET an asset without a build: %d", r.status)
 	}
 	if r := get(t, srv.URL+"/healthz"); r.status != http.StatusOK {
 		t.Fatalf("healthz without a build: %d", r.status)
+	}
+}
+
+func TestTheDemoPathServesTheDashboard(t *testing.T) {
+	ui := maps.Clone(builtUI)
+	ui["landing/dashboard-trace.png"] = &fstest.MapFile{Data: []byte("png")}
+	srv, _, _ := newServerWith(t, time.Minute, ui)
+	index := string(builtUI["index.html"].Data)
+	for _, path := range []string{"/demo", "/demo/"} {
+		page := get(t, srv.URL+path)
+		if page.status != http.StatusOK || !strings.HasPrefix(page.header.Get("Content-Type"), "text/html") {
+			t.Fatalf("GET %s: %d %s", path, page.status, page.header.Get("Content-Type"))
+		}
+		if page.body != index || page.header.Get("Cache-Control") != "no-cache" {
+			t.Errorf("GET %s: cache %q, body %s", path, page.header.Get("Cache-Control"), page.body)
+		}
+		if csp := page.header.Get("Content-Security-Policy"); !strings.Contains(csp, "default-src 'self'") {
+			t.Errorf("GET %s: CSP = %q", path, csp)
+		}
+	}
+	if r := get(t, srv.URL+"/landing/dashboard-trace.png"); r.status != http.StatusOK || r.header.Get("Cache-Control") != "no-cache" {
+		t.Errorf("GET a landing image: %d %q", r.status, r.header.Get("Cache-Control"))
+	}
+	for _, path := range []string{"/demo/missing", "/demox"} {
+		if r := get(t, srv.URL+path); r.status != http.StatusNotFound {
+			t.Errorf("GET %s: %d, want 404", path, r.status)
+		}
+	}
+	if r := get(t, srv.URL+"/healthz"); r.status != http.StatusOK || !strings.Contains(r.body, `"status":"ok"`) {
+		t.Errorf("healthz next to the demo page: %d %s", r.status, r.body)
+	}
+	s := openStream(t, srv.URL+"/api/sessions/s1/events", nil)
+	if ct := s.resp.Header.Get("Content-Type"); ct != "text/event-stream" {
+		t.Errorf("event stream next to the demo page: Content-Type = %q", ct)
 	}
 }
 

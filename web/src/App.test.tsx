@@ -269,6 +269,9 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "Skip to the queue" }).getAttribute("href")).toBe(
       "#main",
     );
+    expect(
+      screen.getByRole("link", { name: "Upkeep, back to the overview" }).getAttribute("href"),
+    ).toBe("/");
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Pull requests" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Queue" })).toBeTruthy();
