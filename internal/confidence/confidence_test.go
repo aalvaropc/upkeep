@@ -18,6 +18,36 @@ func TestAssess(t *testing.T) {
 		reasons []string
 	}{
 		{
+			name:    "a model fix with the pull request's own tests",
+			in:      Input{Outcome: pull.Mergeable, Blocker: pull.Build, Attempts: 1, Files: 1, Lines: 6, MaxLines: 80, Change: true, OwnTests: []string{"TestA", "TestB", "TestC", "TestD"}},
+			level:   High,
+			reasons: []string{"fixed on the first attempt", "6 lines in 1 file", "the tests it adds pass: TestA, TestB, TestC and 1 more"},
+		},
+		{
+			name:    "a model fix of a change without tests of its own",
+			in:      Input{Outcome: pull.Mergeable, Blocker: pull.Build, Attempts: 1, Files: 1, Lines: 6, MaxLines: 80, Change: true},
+			level:   High,
+			reasons: []string{"fixed on the first attempt", "6 lines in 1 file", "it adds no test of its own"},
+		},
+		{
+			name:    "an order-dependent test",
+			in:      Input{Outcome: pull.Mergeable, Blocker: pull.Flaky, Flaky: []string{"TestSummary"}, FlakyKind: "order-dependent"},
+			level:   Medium,
+			reasons: []string{"no code written by a model", "a test that depends on the order tests run in: TestSummary"},
+		},
+		{
+			name:    "a forecast whose build passed",
+			in:      Input{Outcome: pull.Mergeable, Blocker: pull.Clean, Bump: minor, Predicted: 2, BuildFine: true},
+			level:   High,
+			reasons: []string{"no code written by a model", "the build passed, so none of the 2 predicted changes broke it"},
+		},
+		{
+			name:    "a forecast the fix confirmed further",
+			in:      Input{Outcome: pull.Mergeable, Blocker: pull.Build, Bump: minor, Attempts: 1, Files: 1, Lines: 4, MaxLines: 80, Predicted: 3, Confirmed: 1, FixedToo: 1},
+			level:   High,
+			reasons: []string{"fixed on the first attempt", "4 lines in 1 file", "the build confirmed 1 of 3 predicted changes, and the fix changed 1 more"},
+		},
+		{
 			name:    "a merge of main",
 			in:      Input{Outcome: pull.Mergeable, Blocker: pull.Behind, Files: 4, Lines: 120, MaxLines: 80},
 			level:   High,

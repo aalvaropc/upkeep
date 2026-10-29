@@ -93,9 +93,12 @@ type Detail struct {
 	Changes   []gitx.FileChange        `json:"changes,omitempty"`
 	Checklist verify.Checklist         `json:"checklist,omitempty"`
 	Flaky     []string                 `json:"flaky,omitempty"`
+	FlakyKind string                   `json:"flaky_kind,omitempty"`
 	Forecast  *forecast.Forecast       `json:"forecast,omitempty"`
 	Confirmed []string                 `json:"confirmed,omitempty"`
 	Missed    []string                 `json:"missed,omitempty"`
+	FixedToo  []string                 `json:"changed_by_fix,omitempty"`
+	BuildFine bool                     `json:"build_passed,omitempty"`
 	Receipt   *ReceiptView             `json:"receipt,omitempty"`
 }
 
@@ -156,9 +159,12 @@ func (s *Session) Detail(ctx context.Context, number int) (Detail, error) {
 		Changes:   res.Changes,
 		Checklist: res.Checklist,
 		Flaky:     res.Flaky,
+		FlakyKind: res.FlakyKind,
 		Forecast:  res.Forecast,
 		Confirmed: res.Confirmed,
 		Missed:    res.Missed,
+		FixedToo:  res.FixedToo,
+		BuildFine: res.BuildFine,
 	}
 	if res.Receipt != nil {
 		d.Receipt = receiptView(res.Receipt)

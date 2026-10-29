@@ -23,6 +23,8 @@ type fakeRunner struct {
 	unformatted []string
 	err         error
 	reran       string
+	full        []sandbox.Result
+	fulls       int
 }
 
 func (f *fakeRunner) Download(context.Context, string) (sandbox.Result, error) {
@@ -42,6 +44,13 @@ func (f *fakeRunner) Check(context.Context, string) (sandbox.Report, error) {
 }
 
 func (f *fakeRunner) Tests(_ context.Context, _, pattern string) (sandbox.Result, error) {
+	if pattern == "." {
+		f.fulls++
+		if f.fulls <= len(f.full) {
+			return f.full[f.fulls-1], nil
+		}
+		return sandbox.Result{}, nil
+	}
 	f.reran = pattern
 	return f.rerun, nil
 }
@@ -370,5 +379,30 @@ func TestDetectStopsWithoutAGoModule(t *testing.T) {
 	}
 	if diag.Blocker != pull.Unsupported {
 		t.Fatalf("blocker = %q, want %q", diag.Blocker, pull.Unsupported)
+	}
+}
+
+func TestAFlakyTestThatFailsEveryFullRunDependsOnOrder(t *testing.T) {
+	p := newProject(t)
+	failing := sandbox.Result{ExitCode: 1, Output: "--- FAIL: TestA (0.00s)\n"}
+	for name, tc := range map[string]struct {
+		full []sandbox.Result
+		want string
+	}{
+		"fails in every full run":  {[]sandbox.Result{failing, failing}, FlakyOrder},
+		"passes a later full run":  {[]sandbox.Result{failing, {}}, FlakyRandom},
+		"passes the next full run": {nil, FlakyRandom},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := &fakeRunner{report: sandbox.Report{Test: failing}, full: tc.full}
+			d := Detector{Git: p.g, Runner: r, Policy: policy.Default()}
+			diag, err := d.Detect(t.Context(), Workspace{Dir: p.dir, Base: "main"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diag.Blocker != pull.Flaky || diag.FlakyKind != tc.want {
+				t.Fatalf("blocker %s kind %q, want flaky %q", diag.Blocker, diag.FlakyKind, tc.want)
+			}
+		})
 	}
 }

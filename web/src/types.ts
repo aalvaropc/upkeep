@@ -182,9 +182,12 @@ export interface Detail extends PullView {
   changes?: Change[];
   checklist?: Check[];
   flaky?: string[];
+  flaky_kind?: "flaky" | "order-dependent";
   forecast?: Forecast;
   confirmed?: string[];
   missed?: string[];
+  changed_by_fix?: string[];
+  build_passed?: boolean;
   receipt?: Receipt;
 }
 

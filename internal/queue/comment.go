@@ -51,7 +51,11 @@ func patchComment(res engine.Result) string {
 		b.WriteString("```diff\n" + patch + "\n```\n")
 	}
 	if len(res.Flaky) > 0 {
-		fmt.Fprintf(&b, "\nTests that failed once and passed on a rerun, left alone: %s.\n", strings.Join(res.Flaky, ", "))
+		if res.FlakyKind == "order-dependent" {
+			fmt.Fprintf(&b, "\nTests that fail in the full run and pass alone, so they depend on the order tests run in, left alone: %s.\n", strings.Join(res.Flaky, ", "))
+		} else {
+			fmt.Fprintf(&b, "\nTests that failed once and passed on a rerun, left alone: %s.\n", strings.Join(res.Flaky, ", "))
+		}
 	}
 	return b.String()
 }
