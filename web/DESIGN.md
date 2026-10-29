@@ -12,7 +12,7 @@ The full detail of a pull request (trace and summary tabs) opens in a side sheet
 
 ## Principles
 
-- **Alive, not busy.** Only what is happening now moves: the live dot, the running stage, the newest trace line. Nothing performs an entrance.
+- **Alive, not busy.** Motion answers an event the agent really produced (see Motion). Nothing moves for decoration, and nothing is typed out to fake streaming.
 - **Colour means state.** NVIDIA green (`--accent`, `#76b900`) means done or the primary action; a brighter green (`--live`) means happening now; amber is waiting on a person or stale; red is a failure; each model keeps its own hue (Ultra violet, Super blue, Nano teal, Tavily pink). Every coloured state also has an icon or a word.
 - **The product's own things carry the screen:** the merge order, the five stages, the models' turns and tool calls, the receipts. No stock cards, no decorative charts.
 - **Honest states.** A replayed run says so; zero is zero; an empty group says "None".
@@ -40,6 +40,29 @@ Text reaches 4.5:1 on every surface; hues reach 3:1.
 - Hanken Grotesk for the interface: section headings at 15-22px, body at 13-15px, nothing under 11px.
 - Martian Mono for what is code or machine output: pull request numbers, file paths, model names, the live line, the mode and status labels. It is wide, so it is set 1px smaller than a usual mono.
 - Tabular figures on every number that updates.
+
+## Motion
+
+Every effect is tied to a real event or state and is CSS only (no inline styles, no library). Durations come from `--fast` 150ms, `--base` 240ms and `--slow` 480ms; the easing is `--out`, an exponential ease-out. Only `transform`, `opacity`, `filter`, background position and SVG geometry move.
+
+| Moment                             | What moves                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The agent works a pull request     | A beam travels the top edge of the live stage; the five stage bars fill left to right as each stage completes, the running one shimmers; the "now" line is a prompt with a caret and a highlight sweep on every new event; the last three trace rows rise and glow in their tone; an attempt header flashes when it passes or fails |
+| Several workers run                | The "In parallel" lanes enter as workers start, their step text re-fades on change, the followed lane's ring transitions; the stage slides in when it moves to another pull request                                                                                                                                                 |
+| A pull request finishes            | Its queue row flashes in the outcome colour and the outcome icon pops in; the finished count and the cost flash when they change; the run step fills with the share finished                                                                                                                                                        |
+| A model answers or Tavily searches | The model's totals flash, its bar grows, the web search block flashes pink                                                                                                                                                                                                                                                          |
+| The plan arrives                   | The merge order and the shared files stagger in                                                                                                                                                                                                                                                                                     |
+| The run ends                       | The figures rise in with a short blur-to-sharp; the merge order draws itself chip by chip, connector first; the stale warning pulses once; the groups stagger in                                                                                                                                                                    |
+| First paint                        | The title, lead and actions rise in sequence; the five stages stagger in, then light one by one in a slow loop that stops when the run starts                                                                                                                                                                                       |
+| Overlays                           | The policy modal scales in and its groups stagger; tab panels rise in                                                                                                                                                                                                                                                               |
+| The landing                        | The hero rises in sequence and its screenshot sharpens in under a faint beam; sections fade up and the step lines draw as they scroll into view (`animation-timeline: view()`, visible by default where unsupported)                                                                                                                |
+
+Rules that keep it honest and light:
+
+- At most one infinite animation per visible region: the stage beam, the running mark, the idle stage loop, the connection pulse.
+- Restarts use a React `key` or a `data-*` attribute that starts matching; there is no animation state in JavaScript.
+- Keyframes live in each module that uses them (the build does not share them), with the same `up-` names and shapes.
+- `prefers-reduced-motion: reduce` removes every animation and shows the final state: `tokens.css` shortens all durations and each module hides what would otherwise rest in a mid state (the stage beam, the idle loop, the landing beam).
 
 ## Components
 

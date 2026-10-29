@@ -34,6 +34,17 @@
   color: var(--fg);
 }
 
+.panel {
+  animation: up-rise 260ms var(--out) both;
+}
+
 .panel:focus-visible {
   outline-offset: 4px;
+}
+
+@keyframes up-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }

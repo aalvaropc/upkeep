@@ -200,3 +200,24 @@
     background-color: var(--flash, var(--tint-accent));
   }
 }
+
+.bar[data-run="idle"] .title,
+.bar[data-run="idle"] .lead,
+.bar[data-run="idle"] .actions {
+  animation: up-rise 520ms var(--out) both;
+}
+
+.bar[data-run="idle"] .lead {
+  animation-delay: 90ms;
+}
+
+.bar[data-run="idle"] .actions {
+  animation-delay: 180ms;
+}
+
+@keyframes up-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}

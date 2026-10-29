@@ -21,6 +21,7 @@
 }
 
 .panel {
+  animation: up-scale var(--base) var(--out) both;
   display: flex;
   flex-direction: column;
   width: min(640px, 100%);
@@ -103,5 +104,12 @@
   .backdrop,
   .backdrop[data-side="true"] .panel {
     animation: none;
+  }
+}
+
+@keyframes up-scale {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
   }
 }
