@@ -3,6 +3,7 @@ import styles from "./App.module.css";
 import { ActionBar } from "./components/ActionBar";
 import { Agents } from "./components/Agents";
 import { DetailPanel } from "./components/DetailPanel";
+import { FlowSteps } from "./components/FlowSteps";
 import { Icon } from "./components/Icon";
 import { MergePlan } from "./components/MergePlan";
 import { Onboarding } from "./components/Onboarding";
@@ -55,6 +56,7 @@ export function App() {
   } else if (focus) {
     center = (
       <Stage
+        key={focus.pr.number}
         card={focus}
         pinned={pinned !== null}
         onFollow={() => setPinned(null)}
@@ -112,6 +114,7 @@ export function App() {
             budget is spent, runs replay a recording and say so.
           </p>
         ) : null}
+        {board.run === "idle" ? null : <FlowSteps board={board} />}
         <div className={styles.layout} data-run={board.run}>
           <QueueList
             board={board}
