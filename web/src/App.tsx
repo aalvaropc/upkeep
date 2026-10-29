@@ -5,6 +5,7 @@ import { Agents } from "./components/Agents";
 import { DetailPanel } from "./components/DetailPanel";
 import { FlowSteps } from "./components/FlowSteps";
 import { Icon } from "./components/Icon";
+import { Lanes } from "./components/Lanes";
 import { MergePlan } from "./components/MergePlan";
 import { Onboarding } from "./components/Onboarding";
 import { PolicyPanel } from "./components/PolicyPanel";
@@ -12,7 +13,7 @@ import { QueueList } from "./components/QueueList";
 import { Results } from "./components/Results";
 import { Stage } from "./components/Stage";
 import { TopBar } from "./components/TopBar";
-import { liveCard } from "./focus";
+import { useFocus } from "./useFocus";
 import { useNow } from "./useNow";
 import { useSession } from "./useSession";
 
@@ -44,8 +45,10 @@ export function App() {
   const [rules, setRules] = useState(false);
   const now = useNow(board.run === "running");
 
+  const auto = useFocus(board);
   const followed = pinned !== null ? board.cards[pinned] : undefined;
-  const focus = followed ?? (board.run === "running" ? liveCard(board) : null);
+  const autoCard = auto !== null ? board.cards[auto] : undefined;
+  const focus = followed ?? (board.run === "running" ? (autoCard ?? null) : null);
   const finished = board.run === "finished";
 
   let center;
@@ -61,6 +64,15 @@ export function App() {
         pinned={pinned !== null}
         onFollow={() => setPinned(null)}
         onOpen={setOpen}
+        lanes={
+          board.run === "running" ? (
+            <Lanes
+              board={board}
+              focus={focus.pr.number}
+              onFocus={(n) => setPinned(n === auto && pinned === null ? null : n)}
+            />
+          ) : null
+        }
       />
     );
   } else {

@@ -355,6 +355,33 @@ describe("App", () => {
     ).toBe(true);
   });
 
+  it("keeps the stage on one pull request while others work, and pins a lane on click", async () => {
+    installFetch(newServer());
+    render(<App />);
+    await ready();
+    startedEvent();
+    emit("pr.step", 1, { step: "detect", status: "running", detail: "" });
+    emit("pr.step", 2, { step: "detect", status: "running", detail: "" });
+    emit("pr.step", 2, { step: "forecast", status: "running", detail: "" });
+    emit("pr.step", 2, { step: "conflict", status: "running", detail: "" });
+
+    const stage = screen.getByRole("region", { name: "Live stage" });
+    expect(within(stage).getByRole("heading", { level: 2 }).textContent).toContain("#1");
+    const lanes = within(stage).getByRole("group", { name: "In parallel" });
+    expect(within(lanes).getAllByRole("button")).toHaveLength(2);
+
+    fireEvent.click(within(lanes).getByRole("button", { name: "Follow pull request 2" }));
+    const pinned = screen.getByRole("region", { name: "Live stage" });
+    expect(within(pinned).getByRole("heading", { level: 2 }).textContent).toContain("#2");
+    expect(within(pinned).getByRole("button", { name: "Follow the agent" })).toBeTruthy();
+
+    fireEvent.click(within(pinned).getByRole("button", { name: "Follow the agent" }));
+    expect(
+      within(screen.getByRole("region", { name: "Live stage" })).getByRole("heading", { level: 2 })
+        .textContent,
+    ).toContain("#1");
+  });
+
   it("totals the models and compares the cost with the largest model's price", async () => {
     installFetch(newServer());
     render(<App />);
