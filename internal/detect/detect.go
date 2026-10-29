@@ -139,7 +139,7 @@ func (d Detector) Detect(ctx context.Context, ws Workspace) (Diagnosis, error) {
 }
 
 func (d Detector) small(m gitx.MergeResult) bool {
-	return m.Hunks() <= d.Policy.MaxConflictHunks && m.LargestHunk() <= d.Policy.MaxHunkLines
+	return len(m.Unresolvable) == 0 && m.Hunks() <= d.Policy.MaxConflictHunks && m.LargestHunk() <= d.Policy.MaxHunkLines
 }
 
 func (d Detector) classifyTestFailure(ctx context.Context, ws Workspace, diag Diagnosis) (Diagnosis, error) {

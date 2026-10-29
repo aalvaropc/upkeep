@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/aalvaropc/upkeep/internal/confidence"
@@ -89,6 +90,7 @@ func receiptComment(res engine.Result) string {
 	if s := strings.TrimSpace(res.Summary); s != "" {
 		b.WriteString(s + "\n\n")
 	}
+	b.WriteString(forecastBlock(res))
 	footer := confidenceLine(res.Confidence) + searchLine(res.Receipt.Searches())
 	if l := res.Learned; l != nil {
 		fmt.Fprintf(&b, "Learned fix: Upkeep reused the verified fix from #%d with 0 model calls; the first time cost %s.\n", l.From, usd(l.SavedMicros))
@@ -120,6 +122,62 @@ func receiptComment(res engine.Result) string {
 		b.WriteString("\n" + footer)
 	}
 	return b.String()
+}
+
+const maxSources = 5
+
+func forecastBlock(res engine.Result) string {
+	f := res.Forecast
+	if f == nil || len(f.Breaking) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Forecast for %s %s → %s", f.Module, f.From, f.To)
+	if f.Source == "api" {
+		b.WriteString(", from the module's exported API")
+	}
+	b.WriteString(":\n")
+	for _, c := range f.Breaking {
+		fmt.Fprintf(&b, "- `%s`: %s", c.Symbol, c.Description)
+		if mark := forecastMark(res, c.Symbol); mark != "" {
+			b.WriteString(" (" + mark + ")")
+		}
+		b.WriteString("\n")
+	}
+	var sources []string
+	for _, u := range f.Sources {
+		if !slices.Contains(sources, u) {
+			sources = append(sources, u)
+		}
+	}
+	if f.Search != nil {
+		for _, u := range f.Search.Kept {
+			if !slices.Contains(sources, u) {
+				sources = append(sources, u)
+			}
+		}
+	}
+	if len(sources) > maxSources {
+		sources = sources[:maxSources]
+	}
+	if len(sources) > 0 {
+		b.WriteString("\nSources: " + strings.Join(sources, ", ") + "\n")
+	}
+	return b.String() + "\n"
+}
+
+func forecastMark(res engine.Result, symbol string) string {
+	switch {
+	case slices.Contains(res.Confirmed, symbol):
+		return "confirmed by the build"
+	case slices.Contains(res.FixedToo, symbol):
+		return "changed by the fix"
+	case slices.Contains(res.Missed, symbol) && res.BuildFine:
+		return "not seen: the build passed"
+	case slices.Contains(res.Missed, symbol):
+		return "not seen in the build"
+	}
+	return ""
 }
 
 func counted(n int, one, many string) string {

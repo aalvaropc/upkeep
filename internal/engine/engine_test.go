@@ -429,6 +429,56 @@ func TestUnsafeResolutionsAreEscalatedAndTheMergeIsUndone(t *testing.T) {
 	}
 }
 
+func TestAConflictWithNoTextIsHandedBackWithoutAModel(t *testing.T) {
+	w := newWorld(t, nil, nil)
+	w.branch("feature")
+	write(t, w.dir, "limits.go", strings.Replace(limits, "32", "64", 1))
+	w.commit("feat: longer tags")
+	w.checkout("main")
+	if err := os.Remove(filepath.Join(w.dir, "limits.go")); err != nil {
+		t.Fatal(err)
+	}
+	w.commit("refactor: drop the limits file")
+	w.checkout("feature")
+	before := w.head()
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.NeedsHuman || res.Blocker != pull.ConflictLarge || !strings.Contains(res.Reason, "limits.go") {
+		t.Fatalf("result = %+v", res)
+	}
+	if w.ultra.count() != 0 || w.super.count() != 0 {
+		t.Fatalf("no model may be asked about a conflict with no text: %d Ultra calls", w.ultra.count())
+	}
+	if w.head() != before || !w.clean() {
+		t.Fatal("the branch must be left exactly as it was")
+	}
+}
+
+func TestAConflictWithNoTextNextToATextConflictIsStillHandedBack(t *testing.T) {
+	w := newWorld(t, nil, []step{{content: "One side deleted the service; a person should decide whether it stays."}})
+	w.branch("feature")
+	write(t, w.dir, "limits.go", "package m\n\nconst (\n\tMaxTagLength = 32\n\n\tMaxNotesPerOwner = 1000\n)\n")
+	write(t, w.dir, "service.go", strings.Replace(service, "package m", "package m\n", 1))
+	w.commit("feat: cap the notes per owner")
+	w.checkout("main")
+	write(t, w.dir, "limits.go", "package m\n\nconst (\n\tMaxTagLength = 32\n\n\tMaxAttachments = 5\n)\n")
+	if err := os.Remove(filepath.Join(w.dir, "service.go")); err != nil {
+		t.Fatal(err)
+	}
+	w.commit("refactor: cap the attachments and drop the service")
+	w.checkout("feature")
+	before := w.head()
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.NeedsHuman || res.Blocker != pull.ConflictLarge || !strings.Contains(res.Reason, "service.go has no text to resolve") {
+		t.Fatalf("result = %+v", res)
+	}
+	if w.ultra.count() != 1 || !strings.Contains(res.Diagnosis, "a person should decide") {
+		t.Fatalf("only the diagnosis of the text conflict may be asked for: %d Ultra calls", w.ultra.count())
+	}
+	if w.head() != before || !w.clean() {
+		t.Fatal("the branch must be left exactly as it was")
+	}
+}
+
 func TestLargeConflictGetsADiagnosis(t *testing.T) {
 	w := newWorld(t, nil, []step{{content: "  Each side rewrote the constants. Split the work.  "}})
 	var ours, theirs strings.Builder

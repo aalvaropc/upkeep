@@ -34,7 +34,7 @@ forge ──► Prepare (clone; check out the branch, or pull/N/head for a fork)
 |---|---|
 | Upkeep may push (a bot's pull request, or the `upkeep` label) | It pushes the fix: merges and resolutions are merge commits, fixes are commits |
 | A person's branch without the label, or a fork | The fix goes in a patch comment. The comment says to merge the base when a merge was needed, shows each conflict region as Ultra resolved it, and then the diff of the fix, if there is one |
-| Every pull request | One receipt comment (what each model did and cost), updated in place on later runs |
+| Every pull request | One receipt comment (what each model did and cost, and for a forecast upgrade each predicted change with its mark and the pages it was read from), updated in place on later runs |
 
 ## Detect
 
