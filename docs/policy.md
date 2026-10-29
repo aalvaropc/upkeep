@@ -28,7 +28,7 @@ These cannot be configured. A policy file that tries to turn one off is rejected
 | the repository has no `go.mod` at its root | hand it back without asking a model |
 | the pull request is a draft, targets another branch, or comes from a fork while the sandbox is `exec` | skip it and say why in the run's notices |
 | a Dependabot bump names a module in a subdirectory ("… in /tools") | skip it and say why in the run's notices |
-| the pull request changes Go files, `go.mod` or `go.sum` inside a module in a subdirectory | hand it back without asking a model: Upkeep builds and tests the module at the root |
+| the pull request changes Go files, `go.mod` or `go.sum` inside a module in a subdirectory (one in the pull request or in the base branch; a moved file counts at both paths) | hand it back without asking a model: Upkeep builds and tests the module at the root |
 
 ## On a real repository
 

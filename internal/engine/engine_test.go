@@ -1188,8 +1188,50 @@ func TestNestedModule(t *testing.T) {
 		{[]string{"README.md", "tools/x.go"}, "/tools"},
 	}
 	for _, c := range cases {
-		if got := nestedModule(dir, c.files); got != c.want {
+		moduleAt := func(d string) bool {
+			_, err := os.Stat(filepath.Join(dir, d, "go.mod"))
+			return err == nil
+		}
+		if got := nestedModule(c.files, moduleAt); got != c.want {
 			t.Errorf("%v: got %q, want %q", c.files, got, c.want)
 		}
+	}
+}
+
+func TestMovingAFileOutOfANestedModuleIsHandedBack(t *testing.T) {
+	w := newWorld(t, nil, nil)
+	write(t, w.dir, "tools/go.mod", "module example.test/m/tools\n\ngo 1.25\n")
+	write(t, w.dir, "tools/helper.go", "package tools\n\nfunc Helper() int { return 1 }\n")
+	w.commit("chore: add a tools module")
+	w.branch("feature")
+	if err := os.Remove(filepath.Join(w.dir, "tools/helper.go")); err != nil {
+		t.Fatal(err)
+	}
+	write(t, w.dir, "helper.go", "package m\n\nfunc Helper() int { return 1 }\n")
+	w.commit("refactor: move the helper to the root")
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.NeedsHuman || res.Blocker != pull.NestedModule || !strings.Contains(res.Reason, "/tools") {
+		t.Fatalf("a rename out of a nested module must be seen: %+v", res)
+	}
+}
+
+func TestAModuleThatOnlyTheBaseHasIsSeen(t *testing.T) {
+	w := newWorld(t, nil, nil)
+	write(t, w.dir, "tools/tools.go", "package tools\n\nconst Version = 1\n")
+	w.commit("chore: add a tools package")
+	w.branch("feature")
+	write(t, w.dir, "tools/tools.go", "package tools\n\nconst Version = 2\n")
+	w.commit("feat: bump the tools version")
+	w.checkout("main")
+	write(t, w.dir, "tools/go.mod", "module example.test/m/tools\n\ngo 1.25\n")
+	w.commit("chore: make tools its own module")
+	w.checkout("feature")
+	before := w.head()
+	res := w.process(person("upkeep"))
+	if res.Outcome != pull.NeedsHuman || res.Blocker != pull.NestedModule || res.Receipt.Totals().Calls != 0 {
+		t.Fatalf("a module added on the base after the branch must be seen: %+v", res)
+	}
+	if w.head() != before {
+		t.Fatal("the branch must be left as it was")
 	}
 }

@@ -21,7 +21,7 @@ func (g Git) Touched(ctx context.Context, dir, base, head string) ([]string, err
 	if err := checkRevisions(base, head); err != nil {
 		return nil, err
 	}
-	out, err := g.run(ctx, dir, "", "diff", "--name-only", "-z", base+"..."+head, "--")
+	out, err := g.run(ctx, dir, "", "diff", "--no-renames", "--name-only", "-z", base+"..."+head, "--")
 	if err != nil {
 		return nil, err
 	}

@@ -25,6 +25,30 @@ func branchFrom(t *testing.T, g Git, dir, from, name string, files map[string]st
 	return head
 }
 
+func TestTouchedListsBothSidesOfARename(t *testing.T) {
+	g, dir := newRepo(t)
+	ctx := t.Context()
+	branchFrom(t, g, dir, "main", "tools", map[string]string{"tools/helper.go": "package tools\n\nfunc Helper() int { return 1 }\n"})
+	if err := g.Checkout(ctx, dir, "main", false); err != nil {
+		t.Fatal(err)
+	}
+	gitOut(t, g, dir, "merge", "--quiet", "--ff-only", "tools")
+	if err := g.Checkout(ctx, dir, "moved", true); err != nil {
+		t.Fatal(err)
+	}
+	gitOut(t, g, dir, "mv", "tools/helper.go", "helper.go")
+	if _, err := g.Commit(ctx, dir, "move the helper"); err != nil {
+		t.Fatal(err)
+	}
+	files, err := g.Touched(ctx, dir, "main", "moved")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"helper.go", "tools/helper.go"}; !slices.Equal(files, want) {
+		t.Fatalf("Touched = %v, want both paths of the rename %v", files, want)
+	}
+}
+
 func TestTouchedListsOnlyWhatTheBranchChanged(t *testing.T) {
 	g, dir := newRepo(t)
 	ctx := t.Context()
