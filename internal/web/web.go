@@ -87,7 +87,7 @@ func Built(ui fs.FS) bool {
 func dashboard(ui fs.FS) http.Handler {
 	if !Built(ui) {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/" {
+			if r.URL.Path != "/" && !isDemoPage(r.URL.Path) {
 				http.NotFound(w, r)
 				return
 			}
@@ -102,6 +102,11 @@ func dashboard(ui fs.FS) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
+		if isDemoPage(r.URL.Path) {
+			w.Header().Set("Cache-Control", "no-cache")
+			http.ServeFileFS(w, r, ui, "index.html")
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/assets/") {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		} else {
@@ -109,6 +114,10 @@ func dashboard(ui fs.FS) http.Handler {
 		}
 		files.ServeHTTP(w, r)
 	})
+}
+
+func isDemoPage(path string) bool {
+	return path == "/demo" || path == "/demo/"
 }
 
 func (s *server) healthz(w http.ResponseWriter, _ *http.Request) {
