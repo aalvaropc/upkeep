@@ -1,5 +1,5 @@
 .stage {
-  --room: clamp(520px, calc(100vh - 96px), 860px);
+  --room: clamp(440px, calc(100vh - 430px), 820px);
   position: sticky;
   top: 72px;
   display: flex;

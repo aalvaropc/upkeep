@@ -87,35 +87,53 @@ export function QueueList({ board, focus, onFocus }: Props) {
                   {live && card.blocker ? (
                     <span className={styles.blocker}>{blockerLabel(card.blocker)}</span>
                   ) : null}
-                </span>
-                {card.overlap ||
-                card.learned?.status === "reused" ||
-                (card.phase === "done" && card.confidence) ? (
                   <span className={styles.chips}>
                     {card.overlap ? (
-                      <span className={styles.overlap} data-tone={overlapTone(card.overlap)}>
-                        {overlapLabel(card.overlap)}
+                      <span
+                        className={styles.chip}
+                        data-tone={overlapTone(card.overlap)}
+                        title={overlapLabel(card.overlap)}
+                      >
+                        <span className={styles.sr}>{overlapLabel(card.overlap)}</span>
+                        <Icon
+                          name={overlapTone(card.overlap) === "conflict" ? "alert" : "merge"}
+                          className={styles.chipIcon}
+                        />
                       </span>
                     ) : null}
                     {card.learned?.status === "reused" ? (
                       <span
-                        className={styles.learned}
+                        className={styles.chip}
+                        data-tone="learned"
                         title={`Reused the fix learned from #${card.learned.from}`}
                       >
-                        learned fix
+                        <span
+                          className={styles.sr}
+                          title={`Reused the fix learned from #${card.learned.from}`}
+                        >
+                          learned fix
+                        </span>
+                        <Icon name="learned" className={styles.chipIcon} />
                       </span>
                     ) : null}
                     {card.phase === "done" && card.confidence ? (
-                      <span
-                        className={styles.confidence}
-                        data-level={card.confidence.level}
-                        title={card.confidence.reasons.join("; ")}
-                      >
-                        {card.confidence.level} merge confidence
+                      <span className={styles.chip} title={card.confidence.reasons.join("; ")}>
+                        <span
+                          className={styles.sr}
+                          data-level={card.confidence.level}
+                          title={card.confidence.reasons.join("; ")}
+                        >
+                          {card.confidence.level} merge confidence
+                        </span>
+                        <span
+                          className={styles.pip}
+                          data-level={card.confidence.level}
+                          aria-hidden="true"
+                        />
                       </span>
                     ) : null}
                   </span>
-                ) : null}
+                </span>
               </button>
             </li>
           );

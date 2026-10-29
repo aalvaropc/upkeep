@@ -23,11 +23,6 @@
   }
 }
 
-.block {
-  display: grid;
-  gap: 12px;
-}
-
 .heading {
   display: flex;
   align-items: center;
@@ -47,99 +42,33 @@
   font-weight: 500;
 }
 
-.line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.stop {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.stop + .stop::before {
-  content: "";
-  transform-origin: left;
-  animation: up-fill 300ms var(--out) both;
-  width: 14px;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--border-strong);
-}
-
-.stopButton {
-  animation: up-pop 360ms var(--out) both;
-  padding: 6px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--fg);
-  font: inherit;
-  cursor: pointer;
-}
-
-.stopButton code {
-  font-size: 13px;
-}
-
-.stop[data-outcome="merged"] .stopButton {
-  border-color: var(--accent);
-  background: var(--tint-accent);
-  color: var(--accent);
-}
-
-.stop[data-outcome="needs_human"] .stopButton,
-.stop[data-stale="true"] .stopButton {
-  border-color: var(--warn);
-  background: var(--tint-warn);
-  color: var(--warn);
-}
-
-.warning {
-  --flash: var(--tint-warn);
-  border-radius: 6px;
-  animation: up-flash 1400ms var(--out) 900ms both;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 0;
-  color: var(--warn);
-  font-size: 14px;
-}
-
 .group {
   animation: up-rise 360ms var(--out) both;
 }
 
 .group:nth-child(1) {
-  animation-delay: 700ms;
+  animation-delay: 150ms;
 }
 
 .group:nth-child(2) {
-  animation-delay: 780ms;
+  animation-delay: 230ms;
 }
 
 .group:nth-child(3) {
-  animation-delay: 860ms;
+  animation-delay: 310ms;
 }
 
 .items > li {
   animation: up-rise 320ms var(--out) both;
-  animation-delay: 900ms;
+  animation-delay: 350ms;
 }
 
 .items > li:nth-child(n + 2) {
-  animation-delay: 960ms;
+  animation-delay: 400ms;
 }
 
 .items > li:nth-child(n + 3) {
-  animation-delay: 1020ms;
+  animation-delay: 450ms;
 }
 
 .groups {
@@ -233,110 +162,6 @@
   .results {
     padding: 18px 16px;
   }
-}
-
-.line > li:nth-child(1) .stopButton {
-  animation-delay: 390ms;
-}
-
-.line > li:nth-child(1)::before {
-  animation-delay: 300ms;
-}
-
-.line > li:nth-child(2) .stopButton {
-  animation-delay: 480ms;
-}
-
-.line > li:nth-child(2)::before {
-  animation-delay: 390ms;
-}
-
-.line > li:nth-child(3) .stopButton {
-  animation-delay: 570ms;
-}
-
-.line > li:nth-child(3)::before {
-  animation-delay: 480ms;
-}
-
-.line > li:nth-child(4) .stopButton {
-  animation-delay: 660ms;
-}
-
-.line > li:nth-child(4)::before {
-  animation-delay: 570ms;
-}
-
-.line > li:nth-child(5) .stopButton {
-  animation-delay: 750ms;
-}
-
-.line > li:nth-child(5)::before {
-  animation-delay: 660ms;
-}
-
-.line > li:nth-child(6) .stopButton {
-  animation-delay: 840ms;
-}
-
-.line > li:nth-child(6)::before {
-  animation-delay: 750ms;
-}
-
-.line > li:nth-child(7) .stopButton {
-  animation-delay: 930ms;
-}
-
-.line > li:nth-child(7)::before {
-  animation-delay: 840ms;
-}
-
-.line > li:nth-child(8) .stopButton {
-  animation-delay: 1020ms;
-}
-
-.line > li:nth-child(8)::before {
-  animation-delay: 930ms;
-}
-
-.line > li:nth-child(9) .stopButton {
-  animation-delay: 1110ms;
-}
-
-.line > li:nth-child(9)::before {
-  animation-delay: 1020ms;
-}
-
-.line > li:nth-child(10) .stopButton {
-  animation-delay: 1200ms;
-}
-
-.line > li:nth-child(10)::before {
-  animation-delay: 1110ms;
-}
-
-.line > li:nth-child(11) .stopButton {
-  animation-delay: 1290ms;
-}
-
-.line > li:nth-child(11)::before {
-  animation-delay: 1200ms;
-}
-
-.line > li:nth-child(12) .stopButton {
-  animation-delay: 1380ms;
-}
-
-.line > li:nth-child(12)::before {
-  animation-delay: 1290ms;
-}
-
-.line > li:nth-child(n + 13) .stopButton {
-  animation-delay: 1400ms;
-}
-
-.line > li:nth-child(n + 13)::before {
-  animation-delay: 1300ms;
 }
 
 @keyframes up-fill {

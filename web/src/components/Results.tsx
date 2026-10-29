@@ -37,40 +37,9 @@ export function Results({ board, onOpen }: Props) {
   const ordered = queueOrder(board)
     .map((n) => board.cards[n])
     .filter((c): c is Card => Boolean(c));
-  const stale = new Set((board.plan?.stale ?? []).map((s) => s.pr));
   return (
     <section className={styles.results} aria-label="Results">
       <Figures board={board} />
-
-      {board.plan ? (
-        <div className={styles.block}>
-          <h2 className={styles.heading}>The merge order Upkeep planned</h2>
-          <ol className={styles.line}>
-            {ordered.map((c) => (
-              <li
-                key={c.pr.number}
-                className={styles.stop}
-                data-outcome={c.outcome ?? ""}
-                data-stale={stale.has(c.pr.number)}
-              >
-                <button
-                  type="button"
-                  className={styles.stopButton}
-                  onClick={() => onOpen(c.pr.number)}
-                >
-                  <code>#{c.pr.number}</code>
-                </button>
-              </li>
-            ))}
-          </ol>
-          {(board.plan.stale ?? []).map((s) => (
-            <p key={s.pr} className={styles.warning}>
-              <Icon name="alert" className={styles.icon} />#{s.pr} went stale: {s.because}. Merge it
-              after updating its branch.
-            </p>
-          ))}
-        </div>
-      ) : null}
 
       <div className={styles.groups}>
         {GROUPS.map((g) => {

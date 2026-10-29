@@ -110,13 +110,6 @@
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  padding-left: 30px;
-}
-
 .top {
   display: flex;
   align-items: center;
@@ -169,6 +162,7 @@
 }
 
 .bottom {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -183,7 +177,7 @@
 
 .dotStage {
   width: 14px;
-  height: 4px;
+  height: 5px;
   border-radius: 2px;
   background: var(--border-strong);
   transition: background-color var(--base) var(--out);
@@ -218,36 +212,6 @@
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.overlap,
-.learned,
-.confidence {
-  font-size: 12px;
-}
-
-.overlap {
-  color: var(--info);
-}
-
-.overlap[data-tone="conflict"] {
-  color: var(--warn);
-}
-
-.learned {
-  color: var(--info);
-}
-
-.confidence {
-  color: var(--accent);
-}
-
-.confidence[data-level="medium"] {
-  color: var(--warn);
-}
-
-.confidence[data-level="low"] {
-  color: var(--danger);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -285,4 +249,53 @@
     opacity: 0;
     transform: translateY(6px);
   }
+}
+
+.chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+}
+
+.chipIcon {
+  color: var(--info);
+  font-size: 14px;
+}
+
+.chip[data-tone="conflict"] .chipIcon {
+  color: var(--warn);
+}
+
+.chip[data-tone="learned"] .chipIcon {
+  color: var(--info);
+}
+
+.pip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.pip[data-level="medium"] {
+  background: var(--warn);
+}
+
+.pip[data-level="low"] {
+  background: var(--danger);
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

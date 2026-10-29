@@ -3,10 +3,9 @@ import styles from "./App.module.css";
 import { ActionBar } from "./components/ActionBar";
 import { Agents } from "./components/Agents";
 import { DetailPanel } from "./components/DetailPanel";
-import { FlowSteps } from "./components/FlowSteps";
 import { Icon } from "./components/Icon";
 import { Lanes } from "./components/Lanes";
-import { MergePlan } from "./components/MergePlan";
+import { MergeGraph } from "./components/MergeGraph";
 import { Onboarding } from "./components/Onboarding";
 import { PolicyPanel } from "./components/PolicyPanel";
 import { QueueList } from "./components/QueueList";
@@ -114,18 +113,17 @@ export function App() {
             {n}
           </p>
         ))}
-        {session.info?.mode === "replay" ? (
+        {board.run === "idle" && session.info?.mode === "replay" ? (
           <p className={styles.caption}>
             Replay: recorded Nemotron answers. Git, the compiler and the tests run for real.
           </p>
         ) : null}
-        {session.info?.mode === "live" ? (
+        {board.run === "idle" && session.info?.mode === "live" ? (
           <p className={styles.caption}>
             Live: every call goes to Nemotron on Nebius Token Factory. Past the daily budget, runs
             replay a recording.
           </p>
         ) : null}
-        {board.run === "idle" ? null : <FlowSteps board={board} />}
         <div className={styles.layout} data-run={board.run}>
           <QueueList
             board={board}
@@ -133,6 +131,13 @@ export function App() {
             onFocus={(n) => setPinned(n === pinned ? null : n)}
           />
           <div className={styles.center}>
+            {board.run === "idle" ? null : (
+              <MergeGraph
+                board={board}
+                focus={followed ? pinned : (focus?.pr.number ?? null)}
+                onFocus={(n) => setPinned(n === pinned ? null : n)}
+              />
+            )}
             {finished && followed ? (
               <button type="button" className={styles.back} onClick={() => setPinned(null)}>
                 <Icon name="done" className={styles.backIcon} />
@@ -142,8 +147,7 @@ export function App() {
             {center}
           </div>
           <div className={styles.rail}>
-            <Agents board={board} />
-            {finished && !followed ? null : <MergePlan board={board} />}
+            <Agents board={board} showCost={!finished} />
           </div>
         </div>
       </main>
