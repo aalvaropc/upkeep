@@ -15,7 +15,7 @@ It is one Go binary with its dashboard built in, and it ships as a GitHub Action
 
 **Live demo:** https://3-146-121-173.sslip.io (the overview). The dashboard is at [`/demo`](https://3-146-121-173.sslip.io/demo).
 
-![The dashboard after a run: the queue on the left, the merge order drawn as a graph above the results in the centre, the models and the web search on the right](docs/images/dashboard-done.png)
+![The dashboard after a live run against the Nemotron models: the queue on the left, the merge order drawn as a graph above the results in the centre, the models and the web search on the right](docs/images/dashboard-done.png)
 
 ## How it works
 
@@ -39,7 +39,7 @@ Nothing is pushed until a checklist outside the model passes: build, vet and tes
 
 While a run goes, the centre of the dashboard follows the agent at work, one pull request at a time: its five stages, every Nemotron turn and tool call, the Tavily search and the verifier.
 
-![The live stage following the jwt major upgrade: its stages, the other workers in parallel, and Super's attempt turn by turn with its edits](docs/images/dashboard-trace.png)
+![The live stage following the jwt major upgrade during a live run: its stages, the other workers in parallel, and Super's attempt turn by turn with its edits](docs/images/dashboard-trace.png)
 
 ## The demo scenario
 
@@ -92,7 +92,7 @@ On a real repository (live by default):
 GITHUB_TOKEN=... ./bin/upkeep run -repo owner/name
 ```
 
-From GitHub Actions: `uses: aalvaropc/upkeep@v0.1.0` ([`docs/action.md`](docs/action.md)).
+From GitHub Actions: `uses: aalvaropc/upkeep@v0.2.0` ([`docs/action.md`](docs/action.md)).
 
 | Command | What it does |
 |---|---|
