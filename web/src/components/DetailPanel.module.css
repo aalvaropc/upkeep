@@ -129,7 +129,7 @@
 }
 
 .sources {
-  font: 12px/1.5 var(--mono);
+  font: 11px/1.55 var(--mono);
 }
 
 .sources a {
@@ -181,7 +181,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-sunken);
-  font: 12px/1.6 var(--mono);
+  font: 11px/1.7 var(--mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -189,7 +189,7 @@
 .files li {
   display: flex;
   gap: 10px;
-  font: 12px/1.5 var(--mono);
+  font: 11px/1.55 var(--mono);
 }
 
 .add {
@@ -207,7 +207,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font: 12px/1.6 var(--mono);
+  font: 11px/1.7 var(--mono);
 }
 
 .table th,
@@ -250,7 +250,7 @@
 
 .steps {
   margin-top: 4px;
-  font: 12px/1.5 var(--mono);
+  font: 11px/1.55 var(--mono);
 }
 
 .steps li {
@@ -278,7 +278,7 @@
   align-items: flex-start;
   margin: 0;
   color: var(--fg-muted);
-  font: 12px/1.5 var(--mono);
+  font: 11px/1.55 var(--mono);
   overflow-wrap: anywhere;
 }
 

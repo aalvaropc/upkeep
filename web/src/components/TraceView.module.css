@@ -29,7 +29,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font: 12px/1.7 var(--mono);
+  font: 11px/1.75 var(--mono);
 }
 
 .events li {
@@ -171,7 +171,7 @@
   flex: none;
   margin-left: auto;
   color: var(--fg-muted);
-  font: 12px/1.7 var(--mono);
+  font: 11px/1.75 var(--mono);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -260,7 +260,7 @@
   align-items: center;
   gap: 6px 8px;
   margin: 0;
-  font: 12px/1.6 var(--mono);
+  font: 11px/1.7 var(--mono);
 }
 
 .now {

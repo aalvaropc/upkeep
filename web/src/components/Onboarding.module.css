@@ -10,6 +10,7 @@
 }
 
 .title {
+  font-family: var(--display);
   margin: 0;
   padding-bottom: 12px;
   font-size: 22px;
@@ -45,7 +46,7 @@
 
 .name {
   margin: 0;
-  font: 600 14px var(--mono);
+  font: 600 13px var(--mono);
 }
 
 .text {

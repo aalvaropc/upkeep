@@ -36,8 +36,9 @@ Text reaches 4.5:1 on every surface; hues reach 3:1.
 
 ## Type
 
-- IBM Plex Sans for the interface: the title at 30px during a run and up to 64px before it, section headings at 15–22px, body at 13–15px, nothing under 11px.
-- JetBrains Mono for what is code or machine output: pull request numbers, file paths, model names, the live line, the mode and status labels.
+- Bricolage Grotesque for what names a moment: the title (up to 56px before the run, 30px during it), the stage title, the figures and the sheet titles. Its optical size axis tightens the forms at display sizes.
+- Hanken Grotesk for the interface: section headings at 15-22px, body at 13-15px, nothing under 11px.
+- Martian Mono for what is code or machine output: pull request numbers, file paths, model names, the live line, the mode and status labels. It is wide, so it is set 1px smaller than a usual mono.
 - Tabular figures on every number that updates.
 
 ## Components
