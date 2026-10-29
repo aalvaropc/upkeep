@@ -73,3 +73,43 @@ func TestAReceiptWithoutAForecastHasNoForecastBlock(t *testing.T) {
 		}
 	}
 }
+
+func TestModelTextCannotMentionPeople(t *testing.T) {
+	const joiner = "\u2060"
+	cases := map[string]string{
+		"thanks @oxisto for the fix":        "thanks @" + joiner + "oxisto for the fix",
+		"@golang-jwt/maintainers reviewed":  "@" + joiner + "golang-jwt/maintainers reviewed",
+		"(@a and @b)":                       "(@" + joiner + "a and @" + joiner + "b)",
+		"run `go get x@latest` first":       "run `go get x@latest` first",
+		"code `@inline` stays, @out quiets": "code `@inline` stays, @" + joiner + "out quiets",
+		"write to a@b.example":              "write to a@b.example",
+		"see https://example.test/@user":    "see https://example.test/@user",
+		"a lone @ sign":                     "a lone @ sign",
+		"<img src=x> and <b>bold</b>":       "&lt;img src=x&gt; and &lt;b&gt;bold&lt;/b&gt;",
+		"returns `map[string]<-chan int`":   "returns `map[string]<-chan int`",
+		"a -> b, but `x > y` stays":         "a -&gt; b, but `x > y` stays",
+		"one ` opens @here <i>":             "one ` opens @" + joiner + "here &lt;i&gt;",
+	}
+	for in, want := range cases {
+		if got := quiet(in); got != want {
+			t.Errorf("quiet(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestCommentsQuietMentionsInModelText(t *testing.T) {
+	res := engine.Result{
+		Summary:   "Adapted the code; thanks @someone.",
+		Diagnosis: "Ask @maintainer before merging.",
+		Reason:    "the fix did not pass verification",
+		Forecast:  &forecast.Forecast{Module: "example.com/m", From: "v1.0.0", To: "v2.0.0", Breaking: []forecast.Change{{Symbol: "m.Old", Description: "removed by @author"}}},
+		Receipt:   receipt.New(),
+	}
+	for name, body := range map[string]string{"receipt": receiptComment(res), "diagnosis": diagnosisComment(res), "patch": patchComment(res)} {
+		for _, raw := range []string{"@someone", "@maintainer", "@author"} {
+			if strings.Contains(body, raw) {
+				t.Errorf("%s comment mentions %s:\n%s", name, raw, body)
+			}
+		}
+	}
+}
