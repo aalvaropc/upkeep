@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/aalvaropc/upkeep/internal/gitx"
@@ -30,8 +31,14 @@ const (
 )
 
 type Resolution struct {
-	Files int
-	Hunks int
+	Files  int
+	Hunks  int
+	Blocks []ResolvedBlock
+}
+
+type ResolvedBlock struct {
+	Path string `json:"path"`
+	Text string `json:"text"`
 }
 
 func (e Env) subjects(ctx context.Context, job *Job, rev string) string {
@@ -143,7 +150,11 @@ func (e Env) tryResolve(ctx context.Context, job *Job, hunks []gitx.Hunk, purpos
 		}
 		writes = append(writes, write{path: file, text: resolved})
 		out.Hunks += count
+		for _, r := range resolutions {
+			out.Blocks = append(out.Blocks, ResolvedBlock{Path: file, Text: r})
+		}
 	}
+	slices.SortStableFunc(out.Blocks, func(a, b ResolvedBlock) int { return strings.Compare(a.Path, b.Path) })
 	for _, w := range writes {
 		if err := os.WriteFile(filepath.Join(job.Dir, w.path), []byte(w.text), 0o600); err != nil {
 			return out, err

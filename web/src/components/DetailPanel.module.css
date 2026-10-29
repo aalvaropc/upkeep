@@ -266,6 +266,16 @@
   font: 600 12px var(--sans);
 }
 
+.resolved {
+  display: grid;
+  gap: 4px;
+}
+
+.resolvedPath {
+  color: var(--fg-muted);
+  font-size: 11px;
+}
+
 .pre {
   max-height: 260px;
   margin: 8px 0 0;
