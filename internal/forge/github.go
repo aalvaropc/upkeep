@@ -89,6 +89,11 @@ func (g *GitHub) Pulls(ctx context.Context) ([]pull.Request, error) {
 			g.skipped = append(g.skipped, pull.Skipped{Number: p.Number, Title: p.Title, Reason: reason})
 			continue
 		}
+		if dir := NestedModule(p.Title, p.Head.Ref); dir != "" {
+			reason := fmt.Sprintf("it updates the module in %s, and Upkeep works the module at the repository root", dir)
+			g.skipped = append(g.skipped, pull.Skipped{Number: p.Number, Title: p.Title, Reason: reason})
+			continue
+		}
 		req := pull.Request{
 			Number:  p.Number,
 			Title:   p.Title,

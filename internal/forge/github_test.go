@@ -127,6 +127,11 @@ func TestBumpFromTitle(t *testing.T) {
 		{"Bump github.com/jonboulle/clockwork from 0.4.0 to 0.5.0", "dependabot/go_modules/github.com/jonboulle/clockwork-0.5.0", &pull.Bump{Module: "github.com/jonboulle/clockwork", From: "v0.4.0", To: "v0.5.0", Level: pull.Minor}},
 		{"chore(deps): Bump example.com/m from v1.2.3 to v2.0.0.", branch, &pull.Bump{Module: "example.com/m", From: "v1.2.3", To: "v2.0.0", Level: pull.Major}},
 		{"build(deps): bump the go-deps group with 2 updates", branch, nil},
+		{"Bump github.com/rs/cors from 1.11.0 to 1.11.1 in the go-deps group", branch, &pull.Bump{Module: "github.com/rs/cors", From: "v1.11.0", To: "v1.11.1", Level: pull.Patch}},
+		{"build(deps): bump github.com/rs/cors from 1.11.0 to 1.11.1 in /", branch, &pull.Bump{Module: "github.com/rs/cors", From: "v1.11.0", To: "v1.11.1", Level: pull.Patch}},
+		{"Bump github.com/rs/cors from 1.11.0 to 1.11.1 in / in the go-deps group", branch, &pull.Bump{Module: "github.com/rs/cors", From: "v1.11.0", To: "v1.11.1", Level: pull.Patch}},
+		{"Bump github.com/rs/cors from 1.11.0 to 1.11.1 in /tools", branch, nil},
+		{"Bump the go-deps group across 2 directories with 3 updates", branch, nil},
 		{"build(deps): bump github.com/rs/cors from 1.11.0 to 1.11.1", "feat/something", nil},
 		{"build(deps): bump github.com/x/y from latest to next", branch, nil},
 		{"Add a feature", branch, nil},
@@ -139,6 +144,23 @@ func TestBumpFromTitle(t *testing.T) {
 		case tt.want != nil && (got == nil || *got != *tt.want):
 			t.Errorf("%q: got %+v, want %+v", tt.title, got, tt.want)
 		}
+	}
+}
+
+func TestNestedModule(t *testing.T) {
+	const branch = "dependabot/go_modules/tools/github.com/rs/cors-1.11.1"
+	for title, want := range map[string]string{
+		"Bump github.com/rs/cors from 1.11.0 to 1.11.1 in /tools":                     "/tools",
+		"Bump github.com/rs/cors from 1.11.0 to 1.11.1 in /tools/lint in the x group": "/tools/lint",
+		"Bump github.com/rs/cors from 1.11.0 to 1.11.1 in /":                          "",
+		"Bump github.com/rs/cors from 1.11.0 to 1.11.1":                               "",
+	} {
+		if got := forge.NestedModule(title, branch); got != want {
+			t.Errorf("%q: got %q, want %q", title, got, want)
+		}
+	}
+	if got := forge.NestedModule("Bump x/y from 1.0.0 to 1.0.1 in /tools", "feat/tools"); got != "" {
+		t.Errorf("a person's branch is not a bump: %q", got)
 	}
 }
 
@@ -406,5 +428,24 @@ func TestAForkIsPreparedFromItsPullRefAndNeverPushed(t *testing.T) {
 	}
 	if err := g.Push(t.Context(), dir, fork); err == nil || !strings.Contains(err.Error(), "fork") {
 		t.Fatalf("pushing to a fork must fail, got %v", err)
+	}
+}
+
+func TestABumpOfANestedModuleIsSkippedWithItsDirectory(t *testing.T) {
+	list := `[
+  {"number":1,"title":"Bump example.com/x from 1.0.0 to 1.0.1 in /tools","user":{"login":"dependabot[bot]","type":"Bot"},"head":{"ref":"dependabot/go_modules/tools/example.com/x-1.0.1","sha":"a","repo":{"full_name":"o/r"}},"base":{"ref":"main"}},
+  {"number":2,"title":"Bump example.com/y from 1.0.0 to 1.1.0 in /","user":{"login":"dependabot[bot]","type":"Bot"},"head":{"ref":"dependabot/go_modules/example.com/y-1.1.0","sha":"b","repo":{"full_name":"o/r"}},"base":{"ref":"main"}}
+]`
+	g := newGitHub(t, &api{pulls: list})
+	pulls, err := g.Pulls(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pulls) != 1 || pulls[0].Number != 2 || pulls[0].Bump == nil || pulls[0].Bump.Module != "example.com/y" {
+		t.Fatalf("only the root bump is worked: %+v", pulls)
+	}
+	skipped := g.Skipped()
+	if len(skipped) != 1 || skipped[0].Number != 1 || skipped[0].Reason != "it updates the module in /tools, and Upkeep works the module at the repository root" {
+		t.Fatalf("skipped = %+v", skipped)
 	}
 }
