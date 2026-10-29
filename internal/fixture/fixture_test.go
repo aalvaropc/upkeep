@@ -118,3 +118,25 @@ func TestNoneHasNothingAndKeepsNothing(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 }
+
+func TestLayeredFallsBackOnAMissAndSavesToThePrimary(t *testing.T) {
+	primary := Dir{Path: t.TempDir()}
+	fallback := Dir{Path: t.TempDir()}
+	if err := fallback.Save("forecast", "abc", map[string]string{"from": "recording"}); err != nil {
+		t.Fatal(err)
+	}
+	l := Layered{Primary: primary, Fallback: fallback}
+	var got map[string]string
+	if err := l.Load("forecast", "abc", &got); err != nil || got["from"] != "recording" {
+		t.Fatalf("Load() = %v, %v", got, err)
+	}
+	if err := l.Save("forecast", "abc", map[string]string{"from": "disk"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Load("forecast", "abc", &got); err != nil || got["from"] != "disk" {
+		t.Fatalf("the primary wins once it has the key: %v, %v", got, err)
+	}
+	if err := l.Load("forecast", "missing", &got); !errors.Is(err, ErrMiss) {
+		t.Fatalf("a miss in both is a miss: %v", err)
+	}
+}

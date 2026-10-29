@@ -116,7 +116,7 @@ Where Token Factory made the work faster:
 
 ## Tavily
 
-The forecast for a dependency upgrade calls Tavily at runtime to find the migration guide and release notes of the module's own project (other projects' pages are filtered out). In live mode every run searches again; the forecast is rewritten only when Tavily finds a page it has not read, so the fixer's input stays stable. The dashboard shows each search (query, pages kept, latency) in the models rail and in the trace, the receipt counts it, and `UPKEEP_SEARCH_DAILY_LIMIT` caps the searches per day. A failed search never fails a pull request: the last forecast is used and the error is shown.
+The forecast for a dependency upgrade calls Tavily at runtime to find the migration guide and release notes of the module's own project (other projects' pages are filtered out). The first time a dependency jump is seen, Super writes the forecast from those pages. After that, every live run searches again and shows what it found, including pages that are new, but keeps the forecast a build has already checked: in one live test a fresh search returned weaker pages, the rewritten forecast missed the removed `StandardClaims`, and the fix failed. A forecast is only as good as its pages, so Upkeep does not trade a verified one for an unverified one. The demo starts from the forecasts of its recorded run. The dashboard shows each search (query, pages kept, latency) in the models rail and in the trace, the receipt counts it, and `UPKEEP_SEARCH_DAILY_LIMIT` caps the searches per day. A failed search never fails a pull request: the last forecast is used and the error is shown.
 
 ## Documentation
 

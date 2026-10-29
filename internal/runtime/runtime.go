@@ -118,7 +118,8 @@ func New(ctx context.Context, o Options) (*Runtime, error) {
 	var err error
 	switch o.Config.Mode {
 	case config.Live:
-		if r.primary, err = r.networked(ctx, config.Live, fixture.Dir{Path: filepath.Join(o.CacheDir, "forecasts")}, nil); err != nil {
+		forecasts := fixture.Layered{Primary: fixture.Dir{Path: filepath.Join(o.CacheDir, "forecasts")}, Fallback: fixtures}
+		if r.primary, err = r.networked(ctx, config.Live, forecasts, nil); err != nil {
 			return nil, err
 		}
 		if o.Fixtures != nil {

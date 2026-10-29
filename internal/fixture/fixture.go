@@ -126,3 +126,20 @@ func (None) Load(kind, key string, _ any) error {
 func (None) Save(kind, key string, _ any) error {
 	return fmt.Errorf("%w: %s/%s", ErrReadOnly, kind, key)
 }
+
+type Layered struct {
+	Primary  Store
+	Fallback Store
+}
+
+func (l Layered) Load(kind, key string, v any) error {
+	err := l.Primary.Load(kind, key, v)
+	if errors.Is(err, ErrMiss) && l.Fallback != nil {
+		return l.Fallback.Load(kind, key, v)
+	}
+	return err
+}
+
+func (l Layered) Save(kind, key string, v any) error {
+	return l.Primary.Save(kind, key, v)
+}

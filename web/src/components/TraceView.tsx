@@ -125,6 +125,9 @@ function SearchBody({ e }: { e: SearchCallTrace }) {
         <span className={styles.detail}>
           kept {e.results > 0 ? `${e.kept} of ` : ""}
           {quantity(e.results > 0 ? e.results : e.kept, "page", "pages")}
+          {e.fresh > 0
+            ? `, ${quantity(e.fresh, "new page", "new pages")}; the checked forecast is kept`
+            : ""}
         </span>
       )}
       {e.query ? <q className={styles.said}>{e.query}</q> : null}
@@ -262,7 +265,7 @@ function meta(row: TraceRow): string {
     if (e.skipped) {
       return "";
     }
-    const when = e.recorded ? "recorded" : e.reused ? "reused" : seconds(e.latencyMs);
+    const when = e.recorded ? "recorded" : seconds(e.latencyMs);
     return e.micros > 0 ? `${when} · ${dollars(e.micros)}` : when;
   }
   return row.durationMs !== undefined ? seconds(row.durationMs) : "";
