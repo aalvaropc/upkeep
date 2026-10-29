@@ -660,9 +660,10 @@ func TestAFreshRunReusesTheCachedForecastWhenNoPageIsNew(t *testing.T) {
 	}
 }
 
-func TestANewPageWritesTheForecastAgain(t *testing.T) {
+func TestANewPageIsShownButTheCheckedForecastIsKept(t *testing.T) {
 	f, rel, srch, m := freshForecaster(t)
-	if _, _, err := f.Forecast(t.Context(), jwtInput("")); err != nil {
+	first, _, err := f.Forecast(t.Context(), jwtInput(""))
+	if err != nil {
 		t.Fatal(err)
 	}
 	srch.results = append(srch.results, Result{Title: "Changelog", URL: "https://github.com/golang-jwt/jwt/blob/main/CHANGELOG.md", Content: "VerifyExpiresAt is gone."})
@@ -670,37 +671,14 @@ func TestANewPageWritesTheForecastAgain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cost.Cached || cost.Model != "nano" || m.calls.Load() != 2 || rel.calls.Load() != 2 {
-		t.Fatalf("cost %+v; model %d, releases %d", cost, m.calls.Load(), rel.calls.Load())
+	if !cost.Cached || m.calls.Load() != 1 || rel.calls.Load() != 1 || srch.calls.Load() != 2 {
+		t.Fatalf("cost %+v; model %d, releases %d, searches %d", cost, m.calls.Load(), rel.calls.Load(), srch.calls.Load())
 	}
-	if got.Search == nil || got.Search.Reused || !slices.Contains(got.Sources, "https://github.com/golang-jwt/jwt/blob/main/CHANGELOG.md") {
-		t.Fatalf("forecast = %+v search %+v", got.Sources, got.Search)
+	if got.Summary != first.Summary || got.Search == nil || !got.Search.Reused || !slices.Equal(got.Search.New, []string{"https://github.com/golang-jwt/jwt/blob/main/CHANGELOG.md"}) {
+		t.Fatalf("forecast %+v search %+v", got.Summary, got.Search)
 	}
-	if !strings.Contains(m.requests[1].Messages[1].Content, "VerifyExpiresAt is gone.") {
-		t.Fatal("the new page did not reach the model")
-	}
-	_, cost, err = f.Forecast(t.Context(), jwtInput(""))
-	if err != nil || !cost.Cached || m.calls.Load() != 2 {
-		t.Fatalf("the new forecast is cached: %+v %v, %d model calls", cost, err, m.calls.Load())
-	}
-}
-
-func TestAFailedRewriteKeepsTheCachedForecast(t *testing.T) {
-	f, _, srch, m := freshForecaster(t)
-	first, _, err := f.Forecast(t.Context(), jwtInput(""))
-	if err != nil {
-		t.Fatal(err)
-	}
-	srch.results = append(srch.results, Result{Title: "Changelog", URL: "https://github.com/golang-jwt/jwt/blob/main/CHANGELOG.md", Content: "news"})
-	m.answer = "not json"
-	got, cost, err := f.Forecast(t.Context(), jwtInput(""))
-	if err != nil || got.Summary != first.Summary || cost.Cached || cost.Usage.Total() == 0 {
-		t.Fatalf("forecast %+v cost %+v error %v", got, cost, err)
-	}
-	m.err = errors.New("token factory is down")
-	got, cost, err = f.Forecast(t.Context(), jwtInput(""))
-	if err != nil || got.Summary != first.Summary || !cost.Cached {
-		t.Fatalf("forecast %+v cost %+v error %v", got, cost, err)
+	if slices.Contains(got.Sources, "https://github.com/golang-jwt/jwt/blob/main/CHANGELOG.md") {
+		t.Fatalf("the kept forecast took a page it never read: %v", got.Sources)
 	}
 }
 

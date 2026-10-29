@@ -86,6 +86,7 @@ type SearchTrace struct {
 	At        time.Time   `json:"at"`
 	Recorded  bool        `json:"recorded,omitempty"`
 	Reused    bool        `json:"reused,omitempty"`
+	New       []string    `json:"new,omitempty"`
 	Skipped   string      `json:"skipped,omitempty"`
 }
 
@@ -346,13 +347,11 @@ func (f Forecaster) Forecast(ctx context.Context, in Input) (Forecast, Cost, err
 
 	pages, trace := f.search(ctx, in)
 	if cached != nil {
-		switch {
-		case trace.Error != "" || trace.Skipped != "":
-			return keep(in, *cached, trace), Cost{Cached: true}, nil
-		case covered(trace.Kept, cached.Sources):
+		if trace.Error == "" && trace.Skipped == "" {
 			trace.Reused = true
-			return keep(in, *cached, trace), Cost{Cached: true}, nil
+			trace.New = unseen(trace.Kept, cached.Sources)
 		}
+		return keep(in, *cached, trace), Cost{Cached: true}, nil
 	}
 	out, cost, err := f.write(ctx, in, pages, trace)
 	if err != nil {
@@ -380,13 +379,14 @@ func keep(in Input, fc Forecast, trace *SearchTrace) Forecast {
 	return fc
 }
 
-func covered(kept, sources []string) bool {
+func unseen(kept, sources []string) []string {
+	var out []string
 	for _, u := range kept {
 		if !slices.Contains(sources, u) {
-			return false
+			out = append(out, u)
 		}
 	}
-	return true
+	return out
 }
 
 func (f Forecaster) replay(ctx context.Context, in Input, stored recorded) (Forecast, Cost, error) {

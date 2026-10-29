@@ -82,9 +82,11 @@ function ForecastView({
               ? ` · not asked this time: ${search.skipped}`
               : search.error
                 ? ` · failed this time: ${search.error}`
-                : search.reused
-                  ? " · no new page, so the forecast was reused"
-                  : ""}
+                : search.reused && search.new && search.new.length > 0
+                  ? ` · ${search.new.length} new ${search.new.length === 1 ? "page" : "pages"}; the forecast already checked by a build is kept`
+                  : search.reused
+                    ? " · no new page, so the forecast was reused"
+                    : ""}
           </span>
         </p>
       ) : null}

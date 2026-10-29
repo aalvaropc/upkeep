@@ -102,6 +102,7 @@ export interface SearchTrace {
   at?: string;
   recorded?: boolean;
   reused?: boolean;
+  new?: string[];
   skipped?: string;
 }
 

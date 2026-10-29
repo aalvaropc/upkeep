@@ -62,6 +62,7 @@ export interface SearchCallTrace extends TraceBase {
   micros: number;
   recorded: boolean;
   reused: boolean;
+  fresh: number;
   error?: string;
   skipped?: string;
 }
@@ -254,6 +255,7 @@ export function traceEntry(
         micros: num(d.micros),
         recorded: d.recorded === true,
         reused: d.reused === true,
+        fresh: size(d.new),
         error: word(d.error),
         skipped: word(d.skipped),
       };

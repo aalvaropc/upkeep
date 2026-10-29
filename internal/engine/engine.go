@@ -300,7 +300,7 @@ func searchData(s *forecast.SearchTrace) map[string]any {
 	}
 	data := map[string]any{
 		"provider": s.Provider, "query": s.Query, "results": results, "kept": kept,
-		"latency_ms": s.LatencyMS, "recorded": s.Recorded, "reused": s.Reused,
+		"latency_ms": s.LatencyMS, "recorded": s.Recorded, "reused": s.Reused, "new": s.New,
 	}
 	if s.Error != "" {
 		data["error"] = s.Error
@@ -338,6 +338,8 @@ func searchDetail(s *forecast.SearchTrace) string {
 	switch {
 	case s.Recorded:
 		out += " in the recorded run"
+	case s.Reused && len(s.New) > 0:
+		out += fmt.Sprintf(", %s new; the forecast already checked by a build is kept", pagesText(len(s.New)))
 	case s.Reused:
 		out += ", none new"
 	}
