@@ -377,7 +377,7 @@ export function TraceView({ card, onSummary }: Props) {
           {card.phase === "done"
             ? "This pull request finished before the page was opened, so there is no live trace. The summary has the result."
             : card.phase === "queued"
-              ? "Waiting for its turn. Each model call, tool call and attempt appears here as Upkeep works."
+              ? "Waiting for its turn."
               : "Starting."}
         </p>
       ) : (

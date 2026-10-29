@@ -64,12 +64,7 @@ export function App() {
       />
     );
   } else {
-    center = (
-      <p className={styles.waiting}>
-        Cloning the pull requests and planning the merge order. The first one appears here in a
-        moment.
-      </p>
-    );
+    center = <p className={styles.waiting}>Cloning and planning the merge order.</p>;
   }
 
   return (
@@ -104,14 +99,13 @@ export function App() {
         ))}
         {session.info?.mode === "replay" ? (
           <p className={styles.caption}>
-            Replay: the model answers come from a recorded run of Nemotron on Nebius Token Factory.
-            Git, the sandbox, the compiler and the tests run for real.
+            Replay: recorded Nemotron answers. Git, the compiler and the tests run for real.
           </p>
         ) : null}
         {session.info?.mode === "live" ? (
           <p className={styles.caption}>
-            Live: every model call goes to Nemotron on Nebius Token Factory now. When the daily
-            budget is spent, runs replay a recording and say so.
+            Live: every call goes to Nemotron on Nebius Token Factory. Past the daily budget, runs
+            replay a recording.
           </p>
         ) : null}
         {board.run === "idle" ? null : <FlowSteps board={board} />}

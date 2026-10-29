@@ -18,17 +18,17 @@ const TIERS = {
   ultra: {
     name: "Nemotron Ultra",
     size: "550B",
-    job: "Resolves small conflicts in one call and writes the diagnosis when a person is needed.",
+    job: "Resolves small conflicts and writes the diagnosis.",
   },
   super: {
     name: "Nemotron Super",
     size: "120B",
-    job: "Fixes the code with tools, up to three attempts, and reads the release notes.",
+    job: "Fixes the code with tools, up to three attempts.",
   },
   nano: {
     name: "Nemotron Nano",
     size: "30B",
-    job: "Writes the short note for the reviewer, checked against the change.",
+    job: "Writes the reviewer note, checked against the diff.",
   },
 } as const;
 
@@ -50,7 +50,7 @@ function Bar({ value, max, tone }: { value: number; max: number; tone: string })
 
 function searchMeta(s: SearchTotals): string {
   if (s.calls === 0 && s.skipped === 0) {
-    return "no searches yet";
+    return "no searches";
   }
   const parts = [
     quantity(s.calls, "search", "searches"),
@@ -81,10 +81,7 @@ function WebSearch({ search }: { search: SearchTotals }) {
           <span>Web search · {providerLabel(search.provider || "tavily")}</span>
           {search.recorded ? <span className={styles.size}>recorded</span> : null}
         </p>
-        <p className={styles.job}>
-          Finds the migration guide and changelog pages that Super reads before it fixes a
-          dependency bump.
-        </p>
+        <p className={styles.job}>Finds migration guides and changelogs for Super.</p>
         <p className={styles.meta}>{searchMeta(search)}</p>
         {search.lastQuery ? <p className={styles.query}>“{search.lastQuery}”</p> : null}
         {search.lastProblem ? <p className={styles.meta}>{search.lastProblem}</p> : null}
@@ -123,7 +120,7 @@ export function Agents({ board }: Props) {
                     </p>
                   </>
                 ) : (
-                  <p className={styles.meta}>no calls yet</p>
+                  <p className={styles.meta}>no calls</p>
                 )}
               </div>
             </li>
@@ -139,7 +136,7 @@ export function Agents({ board }: Props) {
           <span className={styles.amount}>{dollars(totals.micros)}</span>
         </div>
         <div className={styles.line}>
-          <span>Same tokens, largest model&rsquo;s price</span>
+          <span>At the largest model&rsquo;s price</span>
           <Bar value={totals.baselineMicros} max={compare} tone="baseline" />
           <span className={styles.amount}>{dollars(totals.baselineMicros)}</span>
         </div>

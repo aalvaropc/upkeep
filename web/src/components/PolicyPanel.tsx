@@ -17,10 +17,10 @@ const ALWAYS = [
 
 type Kind = "never" | "conditions" | "limits";
 
-const GROUPS: { kind: Kind; title: string; hint: string; icon: IconName }[] = [
-  { kind: "never", title: "Never", hint: "No setting turns these on.", icon: "blocked" },
-  { kind: "conditions", title: "Only when", hint: "Allowed with a condition.", icon: "verified" },
-  { kind: "limits", title: "Within limits", hint: "Past these it hands back.", icon: "wait" },
+const GROUPS: { kind: Kind; title: string; icon: IconName }[] = [
+  { kind: "never", title: "Never", icon: "blocked" },
+  { kind: "conditions", title: "Only when", icon: "verified" },
+  { kind: "limits", title: "Within limits", icon: "wait" },
 ];
 
 function kindOf(rule: string): Kind {
@@ -54,7 +54,7 @@ export function PolicyPanel({ info, onClose }: Props) {
   return (
     <Overlay
       title="What Upkeep may do"
-      subtitle="The policy this server runs with. A model proposes; code enforces."
+      subtitle="A model proposes; code enforces."
       onClose={onClose}
     >
       <div className={styles.groups}>
@@ -68,7 +68,6 @@ export function PolicyPanel({ info, onClose }: Props) {
               <header className={styles.head}>
                 <Icon name={group.icon} className={styles.icon} />
                 <h3 className={styles.title}>{group.title}</h3>
-                <span className={styles.hint}>{group.hint}</span>
               </header>
               <ul className={styles.list}>
                 {items.map((rule) => (
@@ -82,9 +81,8 @@ export function PolicyPanel({ info, onClose }: Props) {
         })}
       </div>
       <p className={styles.note}>
-        Every change is checked by the compiler, vet and the tests outside the model, and by a
-        verifier that counts files, lines, comments and test edits. When any check fails nothing is
-        pushed and the pull request is handed back with a diagnosis.
+        Checked outside the model by the compiler, vet, the tests and a verifier. If any check
+        fails, nothing is pushed and the pull request is handed back with a diagnosis.
       </p>
     </Overlay>
   );

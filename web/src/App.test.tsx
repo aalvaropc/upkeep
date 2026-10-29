@@ -381,7 +381,7 @@ describe("App", () => {
     const rail = screen.getByRole("region", { name: "Models" });
     expect(within(rail).getByText(/1 call · 3,200 tokens · 2\.0 s · \$0\.0010/)).toBeTruthy();
     expect(within(rail).getByText(/1 call · 1,100 tokens · 1\.5 s · \$0\.0020/)).toBeTruthy();
-    expect(within(rail).getByText("no calls yet")).toBeTruthy();
+    expect(within(rail).getByText("no calls")).toBeTruthy();
     expect(within(rail).getByText("$0.0030")).toBeTruthy();
     expect(within(rail).getByText("$0.0052")).toBeTruthy();
     expect(
@@ -397,7 +397,7 @@ describe("App", () => {
     const rail = screen.getByRole("region", { name: "Models" });
     const block = within(rail).getByRole("group", { name: "Web search" });
     expect(within(block).getByText("Web search · Tavily")).toBeTruthy();
-    expect(within(block).getByText("no searches yet")).toBeTruthy();
+    expect(within(block).getByText("no searches")).toBeTruthy();
     emit("search.call", 3, {
       provider: "tavily",
       query: "example.com/lib migration guide",
@@ -875,9 +875,7 @@ describe("App", () => {
     installFetch(newServer());
     render(<App />);
     await ready();
-    expect(
-      await screen.findByText(/model answers come from a recorded run of Nemotron/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/recorded Nemotron answers/)).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Project links" });
     const links = within(nav).getAllByRole("link");
     expect(links.map((l) => l.textContent)).toEqual([
@@ -1009,7 +1007,7 @@ describe("App", () => {
     render(<App />);
     await ready();
     const rail = screen.getByRole("region", { name: "Merge plan" });
-    expect(within(rail).getByText(/Once every pull request is cloned/)).toBeTruthy();
+    expect(within(rail).getByText(/Ordered once every pull request is cloned/)).toBeTruthy();
 
     startedEvent();
     emit("run.plan", undefined, {
