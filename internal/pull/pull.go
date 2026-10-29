@@ -52,6 +52,7 @@ const (
 	Format        Blocker = "format"
 	Clean         Blocker = "clean"
 	Unsupported   Blocker = "unsupported"
+	NestedModule  Blocker = "nested_module"
 )
 
 type Skipped struct {

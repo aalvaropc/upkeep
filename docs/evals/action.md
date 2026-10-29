@@ -10,6 +10,8 @@ Dependabot opened three pull requests on [`upkeep-sample`](https://github.com/aa
 - Every check passed, so Upkeep pushed [`427b5b0`](https://github.com/aalvaropc/upkeep-sample/commit/427b5b0) ("fix: adapt the code to github.com/jonboulle/clockwork v0.5.0"), posted its receipt and armed auto-merge.
 - GitHub merged it when the repository's checks passed.
 
+`upkeep-sample` adopted clockwork's `FakeClock` on purpose so that a real upgrade would test Upkeep; the break itself comes from clockwork's own v0.5.0 release ("Convert FakeClock to a struct").
+
 ## The Action on the other two
 
 On 2026-10-29 the Upkeep Action (`aalvaropc/upkeep@v0.1.0`) was installed in [`upkeep-sample`](https://github.com/aalvaropc/upkeep-sample) ([workflow](https://github.com/aalvaropc/upkeep-sample/blob/main/.github/workflows/upkeep.yml)) and dispatched on the two pull requests Dependabot still had open: [#8](https://github.com/aalvaropc/upkeep-sample/pull/8) (rs/cors 1.11.0 to 1.11.1) and [#11](https://github.com/aalvaropc/upkeep-sample/pull/11) (oklog/ulid 2.1.0 to 2.1.2). Nothing about them was staged: both were behind `main`.

@@ -131,6 +131,8 @@ func TestBumpFromTitle(t *testing.T) {
 		{"build(deps): bump github.com/rs/cors from 1.11.0 to 1.11.1 in /", branch, &pull.Bump{Module: "github.com/rs/cors", From: "v1.11.0", To: "v1.11.1", Level: pull.Patch}},
 		{"Bump github.com/rs/cors from 1.11.0 to 1.11.1 in / in the go-deps group", branch, &pull.Bump{Module: "github.com/rs/cors", From: "v1.11.0", To: "v1.11.1", Level: pull.Patch}},
 		{"Bump github.com/rs/cors from 1.11.0 to 1.11.1 in /tools", branch, nil},
+		{"build(deps): bump github.com/rs/cors from 1.11.0 to 1.11.1 in the go_modules group across 1 directory", branch, &pull.Bump{Module: "github.com/rs/cors", From: "v1.11.0", To: "v1.11.1", Level: pull.Patch}},
+		{"Bump github.com/rs/cors from 1.11.0 to 1.11.1 in the go_modules group across 2 directories", branch, &pull.Bump{Module: "github.com/rs/cors", From: "v1.11.0", To: "v1.11.1", Level: pull.Patch}},
 		{"Bump the go-deps group across 2 directories with 3 updates", branch, nil},
 		{"build(deps): bump github.com/rs/cors from 1.11.0 to 1.11.1", "feat/something", nil},
 		{"build(deps): bump github.com/x/y from latest to next", branch, nil},

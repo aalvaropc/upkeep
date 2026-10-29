@@ -10,8 +10,8 @@ What Upkeep does not do, and where it can be wrong. Each item shows somewhere: i
   - Drafts and pull requests against another branch are skipped, and the run's notices say so.
   - Forks are worked only with the docker sandbox, because their code is untrusted. Upkeep never pushes to them: the fix goes in a patch comment.
 - **Bumps are recognized from their branch and title.** These are a Dependabot `go_modules` branch or a Renovate branch, one module per pull request. Patch bumps are not forecast.
-  - A Dependabot bump of a module in a subdirectory is skipped, because the checks run on the module at the root.
   - A grouped update of several modules is worked as a bot's change: no forecast, and never merged.
+- **One module, at the root.** The checks run on the module at the repository root, so a pull request that changes Go or module files inside a module in a subdirectory is handed back without a model; a Dependabot bump that names one in its title is skipped before it is cloned. A repository with a `go.work` is treated the same way, even though its workspace would let the checks reach those modules.
 - **A forecast needs something to read.** It uses the release notes, a Tavily search, or, failing both, a comparison of the module's exported API that the sandbox must be able to download. A private module that the proxy cannot serve gets no forecast, and the fix starts from the build output.
 
 ## What can be wrong

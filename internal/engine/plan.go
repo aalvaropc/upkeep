@@ -38,6 +38,8 @@ func approach(blocker pull.Blocker, pol policy.Policy, base string) string {
 		return "tests fail: " + repair
 	case pull.Unsupported:
 		return "not a Go module: no model is asked, and a person decides"
+	case pull.NestedModule:
+		return "a module in a subdirectory: no model is asked, and a person decides"
 	default:
 		return string(blocker)
 	}
